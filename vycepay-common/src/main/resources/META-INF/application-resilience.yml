@@ -1,0 +1,21 @@
+# Resilience4j config for Choice Bank client. Import in services that use ChoiceBankClient.
+resilience4j:
+  circuitbreaker:
+    instances:
+      choiceBank:
+        registerHealthIndicator: true
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+  retry:
+    instances:
+      choiceBank:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.ConnectException
+          - java.io.IOException

@@ -1,0 +1,69 @@
+---
+description: VycePay enterprise architecture, design patterns, and code documentation standards
+globs: "**/*.java"
+alwaysApply: true
+---
+
+# VycePay Code Standards
+
+## Architecture
+
+- **Layered**: api → application → domain → infrastructure. Dependencies point inward; domain has no framework deps.
+- **Hexagonal (Ports & Adapters)**: External integrations (Choice Bank, DB) via adapters implementing domain ports.
+- **Single DB**: Shared MySQL; tables scoped by service domain. Use Flyway for migrations.
+
+## Design Patterns (Use These)
+
+| Layer | Pattern | Example |
+|-------|---------|---------|
+| Callback routing | Strategy | `NotificationHandler` interface; impl per notificationType |
+| External API | Adapter | `ChoiceBankApiAdapter` implements `BankingProviderPort` |
+| Request building | Factory/Builder | `ChoiceBankRequestFactory`; Lombok `@Builder` on DTOs |
+| Orchestration | Facade | `KycOnboardingFacade`, `TransactionFacade` |
+| Outbound calls | Circuit Breaker, Retry | Resilience4j on Choice Bank client |
+| Complex queries | Specification | JPA `Specification` for filters |
+
+## Code Documentation (Required)
+
+### Class-level Javadoc
+```java
+/**
+ * Receives Choice Bank webhooks and routes to domain handlers.
+ * Thread-safe. Processing is asynchronous after persist.
+ */
+@Service
+public class CallbackService { }
+```
+
+### Method-level Javadoc
+```java
+/**
+ * Persists payload and dispatches to handler by notificationType.
+ * @param rawPayload Raw JSON from Choice Bank
+ * @throws IllegalStateException if persist fails (caller must still return 200)
+ */
+public void receiveAndProcess(String rawPayload) { }
+```
+
+### Inline Comments
+- Add for non-obvious business rules, edge cases, Choice Bank status mappings
+- Avoid stating the obvious; prefer clear names over comments
+
+### DTOs and API Contracts
+- OpenAPI/Swagger annotations with `@Schema(description = "...")` on fields
+- Document validation constraints and error responses
+
+## Naming Conventions
+
+- Controllers: `*Controller`
+- Services: `*Service`, `*Facade`, `*Handler`
+- Repositories: `*Repository`
+- Ports: `*Port` (interface)
+- Adapters: `*Adapter`
+- DTOs: `*Request`, `*Response`, `*Dto`
+
+## Exception Handling
+
+- Domain exceptions: `BusinessException` with code and message
+- Map to HTTP in `@ControllerAdvice` with consistent envelope
+- Log at service boundary; include `requestId` in context

@@ -1,0 +1,46 @@
+# VycePay - Multi-service deployment: build all JARs, no DB in image.
+# Each service runs in its own container via docker-compose.
+
+FROM eclipse-temurin:17-jdk AS builder
+WORKDIR /build
+
+COPY pom.xml .
+COPY vycepay-common/pom.xml vycepay-common/
+COPY vycepay-database/pom.xml vycepay-database/
+COPY vycepay-bff/pom.xml vycepay-bff/
+COPY vycepay-auth-service/pom.xml vycepay-auth-service/
+COPY vycepay-callback-service/pom.xml vycepay-callback-service/
+COPY vycepay-kyc-service/pom.xml vycepay-kyc-service/
+COPY vycepay-wallet-service/pom.xml vycepay-wallet-service/
+COPY vycepay-transaction-service/pom.xml vycepay-transaction-service/
+COPY vycepay-activity-service/pom.xml vycepay-activity-service/
+
+RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/* && \
+    mvn dependency:go-offline -B -q || true
+
+COPY vycepay-common vycepay-common
+COPY vycepay-database vycepay-database
+COPY vycepay-bff vycepay-bff
+COPY vycepay-auth-service vycepay-auth-service
+COPY vycepay-callback-service vycepay-callback-service
+COPY vycepay-kyc-service vycepay-kyc-service
+COPY vycepay-wallet-service vycepay-wallet-service
+COPY vycepay-transaction-service vycepay-transaction-service
+COPY vycepay-activity-service vycepay-activity-service
+
+RUN mvn package -DskipTests -B -q
+
+# Runtime: only JRE + JARs (no MySQL, no entrypoint)
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+COPY --from=builder /build/vycepay-bff/target/vycepay-bff-*.jar /app/bff.jar
+COPY --from=builder /build/vycepay-auth-service/target/vycepay-auth-service-*.jar /app/auth.jar
+COPY --from=builder /build/vycepay-callback-service/target/vycepay-callback-service-*.jar /app/callback.jar
+COPY --from=builder /build/vycepay-kyc-service/target/vycepay-kyc-service-*.jar /app/kyc.jar
+COPY --from=builder /build/vycepay-wallet-service/target/vycepay-wallet-service-*.jar /app/wallet.jar
+COPY --from=builder /build/vycepay-transaction-service/target/vycepay-transaction-service-*.jar /app/transaction.jar
+COPY --from=builder /build/vycepay-activity-service/target/vycepay-activity-service-*.jar /app/activity.jar
+
+# Default CMD (overridden per service in compose)
+CMD ["java", "-jar", "/app/auth.jar"]

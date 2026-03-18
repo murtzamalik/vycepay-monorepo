@@ -1,0 +1,32 @@
+# VycePay - Single container deployment
+# Run: docker compose -f docker-compose.vycepay.yml up -d --build
+# Container name: vycepay
+
+name: vycepay
+
+services:
+  vycepay:
+    build:
+      context: .
+      dockerfile: Dockerfile.vycepay
+    container_name: vycepay
+    ports:
+      - "3306:3306"
+      - "9080:8080"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+      - "8085:8085"
+      - "8086:8086"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
+      CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+    volumes:
+      - vycepay_mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  vycepay_mysql_data:

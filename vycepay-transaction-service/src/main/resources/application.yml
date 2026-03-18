@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: vycepay-transaction-service
+  config:
+    import: optional:classpath:META-INF/application-resilience.yml
+  datasource:
+    url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
+    username: ${DB_USERNAME:vycepay}
+    password: ${DB_PASSWORD:vycepay}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8085}
+
+vycepay:
+  jwt:
+    secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
+  choice-bank:
+    base-url: ${CHOICE_BANK_BASE_URL:https://baas-pilot.choicebankapi.com}
+    sender-id: ${CHOICE_BANK_SENDER_ID:}
+    private-key: ${CHOICE_BANK_PRIVATE_KEY:}

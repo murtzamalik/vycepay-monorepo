@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: vycepay-auth-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
+    username: ${DB_USERNAME:vycepay}
+    password: ${DB_PASSWORD:vycepay}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8082}
+
+vycepay:
+  jwt:
+    secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
+    expiry-minutes: ${JWT_EXPIRY_MINUTES:10}
+  otp:
+    length: ${OTP_LENGTH:6}
+    expiry-minutes: ${OTP_EXPIRY_MINUTES:5}

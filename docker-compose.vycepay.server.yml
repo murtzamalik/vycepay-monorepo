@@ -1,0 +1,36 @@
+# VycePay - Single container server deployment (callback on 8081, others on 9090-series)
+#
+# Run:
+#   docker compose -f docker-compose.vycepay.server.yml up -d --build
+
+name: vycepay-server
+
+services:
+  vycepay:
+    build:
+      context: .
+      dockerfile: Dockerfile.vycepay.server
+    container_name: vycepay-server
+    ports:
+      - "3306:3306"
+      # callback must be 8081
+      - "8081:8081"
+      # other services on 9090-series
+      - "9090:9090" # BFF
+      - "9091:9091" # Auth
+      - "9092:9092" # KYC
+      - "9093:9093" # Wallet
+      - "9094:9094" # Transaction
+      - "9095:9095" # Activity
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
+      CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+    volumes:
+      - vycepay_mysql_data_server:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  vycepay_mysql_data_server:
+

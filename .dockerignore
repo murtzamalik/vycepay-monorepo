@@ -1,0 +1,14 @@
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+.DS_Store
+*.log
+.env
+.env.local
+docs/
+.cursor/
+.vscode/
+*.md
+!vycepay-*/**/*.md

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:choice-bank.gitbook.io)",
+      "Bash(grep -E \"\\\\.\\(java\\)$\")",
+      "Bash(docker info --format '{{.ServerVersion}}')",
+      "Bash(docker ps -a --format 'table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}')"
+    ]
+  }
+}

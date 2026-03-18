@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: vycepay-wallet-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
+    username: ${DB_USERNAME:vycepay}
+    password: ${DB_PASSWORD:vycepay}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8084}
+
+vycepay:
+  jwt:
+    secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}

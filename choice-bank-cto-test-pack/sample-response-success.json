@@ -1,0 +1,14 @@
+{
+  "code": "00000",
+  "message": "Success",
+  "data": [
+    {
+      "bankCode": "01",
+      "bankName": "Example Bank A"
+    },
+    {
+      "bankCode": "02",
+      "bankName": "Example Bank B"
+    }
+  ]
+}

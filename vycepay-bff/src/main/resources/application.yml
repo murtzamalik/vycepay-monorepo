@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: vycepay-bff
+
+server:
+  port: ${PORT:8080}
+
+# JWT secret (same as auth service so BFF can validate tokens issued by auth)
+vycepay:
+  jwt:
+    secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
+  bff:
+    # Backend base URLs (no trailing slash). In Docker single-container use 127.0.0.1.
+    auth-url: ${BFF_AUTH_URL:http://127.0.0.1:8082}
+    kyc-url: ${BFF_KYC_URL:http://127.0.0.1:8083}
+    wallets-url: ${BFF_WALLETS_URL:http://127.0.0.1:8084}
+    transactions-url: ${BFF_TRANSACTIONS_URL:http://127.0.0.1:8085}
+    activity-url: ${BFF_ACTIVITY_URL:http://127.0.0.1:8086}

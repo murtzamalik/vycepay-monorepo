@@ -1,0 +1,172 @@
+# VycePay - Multi-service Docker Compose
+# Run: docker compose up -d --build
+# BFF (mobile entry): http://localhost:9080
+
+name: vycepay
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: vycepay-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-vycepay}
+      MYSQL_USER: ${MYSQL_USER:-vycepay}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+    ports:
+      - "3306:3306"
+    volumes:
+      - vycepay_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-auth
+    command: ["java", "-jar", "/app/auth.jar"]
+    environment:
+      PORT: "8082"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+
+  callback:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-callback
+    command: ["java", "-jar", "/app/callback.jar"]
+    environment:
+      PORT: "8081"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  kyc:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-kyc
+    command: ["java", "-jar", "/app/kyc.jar"]
+    environment:
+      PORT: "8083"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      vycepay.choice-bank.base-url: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      vycepay.choice-bank.sender-id: ${CHOICE_BANK_SENDER_ID:-}
+      vycepay.choice-bank.private-key: ${CHOICE_BANK_PRIVATE_KEY:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    restart: unless-stopped
+
+  wallet:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-wallet
+    command: ["java", "-jar", "/app/wallet.jar"]
+    environment:
+      PORT: "8084"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    restart: unless-stopped
+
+  transaction:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-transaction
+    command: ["java", "-jar", "/app/transaction.jar"]
+    environment:
+      PORT: "8085"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      vycepay.choice-bank.base-url: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      vycepay.choice-bank.sender-id: ${CHOICE_BANK_SENDER_ID:-}
+      vycepay.choice-bank.private-key: ${CHOICE_BANK_PRIVATE_KEY:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    restart: unless-stopped
+
+  activity:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-activity
+    command: ["java", "-jar", "/app/activity.jar"]
+    environment:
+      PORT: "8086"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    restart: unless-stopped
+
+  bff:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-bff
+    command: ["java", "-jar", "/app/bff.jar"]
+    environment:
+      PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      vycepay.bff.auth-url: "http://auth:8082"
+      vycepay.bff.kyc-url: "http://kyc:8083"
+      vycepay.bff.wallets-url: "http://wallet:8084"
+      vycepay.bff.transactions-url: "http://transaction:8085"
+      vycepay.bff.activity-url: "http://activity:8086"
+    depends_on:
+      - auth
+      - kyc
+      - wallet
+      - transaction
+      - activity
+    ports:
+      - "9080:8080"
+    restart: unless-stopped
+
+volumes:
+  vycepay_mysql_data:

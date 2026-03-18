@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: vycepay-callback-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
+    username: ${DB_USERNAME:vycepay}
+    password: ${DB_PASSWORD:vycepay}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${PORT:8081}
+
+# Callback signature verification (requires Choice Bank private key)
+vycepay:
+  callback:
+    verify-signature: ${CALLBACK_VERIFY_SIGNATURE:true}
+  choice-bank:
+    private-key: ${CHOICE_BANK_PRIVATE_KEY:}
+
+logging:
+  level:
+    com.vycepay: DEBUG
+    org.springframework.web: INFO
