@@ -69,6 +69,36 @@ For errors, the BFF returns this shape:
 
 ---
 
+## Success Envelope (Action Endpoints)
+
+Action/acknowledgement endpoints return:
+
+```json
+{
+  "success": true,
+  "code": "AUTH_OTP_SENT",
+  "message": "OTP sent successfully.",
+  "requestId": "correlation-id",
+  "data": null
+}
+```
+
+Known success `code` values for action endpoints:
+- `AUTH_OTP_SENT`
+- `AUTH_LOGIN_OTP_SENT`
+- `AUTH_LOGOUT_OK`
+- `DEVICE_REGISTERED`
+- `DEVICE_UNREGISTERED`
+- `KYC_OTP_SENT`
+- `KYC_OTP_RESENT`
+- `KYC_OTP_CONFIRMED`
+- `TXN_OTP_SENT`
+- `TXN_OTP_RESENT`
+- `TXN_OTP_CONFIRMED`
+- `ACTIVITY_LOGGED`
+
+---
+
 ## Auth APIs
 
 ### 1) Register (send OTP)
@@ -82,7 +112,7 @@ For errors, the BFF returns this shape:
   "mobile": "712345678"
 }
 ```
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = AUTH_OTP_SENT`)
 
 ### 2) Login (send OTP)
 
@@ -95,7 +125,7 @@ For errors, the BFF returns this shape:
   "mobile": "712345678"
 }
 ```
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = AUTH_LOGIN_OTP_SENT`)
 
 ### 3) Verify OTP (get JWT)
 
@@ -137,7 +167,7 @@ For errors, the BFF returns this shape:
 - **POST** `/api/v1/auth/logout`
 - **Auth:** Required (Bearer)
 - **Request body:** none
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = AUTH_LOGOUT_OK`)
 - **Client behavior:** discard token
 
 ### 6) Get profile
@@ -168,13 +198,13 @@ For errors, the BFF returns this shape:
   "platform": "ANDROID"
 }
 ```
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = DEVICE_REGISTERED`)
 
 ### 8) Unregister device for push
 
 - **DELETE** `/api/v1/auth/devices/{deviceId}`
 - **Auth:** Required (Bearer)
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = DEVICE_UNREGISTERED`)
 
 ---
 
@@ -239,19 +269,19 @@ For errors, the BFF returns this shape:
 - **POST** `/api/v1/kyc/send-otp?onboardingRequestId=<id>`
 - **Auth:** Required (Bearer)
 - **Request body:** none
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = KYC_OTP_SENT`)
 
 ### 12) Resend KYC OTP
 
 - **POST** `/api/v1/kyc/resend-otp?onboardingRequestId=<id>&otpType=SMS`
 - **Auth:** Required (Bearer)
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = KYC_OTP_RESENT`)
 
 ### 13) Confirm KYC OTP
 
 - **POST** `/api/v1/kyc/confirm-otp?onboardingRequestId=<id>&otpCode=<code>`
 - **Auth:** Required (Bearer)
-- **Response:** `200 OK` (empty body) on success, `400` on failure (empty body)
+- **Response:** `200 OK` with success envelope (`code = KYC_OTP_CONFIRMED`) on success, `400` with error envelope (`code = INVALID_OTP`) on failure
 
 ### After KYC confirm
 
@@ -323,8 +353,8 @@ If OTP is required by Choice Bank:
 - **POST** `/api/v1/transactions/confirm-otp?transactionId=<externalId>&otpCode=<code>`
 
 Confirm OTP:
-- `200 OK` on success
-- `400` on failure (empty body)
+- `200 OK` with success envelope (`code = TXN_OTP_CONFIRMED`) on success
+- `400` with error envelope (`code = INVALID_OTP`) on failure
 
 ### 18) Full transaction detail
 
@@ -406,7 +436,7 @@ Confirm OTP:
   "deviceId": "device-123"
 }
 ```
-- **Response:** `200 OK` (empty body)
+- **Response:** `200 OK` with success envelope (`code = ACTIVITY_LOGGED`)
 
 ### 24) List activity
 

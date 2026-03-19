@@ -11,6 +11,8 @@ import com.vycepay.auth.domain.model.Customer;
 import com.vycepay.auth.domain.model.DeviceToken;
 import com.vycepay.auth.infrastructure.persistence.CustomerRepository;
 import com.vycepay.auth.infrastructure.persistence.DeviceTokenRepository;
+import com.vycepay.common.api.ApiSuccessResponse;
+import com.vycepay.common.api.ApiSuccessResponses;
 import com.vycepay.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,9 +43,9 @@ public class AuthController {
      * Sends OTP to mobile for registration.
      */
     @PostMapping("/register")
-    public ResponseEntity<Void> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiSuccessResponse<Void>> register(@RequestBody RegisterRequest request) {
         authFacade.sendOtp(request.getMobileCountryCode(), request.getMobile());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("AUTH_OTP_SENT", "OTP sent successfully."));
     }
 
     /**
@@ -67,9 +69,9 @@ public class AuthController {
      * Sends OTP for login. Customer must already be registered.
      */
     @PostMapping("/login")
-    public ResponseEntity<Void> login(@RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiSuccessResponse<Void>> login(@RequestBody RegisterRequest request) {
         authFacade.login(request.getMobileCountryCode(), request.getMobile());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("AUTH_LOGIN_OTP_SENT", "Login OTP sent successfully."));
     }
 
     /**
@@ -109,8 +111,8 @@ public class AuthController {
      * Returns 200 to acknowledge the logout request.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestHeader("X-Customer-Id") String externalId) {
-        return ResponseEntity.ok().build();
+    public ResponseEntity<ApiSuccessResponse<Void>> logout(@RequestHeader("X-Customer-Id") String externalId) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("AUTH_LOGOUT_OK", "Logout acknowledged."));
     }
 
     /**
@@ -118,7 +120,7 @@ public class AuthController {
      * If the same token already exists for this customer, returns 200 without duplication.
      */
     @PostMapping("/devices")
-    public ResponseEntity<Void> registerDevice(
+    public ResponseEntity<ApiSuccessResponse<Void>> registerDevice(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestBody RegisterDeviceRequest request) {
         Customer customer = customerRepository.findByExternalId(externalId)
@@ -131,20 +133,20 @@ public class AuthController {
                     token.setPlatform(request.getPlatform());
                     return deviceTokenRepository.save(token);
                 });
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("DEVICE_REGISTERED", "Device registered successfully."));
     }
 
     /**
      * Unregisters a device FCM token (e.g. on logout or device change).
      */
     @DeleteMapping("/devices/{deviceId}")
-    public ResponseEntity<Void> unregisterDevice(
+    public ResponseEntity<ApiSuccessResponse<Void>> unregisterDevice(
             @RequestHeader("X-Customer-Id") String externalId,
             @PathVariable Long deviceId) {
         Customer customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         deviceTokenRepository.findByIdAndCustomerId(deviceId, customer.getId())
                 .ifPresent(deviceTokenRepository::delete);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("DEVICE_UNREGISTERED", "Device unregistered successfully."));
     }
 }

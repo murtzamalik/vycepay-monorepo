@@ -35,6 +35,24 @@ All other `/api/v1/**` endpoints require a valid Bearer token. Missing or invali
 | `Idempotency-Key` | `POST /api/v1/transactions/send` | Yes |
 | `Idempotency-Key` | `POST /api/v1/transactions/deposit/mpesa` | Optional; when provided, duplicate requests return the same deposit |
 
+## Success envelope (action endpoints)
+
+Action endpoints return this shape (instead of empty body):
+
+```json
+{
+  "success": true,
+  "code": "AUTH_OTP_SENT",
+  "message": "OTP sent successfully.",
+  "requestId": "correlation-id",
+  "data": null
+}
+```
+
+- Use `code` for client flow logic.
+- Show `message` to users where appropriate.
+- Use `requestId` for support/debug traces.
+
 ## Error envelope
 
 All errors use this shape:
@@ -56,12 +74,12 @@ All errors use this shape:
 
 ### Registration and login
 
-1. `POST /api/v1/auth/register` — send OTP (body: `mobileCountryCode`, `mobile`).
+1. `POST /api/v1/auth/register` — send OTP (success code: `AUTH_OTP_SENT`).
 2. `POST /api/v1/auth/verify-otp` — verify OTP (body: `mobileCountryCode`, `mobile`, `otpCode`). Response: `token`, `externalId`, `expiresIn` (seconds). Store token for all later requests.
 
 **Returning user:**
 
-1. `POST /api/v1/auth/login` — send OTP (same body as register).
+1. `POST /api/v1/auth/login` — send OTP (success code: `AUTH_LOGIN_OTP_SENT`).
 2. `POST /api/v1/auth/verify-otp` — same as above; get new token.
 
 **Token refresh (before expiry):**
@@ -70,7 +88,7 @@ All errors use this shape:
 
 **Logout:**
 
-- `POST /api/v1/auth/logout` (no body) — acknowledge logout; client must discard the token.
+- `POST /api/v1/auth/logout` (no body) — success code: `AUTH_LOGOUT_OK`; client must discard the token.
 - Also call `DELETE /api/v1/auth/devices/{deviceId}` to unregister FCM token.
 
 **Profile:**
@@ -79,15 +97,15 @@ All errors use this shape:
 
 **Push notifications (FCM):**
 
-- `POST /api/v1/auth/devices` — body: `{ "fcmToken": "...", "platform": "ANDROID" }`. Call after login to enable push.
-- `DELETE /api/v1/auth/devices/{deviceId}` — unregister on logout or token rotation.
+- `POST /api/v1/auth/devices` — body: `{ "fcmToken": "...", "platform": "ANDROID" }`, success code: `DEVICE_REGISTERED`.
+- `DELETE /api/v1/auth/devices/{deviceId}` — success code: `DEVICE_UNREGISTERED`.
 
 ### KYC (onboarding)
 
 1. `GET /api/v1/kyc/status` — check `displayStatus` field: `NOT_STARTED | PENDING | APPROVED | REJECTED`.
 2. `POST /api/v1/kyc/submit` — body: `firstName`, `middleName`, `lastName`, `birthday` (YYYY-MM-DD), `gender` (0=Female/1=Male), `countryCode` (default "254"), `mobile`, `idType` (101=NationalID/102=Alien/103=Passport), `idNumber`, `frontSidePhoto` (Base64 JPEG), `selfiePhoto` (Base64 JPEG). Optional: `address`, `kraPin`, `email`. Returns `choiceOnboardingRequestId`.
-3. `POST /api/v1/kyc/send-otp?onboardingRequestId=<id from submit>`.
-4. `POST /api/v1/kyc/confirm-otp?onboardingRequestId=<id>&otpCode=<code>`.
+3. `POST /api/v1/kyc/send-otp?onboardingRequestId=<id from submit>` (success code: `KYC_OTP_SENT`).
+4. `POST /api/v1/kyc/confirm-otp?onboardingRequestId=<id>&otpCode=<code>` (success code: `KYC_OTP_CONFIRMED`; invalid OTP returns error envelope with `INVALID_OTP`).
 
 After step 4, wait for backend processing; wallet is created via webhook. Poll `GET /api/v1/wallets/me` until 200 (max 10 min).
 
@@ -96,8 +114,8 @@ After step 4, wait for backend processing; wallet is created via webhook. Poll `
 1. `GET /api/v1/wallets/me` — get wallet (balance, choiceAccountId). Returns 404 until wallet exists after KYC.
 2. `GET /api/v1/transactions/bank-codes` — list bank codes for “send money” UI.
 3. **Send money:** `POST /api/v1/transactions/send` with header `Idempotency-Key` (unique per attempt) and body (payeeBankCode, payeeAccountId, amount, etc.). If Choice Bank requires OTP:
-   - `POST /api/v1/transactions/send-otp?transactionId=<externalId from send response>&otpType=SMS`
-   - `POST /api/v1/transactions/confirm-otp?transactionId=<id>&otpCode=<code>`
+   - `POST /api/v1/transactions/send-otp?transactionId=<externalId from send response>&otpType=SMS` (success code: `TXN_OTP_SENT`)
+   - `POST /api/v1/transactions/confirm-otp?transactionId=<id>&otpCode=<code>` (success code: `TXN_OTP_CONFIRMED`; invalid OTP returns `INVALID_OTP`)
 4. **Deposit (M-PESA):** `POST /api/v1/transactions/deposit/mpesa?mobile=<number>&amount=<kes>`. Optional header `Idempotency-Key` for idempotent deposit.
 
 ## Endpoints (BFF proxy)
@@ -108,14 +126,14 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | /api/v1/auth/register | Public | Send OTP for registration |
-| POST | /api/v1/auth/login | Public | Send OTP for login (customer must exist) |
+| POST | /api/v1/auth/register | Public | Send OTP for registration (`AUTH_OTP_SENT`) |
+| POST | /api/v1/auth/login | Public | Send OTP for login (`AUTH_LOGIN_OTP_SENT`) |
 | POST | /api/v1/auth/verify-otp | Public | Verify OTP → returns `token`, `externalId`, `expiresIn` |
 | GET | /api/v1/auth/me | Required | Current customer profile |
 | POST | /api/v1/auth/refresh-token | Required | Issue new token (no OTP needed) |
-| POST | /api/v1/auth/logout | Required | Acknowledge logout (client discards token) |
-| POST | /api/v1/auth/devices | Required | Register FCM token for push notifications |
-| DELETE | /api/v1/auth/devices/{deviceId} | Required | Unregister FCM device token |
+| POST | /api/v1/auth/logout | Required | Acknowledge logout (`AUTH_LOGOUT_OK`) |
+| POST | /api/v1/auth/devices | Required | Register FCM token (`DEVICE_REGISTERED`) |
+| DELETE | /api/v1/auth/devices/{deviceId} | Required | Unregister FCM token (`DEVICE_UNREGISTERED`) |
 
 ### KYC
 
@@ -123,9 +141,9 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 |--------|------|-------------|
 | GET | /api/v1/kyc/status | KYC status — use `displayStatus` (NOT_STARTED/PENDING/APPROVED/REJECTED) |
 | POST | /api/v1/kyc/submit | Submit KYC data to Choice Bank — returns `choiceOnboardingRequestId` |
-| POST | /api/v1/kyc/send-otp?onboardingRequestId= | Send OTP for KYC confirmation |
-| POST | /api/v1/kyc/resend-otp?onboardingRequestId=&otpType=SMS | Resend OTP |
-| POST | /api/v1/kyc/confirm-otp?onboardingRequestId=&otpCode= | Confirm KYC OTP |
+| POST | /api/v1/kyc/send-otp?onboardingRequestId= | Send OTP for KYC confirmation (`KYC_OTP_SENT`) |
+| POST | /api/v1/kyc/resend-otp?onboardingRequestId=&otpType=SMS | Resend OTP (`KYC_OTP_RESENT`) |
+| POST | /api/v1/kyc/confirm-otp?onboardingRequestId=&otpCode= | Confirm KYC OTP (`KYC_OTP_CONFIRMED`) |
 
 ### Wallet
 
@@ -139,9 +157,9 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 |--------|------|-------|
 | POST | /api/v1/transactions/send | Header: `Idempotency-Key` (required). Response includes `displayStatus`. |
 | POST | /api/v1/transactions/deposit/mpesa?mobile=&amount= | Optional header: `Idempotency-Key` |
-| POST | /api/v1/transactions/send-otp?transactionId=&otpType=SMS | `transactionId` = externalId from send response |
-| POST | /api/v1/transactions/resend-otp?transactionId=&otpType=SMS | Resend OTP |
-| POST | /api/v1/transactions/confirm-otp?transactionId=&otpCode= | Confirm OTP |
+| POST | /api/v1/transactions/send-otp?transactionId=&otpType=SMS | Success code `TXN_OTP_SENT` |
+| POST | /api/v1/transactions/resend-otp?transactionId=&otpType=SMS | Success code `TXN_OTP_RESENT` |
+| POST | /api/v1/transactions/confirm-otp?transactionId=&otpCode= | Success code `TXN_OTP_CONFIRMED` |
 | GET | /api/v1/transactions/{transactionId} | **Full transaction detail** (new) |
 | GET | /api/v1/transactions/{transactionId}/status | Live status from Choice Bank |
 | GET | /api/v1/transactions/bank-codes | Bank list for send money UI |
@@ -152,7 +170,7 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/v1/activity/log | Log an action |
+| POST | /api/v1/activity/log | Log an action (`ACTIVITY_LOGGED`) |
 | GET | /api/v1/activity | Get activity history |
 
 ## Error codes
@@ -172,6 +190,7 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | INTERNAL_ERROR | 500 | Server error |
 | TRANSACTION_NOT_FOUND | 404 | Transaction not found or doesn't belong to customer |
 | CUSTOMER_NOT_REGISTERED | 404 | Login attempted for unregistered mobile |
+| INVALID_OTP | 400 | OTP confirmation failed |
 
 Choice Bank–specific codes may appear in message or details when the backend returns them (e.g. 12004 Invalid signature); treat as server/configuration errors and show message to user.
 

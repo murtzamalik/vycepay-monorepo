@@ -21,6 +21,8 @@ import com.vycepay.transaction.infrastructure.persistence.CustomerRepository;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.TransactionSpecification;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
+import com.vycepay.common.api.ApiSuccessResponse;
+import com.vycepay.common.api.ApiSuccessResponses;
 import com.vycepay.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Parameter;
 
@@ -99,50 +101,56 @@ public class TransactionController {
      * @param transactionId The externalId (UUID) from POST /transactions/send response
      */
     @PostMapping("/send-otp")
-    public ResponseEntity<Void> sendOtp(
+    public ResponseEntity<ApiSuccessResponse<Void>> sendOtp(
             @RequestHeader("X-Customer-Id") String externalId,
             @Parameter(description = "Transaction externalId (UUID) from POST /transactions/send response")
             @RequestParam(name = "transactionId") String transactionId,
             @RequestParam(defaultValue = "SMS") String otpType) {
-        if (transactionFacade == null) return ResponseEntity.status(503).build();
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         transactionFacade.sendTransferOtp(customer.getId(), transactionId, otpType);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_SENT", "Transaction OTP sent successfully."));
     }
 
     /**
      * Resends OTP for a pending transfer (Choice Bank common/resendOtp).
      */
     @PostMapping("/resend-otp")
-    public ResponseEntity<Void> resendOtp(
+    public ResponseEntity<ApiSuccessResponse<Void>> resendOtp(
             @RequestHeader("X-Customer-Id") String externalId,
             @Parameter(description = "Transaction externalId (UUID) from POST /transactions/send response")
             @RequestParam String transactionId,
             @RequestParam(defaultValue = "SMS") String otpType) {
-        if (transactionFacade == null) return ResponseEntity.status(503).build();
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         transactionFacade.resendTransferOtp(customer.getId(), transactionId, otpType);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_RESENT", "Transaction OTP resent successfully."));
     }
 
     /**
      * Confirms OTP for a pending transfer (Choice Bank common/confirmOperation).
      */
     @PostMapping("/confirm-otp")
-    public ResponseEntity<Void> confirmOtp(
+    public ResponseEntity<ApiSuccessResponse<Void>> confirmOtp(
             @RequestHeader("X-Customer-Id") String externalId,
             @Parameter(description = "Transaction externalId (UUID) from POST /transactions/send response")
             @RequestParam String transactionId,
             @RequestParam String otpCode) {
-        if (transactionFacade == null) return ResponseEntity.status(503).build();
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         if (transactionFacade.confirmTransferOtp(customer.getId(), transactionId, otpCode)) {
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_CONFIRMED", "Transaction OTP confirmed successfully."));
         }
-        return ResponseEntity.badRequest().build();
+        throw new BusinessException("INVALID_OTP", "Invalid OTP code.", HttpStatus.BAD_REQUEST);
     }
 
     /**

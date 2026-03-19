@@ -17,6 +17,8 @@ import com.vycepay.activity.application.service.ActivityService;
 import com.vycepay.activity.domain.model.ActivityLog;
 import com.vycepay.activity.infrastructure.persistence.ActivityLogRepository;
 import com.vycepay.activity.infrastructure.persistence.CustomerRepository;
+import com.vycepay.common.api.ApiSuccessResponse;
+import com.vycepay.common.api.ApiSuccessResponses;
 import com.vycepay.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 
@@ -43,7 +45,7 @@ public class ActivityController {
      * Logs an action. Called by other services or from request context.
      */
     @PostMapping("/log")
-    public ResponseEntity<Void> log(
+    public ResponseEntity<ApiSuccessResponse<Void>> log(
             @RequestHeader(value = "X-Customer-Id", required = false) String externalId,
             @RequestBody LogRequest request) {
         Long customerId = externalId != null
@@ -52,7 +54,7 @@ public class ActivityController {
         activityService.log(customerId, request.getAction(), request.getResourceType(),
                 request.getResourceId(), request.getIpAddress(), request.getUserAgent(),
                 request.getDeviceId());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("ACTIVITY_LOGGED", "Activity logged successfully."));
     }
 
     /**

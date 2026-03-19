@@ -19,6 +19,8 @@ import com.vycepay.kyc.domain.model.Customer;
 import com.vycepay.kyc.domain.model.KycVerification;
 import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
 import com.vycepay.kyc.infrastructure.persistence.KycVerificationRepository;
+import com.vycepay.common.api.ApiSuccessResponse;
+import com.vycepay.common.api.ApiSuccessResponses;
 import com.vycepay.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 
@@ -83,23 +85,27 @@ public class KycController {
      * Sends OTP for KYC confirmation.
      */
     @PostMapping("/send-otp")
-    public ResponseEntity<Void> sendOtp(
+    public ResponseEntity<ApiSuccessResponse<Void>> sendOtp(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestParam String onboardingRequestId) {
-        if (kycFacade == null) return ResponseEntity.status(503).build();
+        if (kycFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "KYC service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         kycFacade.sendOtp(onboardingRequestId, "SMS");
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_SENT", "KYC OTP sent successfully."));
     }
 
     /**
      * Resends OTP for KYC (Choice Bank common/resendOtp).
      */
     @PostMapping("/resend-otp")
-    public ResponseEntity<Void> resendOtp(
+    public ResponseEntity<ApiSuccessResponse<Void>> resendOtp(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestParam String onboardingRequestId,
             @RequestParam(defaultValue = "SMS") String otpType) {
-        if (kycFacade == null) return ResponseEntity.status(503).build();
+        if (kycFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "KYC service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         Customer customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         KycVerification kyc = kycRepository.findByChoiceOnboardingRequestId(onboardingRequestId)
@@ -108,18 +114,20 @@ public class KycController {
             throw new BusinessException("FORBIDDEN", "Onboarding request does not belong to this customer", HttpStatus.FORBIDDEN);
         }
         kycFacade.resendOtp(onboardingRequestId, otpType);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_RESENT", "KYC OTP resent successfully."));
     }
 
     /**
      * Confirms OTP for KYC. Requires X-Customer-Id; onboardingRequestId must belong to this customer.
      */
     @PostMapping("/confirm-otp")
-    public ResponseEntity<Void> confirmOtp(
+    public ResponseEntity<ApiSuccessResponse<Void>> confirmOtp(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestParam String onboardingRequestId,
             @RequestParam String otpCode) {
-        if (kycFacade == null) return ResponseEntity.status(503).build();
+        if (kycFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "KYC service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         Customer customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         KycVerification kyc = kycRepository.findByChoiceOnboardingRequestId(onboardingRequestId)
@@ -128,8 +136,8 @@ public class KycController {
             throw new BusinessException("FORBIDDEN", "Onboarding request does not belong to this customer", HttpStatus.FORBIDDEN);
         }
         if (kycFacade.confirmOtp(onboardingRequestId, otpCode)) {
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_CONFIRMED", "KYC OTP confirmed successfully."));
         }
-        return ResponseEntity.badRequest().build();
+        throw new BusinessException("INVALID_OTP", "Invalid OTP code.", HttpStatus.BAD_REQUEST);
     }
 }
