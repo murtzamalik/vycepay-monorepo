@@ -10,9 +10,10 @@ vycepay:
   jwt:
     secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
   bff:
-    # Backend base URLs (no trailing slash). In Docker single-container use 127.0.0.1.
-    auth-url: ${BFF_AUTH_URL:http://127.0.0.1:8082}
-    kyc-url: ${BFF_KYC_URL:http://127.0.0.1:8083}
-    wallets-url: ${BFF_WALLETS_URL:http://127.0.0.1:8084}
-    transactions-url: ${BFF_TRANSACTIONS_URL:http://127.0.0.1:8085}
-    activity-url: ${BFF_ACTIVITY_URL:http://127.0.0.1:8086}
+    # Backend base URLs (no trailing slash). Server single-container layout:
+    # auth=9091, kyc=9092, wallets=9093, transactions=9094, activity=9095.
+    auth-url: ${BFF_AUTH_URL:http://127.0.0.1:9091}
+    kyc-url: ${BFF_KYC_URL:http://127.0.0.1:9092}
+    wallets-url: ${BFF_WALLETS_URL:http://127.0.0.1:9093}
+    transactions-url: ${BFF_TRANSACTIONS_URL:http://127.0.0.1:9094}
+    activity-url: ${BFF_ACTIVITY_URL:http://127.0.0.1:9095}

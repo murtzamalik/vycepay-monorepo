@@ -1,20 +1,20 @@
 package com.vycepay.bff.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
 import java.util.HashMap;
 import java.util.Map;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "vycepay.bff")
 public class BffBackendProperties {
 
-    private String authUrl = "http://127.0.0.1:8082";
-    private String kycUrl = "http://127.0.0.1:8083";
-    private String walletsUrl = "http://127.0.0.1:8084";
-    private String transactionsUrl = "http://127.0.0.1:8085";
-    private String activityUrl = "http://127.0.0.1:8086";
+    private String authUrl = "http://127.0.0.1:9091";
+    private String kycUrl = "http://127.0.0.1:9092";
+    private String walletsUrl = "http://127.0.0.1:9093";
+    private String transactionsUrl = "http://127.0.0.1:9094";
+    private String activityUrl = "http://127.0.0.1:9095";
 
     public String getAuthUrl() { return authUrl; }
     public void setAuthUrl(String authUrl) { this.authUrl = authUrl; }
