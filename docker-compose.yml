@@ -74,9 +74,6 @@ services:
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
       JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
-      vycepay.choice-bank.base-url: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
-      vycepay.choice-bank.sender-id: ${CHOICE_BANK_SENDER_ID:-}
-      vycepay.choice-bank.private-key: ${CHOICE_BANK_PRIVATE_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -115,9 +112,6 @@ services:
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
       JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
-      vycepay.choice-bank.base-url: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
-      vycepay.choice-bank.sender-id: ${CHOICE_BANK_SENDER_ID:-}
-      vycepay.choice-bank.private-key: ${CHOICE_BANK_PRIVATE_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
