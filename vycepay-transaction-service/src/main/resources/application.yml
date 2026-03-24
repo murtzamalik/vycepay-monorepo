@@ -20,6 +20,6 @@ vycepay:
   jwt:
     secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
   choice-bank:
-    base-url: ${CHOICE_BANK_BASE_URL:https://baas-pilot.choicebankapi.com}
-    sender-id: ${CHOICE_BANK_SENDER_ID:}
-    private-key: ${CHOICE_BANK_PRIVATE_KEY:}
+    base-url: https://baas-pilot.choicebankapi.com
+    sender-id: VYCEIN
+    private-key: 9x9euCAYsXxBaw0-2jzzrBiHGisDVVtf8dMNfhpd17BcZxLK13G56KvjFY3bx69j

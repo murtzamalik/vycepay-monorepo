@@ -22,7 +22,7 @@ vycepay:
   callback:
     verify-signature: ${CALLBACK_VERIFY_SIGNATURE:true}
   choice-bank:
-    private-key: ${CHOICE_BANK_PRIVATE_KEY:}
+    private-key: 9x9euCAYsXxBaw0-2jzzrBiHGisDVVtf8dMNfhpd17BcZxLK13G56KvjFY3bx69j
 
 logging:
   level:
