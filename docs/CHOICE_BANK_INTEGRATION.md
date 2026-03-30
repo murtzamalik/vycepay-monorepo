@@ -157,8 +157,9 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 
 Recent outbound BaaS calls are optionally retained in a ring buffer and exposed read-only:
 
-- **GET** `http://<kyc|transaction|wallet-host>:<port>/internal/choice-bank/http-traces` — JSON array, newest first.
-- **Authentication:** none (Spring Security `permitAll` for `/internal/choice-bank/**` on those services). **Do not expose this URL to the public internet** without a reverse-proxy allowlist or disabling audit in production.
+- **GET** `http://<kyc|transaction|wallet-host>:<port>/internal/choice-bank/http-traces` — JSON array of `ChoiceBankHttpTraceDto`, newest first (single JVM).
+- **BFF aggregate:** **GET** `http://<bff-host>:<bff-port>/internal/choice-bank/http-traces` — merges traces from KYC, Wallet, and Transaction backends (`vycepay.bff.kyc-url`, `wallets-url`, `transactions-url`). Response is a JSON array of `{ "source": "kyc"|"wallets"|"transactions", "trace": { ... } }`, sorted by timestamp descending. Backends that are down or return errors are omitted (partial results).
+- **Authentication:** none (Spring Security `permitAll` for `/internal/choice-bank/**` on BFF and those services). The BFF JWT filter does not apply outside `/api/v1/**`. **Do not expose these URLs to the public internet** without a reverse-proxy allowlist or disabling audit in production.
 
 | Config key | Default | Purpose |
 |------------|---------|---------|
@@ -181,6 +182,7 @@ Each KYC, Transaction, and Wallet process has **its own** buffer (not shared acr
 | **RequestIdGenerator** | vycepay-common | Generates requestId = senderId + UUID without hyphens. |
 | **ChoiceBankClientConfig** | vycepay-common | Spring bean for ChoiceBankClient when sender-id (and private-key) are set; wires Resilience4j retry and circuit breaker if present; optional `ChoiceBankHttpAuditStore`. |
 | **ChoiceBankHttpAuditController** | vycepay-common | GET `/internal/choice-bank/http-traces` (unauthenticated); in-memory traces per JVM. |
+| **ChoiceBankHttpTracesBffController** | vycepay-bff | Same path on BFF; aggregates from KYC / Wallet / Transaction via configured base URLs. |
 | **KycOnboardingFacade** | vycepay-kyc-service | Uses BankingProviderPort for submitEasyOnboardingRequest, getOnboardingStatus, sendOtp, resendOtp, confirmOperation. |
 | **TransactionFacade** | vycepay-transaction-service | Uses BankingProviderPort for applyForTransfer, depositFromMpesa, getTransResult, getTransList, getBankCodes, sendOtp, resendOtp, confirmOperation. |
 | **UtilityPaymentFacade** | vycepay-transaction-service | Utility payment and query endpoints; debits persist transactions. |

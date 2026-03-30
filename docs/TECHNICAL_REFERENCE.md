@@ -47,6 +47,7 @@ Port is overridden by env `PORT` (e.g. in docker-entrypoint).
 | BFF | `BffProxyController` | Proxies /api/v1/** to backends |
 | BFF | `BffJwtFilter` | Validates JWT, sets X-Customer-Id |
 | BFF | `BffBackendProperties` | Backend base URLs |
+| BFF | `ChoiceBankHttpTracesBffController` | GET `/internal/choice-bank/http-traces` (no auth); merges KYC/Wallet/Transaction trace APIs |
 | Auth | `AuthFacade` | sendOtp, verifyOtpAndGetToken, login |
 | Auth | `OtpService` | Generate/store OTP (otp_verification) |
 | Auth | `JwtService` | Create JWT (customer id, externalId) |
