@@ -138,6 +138,21 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 
 **Callback service:** Optional `vycepay.callback.verify-signature` to verify incoming callback signatures (if Choice supports it).
 
+### 6.1 Outbound request/response logging (BaaS client)
+
+`ChoiceBankClient` logs each outbound call at **INFO** with the same **`choiceBankRequestId`** (the per-request `requestId`) on the request and response lines so logs can be correlated:
+
+- `choice_baas_request` — path and JSON payload (optional).
+- `choice_baas_response` — path, `code`, `msg`, and raw response JSON (optional).
+
+| Config key | Default | Purpose |
+|------------|---------|---------|
+| `vycepay.choice-bank.logging.enabled` | `true` | Master switch for these logs. |
+| `vycepay.choice-bank.logging.log-bodies` | `true` | If `false`, only path, `requestId`, and response `code`/`msg` are logged (no JSON bodies). |
+| `vycepay.choice-bank.logging.redact-signatures` | `true` | If `true`, `signature` and `salt` fields in logged JSON are replaced with `[REDACTED]` (including nested objects). |
+
+**Note:** `params` may contain PII (e.g. mobile numbers). Restrict log access in production; set `log-bodies` to `false` if you only need metadata.
+
 ---
 
 ## 7. Code Components (Where It Lives)
@@ -146,7 +161,7 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 |-----------|--------|------|
 | **BankingProviderPort** | vycepay-common | Interface: `post(path, params)` → ChoiceBankResponse. |
 | **ChoiceBankApiAdapter** | vycepay-common | Implements BankingProviderPort; delegates to ChoiceBankClient; optional response signature verification. |
-| **ChoiceBankClient** | vycepay-common | Builds request (via ChoiceBankRequestFactory), sends HTTP POST, parses ChoiceBankResponse. Uses RequestIdGenerator.generate(senderId). |
+| **ChoiceBankClient** | vycepay-common | Builds request (via ChoiceBankRequestFactory), sends HTTP POST, parses ChoiceBankResponse. Uses RequestIdGenerator.generate(senderId). Logs paired request/response (`choice_baas_*`) when `vycepay.choice-bank.logging.enabled` is true. |
 | **ChoiceBankRequestFactory** | vycepay-common | Builds ChoiceBankRequest: requestId, sender, locale, timestamp, salt, **signature** (via ChoiceBankSignatureUtil.sign), params. Flattens for signing; empty params → `params={}`. |
 | **ChoiceBankSignatureUtil** | vycepay-common | BaaS: buildStringToSign (sort keys, key=value&…), sha256Hex, sign(flatMap). Also has white-label HMAC helpers (not used for current BaaS flow). |
 | **RequestIdGenerator** | vycepay-common | Generates requestId = senderId + UUID without hyphens. |

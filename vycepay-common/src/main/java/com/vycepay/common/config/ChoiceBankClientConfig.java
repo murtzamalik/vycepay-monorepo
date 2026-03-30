@@ -8,6 +8,7 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
@@ -17,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
  * Uses Resilience4j for retry and circuit breaker when available.
  */
 @Configuration
+@EnableConfigurationProperties(ChoiceBankLoggingProperties.class)
 public class ChoiceBankClientConfig {
 
     private static final String RESILIENCE_INSTANCE = "choiceBank";
@@ -28,11 +30,15 @@ public class ChoiceBankClientConfig {
             @Value("${vycepay.choice-bank.private-key}") String privateKey,
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
+            ChoiceBankLoggingProperties loggingProperties,
             @Autowired(required = false) CircuitBreakerRegistry circuitBreakerRegistry,
             @Autowired(required = false) RetryRegistry retryRegistry) {
         CircuitBreaker cb = circuitBreakerRegistry != null
                 ? circuitBreakerRegistry.circuitBreaker(RESILIENCE_INSTANCE) : null;
         Retry retry = retryRegistry != null ? retryRegistry.retry(RESILIENCE_INSTANCE) : null;
-        return new ChoiceBankClient(baseUrl, senderId, privateKey, restTemplate, objectMapper, cb, retry);
+        return new ChoiceBankClient(baseUrl, senderId, privateKey, restTemplate, objectMapper, cb, retry,
+                loggingProperties.isEnabled(),
+                loggingProperties.isLogBodies(),
+                loggingProperties.isRedactSignatures());
     }
 }

@@ -32,6 +32,9 @@ Port is overridden by env `PORT` (e.g. in docker-entrypoint).
 | `CHOICE_BANK_PRIVATE_KEY` | Common | BaaS request signing |
 | `vycepay.bff.auth-url`, `kyc-url`, `wallets-url`, `transactions-url`, `activity-url` | BFF | Backend base URLs (no trailing slash) |
 | `vycepay.callback.verify-signature` | Callback | Optional callback signature verification |
+| `vycepay.choice-bank.logging.enabled` | Common (`ChoiceBankClient`) | Log paired `choice_baas_request` / `choice_baas_response` lines (default `true`) |
+| `vycepay.choice-bank.logging.log-bodies` | Common | Include JSON bodies in those logs (default `true`; set `false` for metadata only) |
+| `vycepay.choice-bank.logging.redact-signatures` | Common | Redact `signature` / `salt` in logged JSON (default `true`) |
 
 ---
 
