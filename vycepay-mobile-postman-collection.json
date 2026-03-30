@@ -1,0 +1,698 @@
+{
+  "info": {
+    "name": "VycePay Mobile API",
+    "description": "Postman collection for VycePay BFF endpoints. JWT auth uses Authorization: Bearer {{token}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:9080" },
+    { "key": "token", "value": "" },
+    { "key": "mobileCountryCode", "value": "254" },
+    { "key": "mobile", "value": "712345678" },
+    { "key": "otpCode", "value": "123456" },
+    { "key": "onboardingRequestId", "value": "" },
+    { "key": "transactionId", "value": "" },
+    { "key": "otpType", "value": "SMS" },
+    { "key": "idempotencyKey", "value": "" },
+    { "key": "deviceId", "value": "" },
+    { "key": "fcmToken", "value": "" },
+    { "key": "platform", "value": "ANDROID" },
+    { "key": "pageNo", "value": "1" },
+    { "key": "pageSize", "value": "20" },
+    { "key": "page", "value": "0" },
+    { "key": "size", "value": "20" },
+    { "key": "status", "value": "" },
+    { "key": "type", "value": "" },
+    { "key": "startTime", "value": "0" },
+    { "key": "endTime", "value": "0" },
+    { "key": "depositAmount", "value": "100" },
+    { "key": "shortCode", "value": "" },
+    { "key": "newMobileCountryCode", "value": "254" },
+    { "key": "newMobileNumber", "value": "" },
+    { "key": "mobileChangeRequestId", "value": "" },
+    { "key": "proveIdCode", "value": "" },
+    { "key": "confirmChangeCode", "value": "" },
+    { "key": "onboardType", "value": "personal" },
+    { "key": "personalIdType", "value": "101" },
+    { "key": "documentNumber", "value": "" },
+    { "key": "email", "value": "" },
+    { "key": "verifyType", "value": "mobile" },
+    { "key": "subAccountName", "value": "" },
+    { "key": "applicationId", "value": "" },
+    { "key": "statementStartTime", "value": "0" },
+    { "key": "statementEndTime", "value": "0" },
+    { "key": "fileType", "value": 0 },
+    { "key": "statementRequestId", "value": "" },
+    { "key": "choiceRequestId", "value": "" },
+    { "key": "payeeBankCode", "value": "M-PESA" },
+    { "key": "payeeAccountId", "value": "712345678" },
+    { "key": "payeeAccountName", "value": "Recipient Name" },
+    { "key": "amount", "value": "100.50" },
+    { "key": "remark", "value": "Reference" },
+    { "key": "utilityMobileNumber", "value": "712345678" },
+    { "key": "networkProvider", "value": 0 },
+    { "key": "utilityAmount", "value": "100.00" },
+    { "key": "billType", "value": 0 },
+    { "key": "billOrderNumber", "value": "" },
+    { "key": "billAmount", "value": "" },
+    { "key": "paymentId", "value": "" },
+    { "key": "bulkPaymentOrderId", "value": "" },
+    { "key": "utilityPageNo", "value": 1 },
+    { "key": "utilityPageSize", "value": 20 }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1) Register (send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileCountryCode\": \"{{mobileCountryCode}}\",\n  \"mobile\": \"{{mobile}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2) Login (send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileCountryCode\": \"{{mobileCountryCode}}\",\n  \"mobile\": \"{{mobile}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3) Verify OTP (get JWT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/verify-otp",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileCountryCode\": \"{{mobileCountryCode}}\",\n  \"mobile\": \"{{mobile}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4) Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh-token"
+          }
+        },
+        {
+          "name": "5) Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/logout"
+          }
+        },
+        {
+          "name": "6) Get profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/me"
+          }
+        },
+        {
+          "name": "7) Register device for push",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/devices",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fcmToken\": \"{{fcmToken}}\",\n  \"platform\": \"{{platform}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "8) Unregister device for push",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/devices/{{deviceId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "KYC",
+      "item": [
+        {
+          "name": "9) Get KYC status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/kyc/status"
+          }
+        },
+        {
+          "name": "10) Submit KYC to Choice Bank",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/kyc/submit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"middleName\": \"User\",\n  \"lastName\": \"Sandbox\",\n  \"birthday\": \"1990-01-15\",\n  \"gender\": 1,\n  \"countryCode\": \"{{mobileCountryCode}}\",\n  \"mobile\": \"{{mobile}}\",\n  \"idType\": \"101\",\n  \"idNumber\": \"{{documentNumber}}\",\n  \"frontSidePhoto\": \"<Base64 JPEG>\",\n  \"backSidePhoto\": \"<Base64 JPEG>\",\n  \"selfiePhoto\": \"<Base64 JPEG>\",\n  \"address\": null,\n  \"kraPin\": null,\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "11) Send KYC OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/kyc/send-otp?onboardingRequestId={{onboardingRequestId}}"
+          }
+        },
+        {
+          "name": "12) Resend KYC OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/kyc/resend-otp?onboardingRequestId={{onboardingRequestId}}&otpType=SMS"
+          }
+        },
+        {
+          "name": "13) Confirm KYC OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/kyc/confirm-otp?onboardingRequestId={{onboardingRequestId}}&otpCode={{otpCode}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet (choice account mgmt + statements)",
+      "item": [
+        {
+          "name": "14) Get current wallet",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/me"
+          }
+        },
+        {
+          "name": "Account: Get account details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/details"
+          }
+        },
+        {
+          "name": "Account: List accounts by user",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/list-by-user"
+          }
+        },
+        {
+          "name": "Account: Abnormal account list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/abnormal?pageNo={{pageNo}}&pageSize={{pageSize}}"
+          }
+        },
+        {
+          "name": "Account: Apply for short code",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/short-code/apply"
+          }
+        },
+        {
+          "name": "Account: Query short code",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/short-code/query"
+          }
+        },
+        {
+          "name": "Account: Resolve account by short code",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/short-code/resolve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shortCode\": \"{{shortCode}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Activate dormant account",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/activate"
+          }
+        },
+        {
+          "name": "Account: Add/Update email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardType\": \"{{onboardType}}\",\n  \"personalIdType\": \"{{personalIdType}}\",\n  \"documentNumber\": \"{{documentNumber}}\",\n  \"email\": \"{{email}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Request mobile change",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/mobile-change",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newMobileCountryCode\": \"{{newMobileCountryCode}}\",\n  \"newMobileNumber\": \"{{newMobileNumber}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Confirm mobile change",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/mobile-change/confirm",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{mobileChangeRequestId}}\",\n  \"proveIdCode\": \"{{proveIdCode}}\",\n  \"confirmChangeCode\": \"{{confirmChangeCode}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Verify email address",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/verify-email-address",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardType\": \"{{onboardType}}\",\n  \"personalIdType\": \"{{personalIdType}}\",\n  \"documentNumber\": \"{{documentNumber}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Verify email or mobile",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/verify-email-or-mobile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardType\": \"{{onboardType}}\",\n  \"personalIdType\": \"{{personalIdType}}\",\n  \"documentNumber\": \"{{documentNumber}}\",\n  \"verifyType\": \"{{verifyType}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Edit SME sub-account name",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/sub-account-name",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subAccountName\": \"{{subAccountName}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Account: Verify account OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/account/verify-otp",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicationId\": \"{{applicationId}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Statement: Apply for account statement",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/statements/apply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statementStartTime\": {{statementStartTime}},\n  \"statementEndTime\": {{statementEndTime}},\n  \"fileType\": {{fileType}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Statement: Query statement job status",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/statements/query",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{statementRequestId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Statement: Get local job by choice requestId",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/wallets/statements/jobs/{{choiceRequestId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions (transfer, deposit, utility)",
+      "item": [
+        {
+          "name": "15) Send money (transfer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payeeBankCode\": \"{{payeeBankCode}}\",\n  \"payeeAccountId\": \"{{payeeAccountId}}\",\n  \"payeeAccountName\": \"{{payeeAccountName}}\",\n  \"amount\": {{amount}},\n  \"remark\": \"{{remark}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Transfer OTP: Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/send-otp?transactionId={{transactionId}}&otpType={{otpType}}"
+          }
+        },
+        {
+          "name": "Transfer OTP: Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/resend-otp?transactionId={{transactionId}}&otpType={{otpType}}"
+          }
+        },
+        {
+          "name": "Transfer OTP: Confirm OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/confirm-otp?transactionId={{transactionId}}&otpCode={{otpCode}}"
+          }
+        },
+        {
+          "name": "16) Deposit via M-PESA STK push",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/deposit/mpesa?mobile={{mobile}}&amount={{depositAmount}}"
+          }
+        },
+        {
+          "name": "18) Full transaction detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/{{transactionId}}"
+          }
+        },
+        {
+          "name": "19) Transaction status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/{{transactionId}}/status"
+          }
+        },
+        {
+          "name": "20) Bank codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/bank-codes"
+          }
+        },
+        {
+          "name": "21) Choice transaction history",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/choice-history?startTime={{startTime}}&endTime={{endTime}}&page={{page}}&size={{size}}"
+          }
+        },
+        {
+          "name": "22) Local transaction list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions?page={{page}}&size={{size}}&status={{status}}&type={{type}}"
+          }
+        },
+        {
+          "name": "Utilities: Airtime purchase",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/utilities/airtime",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{utilityMobileNumber}}\",\n  \"networkProvider\": {{networkProvider}},\n  \"amount\": {{utilityAmount}}\n}"
+            }
+          }
+        },
+        {
+          "name": "Utilities: Airtime bulk purchase",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/utilities/airtime-bulk",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileDetails\": [\n    {\n      \"mobileNumber\": \"{{utilityMobileNumber}}\",\n      \"networkProvider\": {{networkProvider}},\n      \"amount\": {{utilityAmount}}\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Utilities: Bill query",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/utilities/bill-query",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billType\": {{billType}},\n  \"billOrderNumber\": \"{{billOrderNumber}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Utilities: Bill payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/utilities/bill-payment",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billType\": {{billType}},\n  \"billOrderNumber\": \"{{billOrderNumber}}\",\n  \"amount\": \"{{billAmount}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Utilities: Payment query",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/utilities/payment-query",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"{{paymentId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Utilities: Bulk payment query",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions/utilities/bulk-payment-query",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bulkPaymentOrderId\": \"{{bulkPaymentOrderId}}\",\n  \"pageNo\": {{utilityPageNo}},\n  \"pageSize\": {{utilityPageSize}}\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity",
+      "item": [
+        {
+          "name": "24) Log an activity",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/activity/log",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"LOGIN\",\n  \"resourceType\": \"TRANSACTION\",\n  \"resourceId\": \"{{transactionId}}\",\n  \"ipAddress\": \"1.2.3.4\",\n  \"userAgent\": \"App/1.0\",\n  \"deviceId\": \"device-123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "25) List activity",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/activity?page={{page}}&size={{size}}"
+          }
+        }
+      ]
+    }
+  ]
+}
+
