@@ -1,6 +1,8 @@
 spring:
   application:
     name: vycepay-wallet-service
+  config:
+    import: optional:classpath:META-INF/application-resilience.yml
   datasource:
     url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
     username: ${DB_USERNAME:vycepay}
@@ -17,3 +19,7 @@ server:
 vycepay:
   jwt:
     secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
+  choice-bank:
+    base-url: https://baas-pilot.choicebankapi.com
+    sender-id: VYCEIN
+    private-key: 9x9euCAYsXxBaw0-2jzzrBiHGisDVVtf8dMNfhpd17BcZxLK13G56KvjFY3bx69j

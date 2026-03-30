@@ -27,6 +27,7 @@
 - **0001**: Personal Onboarding Result
 - **0002**: Transaction Result
 - **0003**: Balance Change
-- **0021**: Account Status Change
+- **0009**: Account statement generation result (periodic statement file; see `AccountStatementResultHandler`)
+- **0021**: Account Status Change (see `AccountStatusChangeHandler`)
 
 Callback response: HTTP 200 with body `"ok"`. Retries up to 5 times.

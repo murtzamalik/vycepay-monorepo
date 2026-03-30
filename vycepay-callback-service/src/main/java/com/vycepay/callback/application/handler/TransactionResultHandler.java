@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Handles 0002 - Transaction Result Notification.
@@ -40,13 +41,20 @@ public class TransactionResultHandler implements NotificationHandler {
         Map<String, Object> params = parseParams(callback.getRawPayload());
         if (params == null) return;
 
-        String txId = getString(params, "txId");
+        String txId = firstNonBlank(
+                getString(params, "txId"),
+                getString(params, "batchId"),
+                getString(params, "utilityTxId"));
+        if (txId == null || txId.isBlank()) {
+            log.warn("Transaction callback missing txId/batchId/utilityTxId");
+            return;
+        }
         Integer txStatus = getInt(params, "txStatus");
         String errorCode = getString(params, "errorCode");
         String errorMsg = getString(params, "errorMsg");
         Long updateTime = getLong(params, "updateTime");
 
-        var opt = transactionRepository.findByChoiceTxId(txId)
+        Optional<Transaction> opt = transactionRepository.findByChoiceTxId(txId)
                 .or(() -> transactionRepository.findByChoiceRequestId(txId));
 
         opt.ifPresentOrElse(
@@ -60,6 +68,18 @@ public class TransactionResultHandler implements NotificationHandler {
                 },
                 () -> log.warn("Transaction not found for txId={}", txId)
         );
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String s : values) {
+            if (s != null && !s.isBlank()) {
+                return s;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

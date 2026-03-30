@@ -96,6 +96,9 @@ Known success `code` values for action endpoints:
 - `TXN_OTP_RESENT`
 - `TXN_OTP_CONFIRMED`
 - `ACTIVITY_LOGGED`
+- `WALLET_ACCOUNT_DETAILS`, `WALLET_ACCOUNT_LIST`, `WALLET_ABNORMAL_ACCOUNTS`, `WALLET_SHORT_CODE_APPLIED`, `WALLET_SHORT_CODE_QUERY`, `WALLET_SHORT_CODE_RESOLVED`, `WALLET_ACCOUNT_ACTIVATED`, `WALLET_EMAIL_UPDATED`, `WALLET_MOBILE_CHANGE_REQUESTED`, `WALLET_MOBILE_CHANGE_CONFIRMED`, `WALLET_VERIFY_EMAIL_REQUESTED`, `WALLET_VERIFY_CONTACT_REQUESTED`, `WALLET_SUB_ACCOUNT_NAME_UPDATED`, `WALLET_ACCOUNT_OTP_VERIFIED`
+- `WALLET_STATEMENT_APPLIED`, `WALLET_STATEMENT_QUERY`, `WALLET_STATEMENT_JOB`
+- `UTILITY_AIRTIME_INITIATED`, `UTILITY_AIRTIME_BULK_INITIATED`, `UTILITY_BILL_QUERY_OK`, `UTILITY_BILL_PAYMENT_INITIATED`, `UTILITY_PAYMENT_QUERY_OK`, `UTILITY_BULK_PAYMENT_QUERY_OK`
 
 ---
 
@@ -311,6 +314,37 @@ until it returns `200` (wallet doesn’t exist yet => `404` while pending).
 ```
 - **Response:** `404` if wallet not created yet
 
+### Choice account management (wallet service)
+
+All routes require **Bearer** auth. Responses use the **success envelope**; Choice payload is in `data` (except mobile-change confirm, which returns `data: null`).
+
+**OTP note:** `POST /api/v1/wallets/account/verify-otp` calls Choice `account/verifyOtp` (account-level flows). KYC uses `common/confirmOperation`; transfers use `POST /api/v1/transactions/confirm-otp`.
+
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | `/api/v1/wallets/account/details` | `query/getAccountDetails` for the logged-in wallet |
+| GET | `/api/v1/wallets/account/list-by-user` | Requires `kyc_verification.choice_user_id` |
+| GET | `/api/v1/wallets/account/abnormal?pageNo=&pageSize=` | Partner-scoped abnormal list (Choice) |
+| POST | `/api/v1/wallets/account/short-code/apply` | |
+| POST | `/api/v1/wallets/account/short-code/query` | |
+| POST | `/api/v1/wallets/account/short-code/resolve` | JSON `{"shortCode":"..."}`; must resolve to caller’s account |
+| POST | `/api/v1/wallets/account/activate` | Dormant activation |
+| POST | `/api/v1/wallets/account/email` | JSON per Choice `user/addOrUpdateEmail` |
+| POST | `/api/v1/wallets/account/mobile-change` | JSON `newMobileCountryCode`, `newMobileNumber` |
+| POST | `/api/v1/wallets/account/mobile-change/confirm` | JSON `requestId`, `proveIdCode`, `confirmChangeCode` |
+| POST | `/api/v1/wallets/account/verify-email-address` | JSON per Choice |
+| POST | `/api/v1/wallets/account/verify-email-or-mobile` | JSON per Choice |
+| POST | `/api/v1/wallets/account/sub-account-name` | JSON optional `subAccountName` |
+| POST | `/api/v1/wallets/account/verify-otp` | JSON `applicationId`, `otpCode` |
+
+### Periodic account statements (wallet service)
+
+| Method | Path | Body / notes |
+|--------|------|----------------|
+| POST | `/api/v1/wallets/statements/apply` | `statementStartTime`, `statementEndTime` (Unix ms), optional `fileType` |
+| POST | `/api/v1/wallets/statements/query` | `requestId` from apply response |
+| GET | `/api/v1/wallets/statements/jobs/{choiceRequestId}` | Local job row (download URL after callback **0009**) |
+
 ---
 
 ## Transaction APIs
@@ -390,6 +424,21 @@ Confirm OTP:
   - `type`
 - **Response (200, JSON):** Spring `Page<TransactionResponse>` serialized as a page object
 
+### 23) Utility payments (Choice)
+
+Base path: `/api/v1/transactions/utilities`. All require **Bearer** auth.
+
+| Method | Path | Headers / body |
+|--------|------|------------------|
+| POST | `/airtime` | `Idempotency-Key` **required**; JSON body passed to Choice (e.g. amount, operator); `accountId` set server-side |
+| POST | `/airtime-bulk` | Same as airtime |
+| POST | `/bill-query` | JSON; `accountId` defaulted from wallet if omitted |
+| POST | `/bill-payment` | `Idempotency-Key` **required**; JSON body |
+| POST | `/payment-query` | JSON; `accountId` defaulted from wallet if omitted |
+| POST | `/bulk-payment-query` | JSON; `accountId` defaulted from wallet if omitted |
+
+Debit operations create local transactions with types `UTILITY_AIRTIME`, `UTILITY_AIRTIME_BULK`, `UTILITY_BILL_PAYMENT`. Completion uses callback **0002** (same as transfers).
+
 ---
 
 ### TransactionResponse schema (used by send/deposit/detail endpoints)
@@ -421,7 +470,7 @@ Confirm OTP:
 
 ## Activity APIs
 
-### 23) Log an activity
+### 24) Log an activity
 
 - **POST** `/api/v1/activity/log`
 - **Auth:** Required (Bearer)
@@ -438,7 +487,7 @@ Confirm OTP:
 ```
 - **Response:** `200 OK` with success envelope (`code = ACTIVITY_LOGGED`)
 
-### 24) List activity
+### 25) List activity
 
 - **GET** `/api/v1/activity?page=0&size=20`
 - **Auth:** Required (Bearer)

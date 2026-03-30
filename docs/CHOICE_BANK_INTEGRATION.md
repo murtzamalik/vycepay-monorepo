@@ -8,11 +8,14 @@ This document describes **how VycePay integrates with Choice Bank**: authenticat
 
 - **Choice Bank** provides BaaS (Banking-as-a-Service) in Kenya. VycePay uses their **BaaS API** for:
   - Customer onboarding (KYC) and account opening
+  - Account management (details, short codes, dormant activation, email/mobile verification, SME sub-account name)
+  - Periodic account statements (apply/query; file ready via callback **0009**)
   - Transfers (e.g. to M-PESA or bank)
+  - Utility payments (airtime, bill query/pay, payment queries)
   - M-PESA STK Push deposits
   - Bank codes, transaction status, transaction list
 - **Authentication:** Every outbound request is **signed**; the signature is sent **inside the JSON request body**. Choice validates it and returns `code: "00000"` on success.
-- **Asynchronous results:** Onboarding completion, transaction result, and balance changes are notified via **HTTP callbacks** (webhooks) to VycePay. VycePay stores and processes them by `notificationType` (0001, 0002, 0003).
+- **Asynchronous results:** Onboarding completion, transaction result, balance changes, statement file readiness, and account status changes are notified via **HTTP callbacks** (webhooks) to VycePay. VycePay stores and processes them by `notificationType` (0001, 0002, 0003, 0009, 0021).
 
 ---
 
@@ -73,6 +76,9 @@ Base URL is configurable (e.g. sandbox `https://baas-pilot.choicebankapi.com`). 
 | `query/getTransResult` | Transaction service | Get transaction result (txId or requestId). |
 | `query/getTransList` | Transaction service | Get transaction list from Choice (time range, pagination). |
 | `staticData/getBankCodes` | Transaction service | Get bank codes for “send money” UI. |
+| `query/getAccountDetails`, `account/queryAccountListByUserId`, `query/getAbnormalAccountList`, `account/applyForShortCode`, `account/queryForShortCode`, `account/queryAccountByShortCode`, `account/activateAccount`, `user/addOrUpdateEmail`, `account/v2/mobileChange`, `account/confirmMobileChange`, `account/verifyEmailAddress`, `account/verifyEmailOrMobile`, `account/editSubAccountName`, `account/verifyOtp` | Wallet service | Account lifecycle and contact verification (`verifyOtp` is **not** `common/confirmOperation`). |
+| `statement/applyAccountStatement`, `statement/queryAccountStatement` | Wallet service | Periodic statement; local row in `account_statement_job`. |
+| `utilityPayment/v2/airtimePayment`, `utilityPayment/v2/airtimeBulkPayment`, `utilityPayment/billQuery`, `utilityPayment/v2/billPayment`, `utilityPayment/paymentQuery`, `utilityPayment/bulkPaymentQuery` | Transaction service | Utilities; debits create `transaction` rows (`UTILITY_*` types). |
 
 All calls go through the **same** client and signing logic; only `params` and path change.
 
@@ -104,6 +110,8 @@ All calls go through the **same** client and signing logic; only `params` and pa
 | **0001** | OnboardingResultHandler | Update `kyc_verification` (status, userId, accountId, rejection info). If status = 7 (account opened), create `wallet` for that customer. |
 | **0002** | TransactionResultHandler | Find transaction by choiceTxId or choiceRequestId; update status, errorCode, errorMsg, completedAt. |
 | **0003** | BalanceChangeHandler | Find wallet by accountId; update balance_cache and last_balance_update_at. |
+| **0009** | AccountStatementResultHandler | Find `account_statement_job` by `requestId` (or equivalent in `params`); set `download_url` / status when statement file is ready. Confirm field names with Choice. |
+| **0021** | AccountStatusChangeHandler | Find wallet by `accountId`; update `wallet.status` from Choice account status fields. |
 | Other | UnknownNotificationHandler | Log only. |
 
 ### 5.3 Callback flow in code
@@ -118,7 +126,7 @@ Duplicate callbacks (same requestId + notificationType) are stored once and proc
 
 ## 6. Configuration
 
-Choice Bank integration is **optional** per service: KYC and Transaction services only create the Choice client and adapter when the following are set.
+Choice Bank integration is **optional** per service: KYC, Transaction, and Wallet services create the Choice client and adapter when the following are set.
 
 | Config key (env or application.yml) | Purpose |
 |-------------------------------------|---------|
@@ -145,8 +153,11 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 | **ChoiceBankClientConfig** | vycepay-common | Spring bean for ChoiceBankClient when sender-id (and private-key) are set; wires Resilience4j retry and circuit breaker if present. |
 | **KycOnboardingFacade** | vycepay-kyc-service | Uses BankingProviderPort for submitEasyOnboardingRequest, getOnboardingStatus, sendOtp, resendOtp, confirmOperation. |
 | **TransactionFacade** | vycepay-transaction-service | Uses BankingProviderPort for applyForTransfer, depositFromMpesa, getTransResult, getTransList, getBankCodes, sendOtp, resendOtp, confirmOperation. |
+| **UtilityPaymentFacade** | vycepay-transaction-service | Utility payment and query endpoints; debits persist transactions. |
+| **AccountManagementFacade** | vycepay-wallet-service | Choice account management and `account/verifyOtp`. |
+| **AccountStatementFacade** | vycepay-wallet-service | `statement/applyAccountStatement`, `statement/queryAccountStatement`; persists `account_statement_job`. |
 | **CallbackService** | vycepay-callback-service | Receives POST, persists callback, routes by notificationType to NotificationHandler implementations. |
-| **OnboardingResultHandler, TransactionResultHandler, BalanceChangeHandler** | vycepay-callback-service | Update kyc_verification / wallet / transaction from callback params. |
+| **OnboardingResultHandler, TransactionResultHandler, BalanceChangeHandler, AccountStatementResultHandler, AccountStatusChangeHandler** | vycepay-callback-service | Update kyc_verification / wallet / transaction / statement job from callback params. |
 
 ---
 
@@ -162,6 +173,6 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 
 - **Outbound:** One signed request format (requestId, sender, locale, timestamp, salt, signature, params); requestId = senderId + 32 hex chars; signature = SHA-256 hex of sorted flattened string including `params={}` when empty; senderKey used only for signing, not sent. All outbound calls go through ChoiceBankClient → ChoiceBankRequestFactory → ChoiceBankSignatureUtil.
 - **Inbound:** Single webhook URL; persist then 200 "ok"; async dispatch by notificationType to update KYC, wallet, and transaction tables.
-- **Config:** base-url, sender-id, private-key enable the client; KYC and Transaction services use BankingProviderPort (ChoiceBankApiAdapter) for all Choice Bank operations.
+- **Config:** base-url, sender-id, private-key enable the client; KYC, Transaction, and Wallet services use BankingProviderPort (ChoiceBankApiAdapter) for Choice Bank operations they expose.
 
 For API endpoint details and callback payload examples, see Choice Bank’s official documentation and, in this repo, [CHOICE_BANK_API.md](CHOICE_BANK_API.md).
