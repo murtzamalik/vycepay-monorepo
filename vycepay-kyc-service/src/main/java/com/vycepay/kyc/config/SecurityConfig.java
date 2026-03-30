@@ -26,6 +26,7 @@ public class SecurityConfig {
             chain.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                     .authorizeHttpRequests(a -> a
                             .requestMatchers("/actuator/health", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                            .requestMatchers("/internal/choice-bank/**").permitAll()
                             .requestMatchers("/api/v1/**").authenticated());
         } else {
             chain.authorizeHttpRequests(a -> a.anyRequest().permitAll());

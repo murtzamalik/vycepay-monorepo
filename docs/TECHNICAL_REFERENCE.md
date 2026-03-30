@@ -35,6 +35,8 @@ Port is overridden by env `PORT` (e.g. in docker-entrypoint).
 | `vycepay.choice-bank.logging.enabled` | Common (`ChoiceBankClient`) | Log paired `choice_baas_request` / `choice_baas_response` lines (default `true`) |
 | `vycepay.choice-bank.logging.log-bodies` | Common | Include JSON bodies in those logs (default `true`; set `false` for metadata only) |
 | `vycepay.choice-bank.logging.redact-signatures` | Common | Redact `signature` / `salt` in logged JSON (default `true`) |
+| `vycepay.choice-bank.audit.http.enabled` | Common | In-memory HTTP trace buffer + GET `/internal/choice-bank/http-traces` (default `true`) |
+| `vycepay.choice-bank.audit.http.max-entries` | Common | Max retained traces per JVM (default `500`) |
 
 ---
 

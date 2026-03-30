@@ -153,6 +153,20 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 
 **Note:** `params` may contain PII (e.g. mobile numbers). Restrict log access in production; set `log-bodies` to `false` if you only need metadata.
 
+### 6.2 In-memory HTTP trace API (per service instance)
+
+Recent outbound BaaS calls are optionally retained in a ring buffer and exposed read-only:
+
+- **GET** `http://<kyc|transaction|wallet-host>:<port>/internal/choice-bank/http-traces` — JSON array, newest first.
+- **Authentication:** none (Spring Security `permitAll` for `/internal/choice-bank/**` on those services). **Do not expose this URL to the public internet** without a reverse-proxy allowlist or disabling audit in production.
+
+| Config key | Default | Purpose |
+|------------|---------|---------|
+| `vycepay.choice-bank.audit.http.enabled` | `true` | When `false`, no buffer bean and no endpoint. |
+| `vycepay.choice-bank.audit.http.max-entries` | `500` | Ring buffer size per JVM. |
+
+Each KYC, Transaction, and Wallet process has **its own** buffer (not shared across replicas).
+
 ---
 
 ## 7. Code Components (Where It Lives)
@@ -165,7 +179,8 @@ Environment variables (often used in Docker) may be mapped to these (e.g. `CHOIC
 | **ChoiceBankRequestFactory** | vycepay-common | Builds ChoiceBankRequest: requestId, sender, locale, timestamp, salt, **signature** (via ChoiceBankSignatureUtil.sign), params. Flattens for signing; empty params → `params={}`. |
 | **ChoiceBankSignatureUtil** | vycepay-common | BaaS: buildStringToSign (sort keys, key=value&…), sha256Hex, sign(flatMap). Also has white-label HMAC helpers (not used for current BaaS flow). |
 | **RequestIdGenerator** | vycepay-common | Generates requestId = senderId + UUID without hyphens. |
-| **ChoiceBankClientConfig** | vycepay-common | Spring bean for ChoiceBankClient when sender-id (and private-key) are set; wires Resilience4j retry and circuit breaker if present. |
+| **ChoiceBankClientConfig** | vycepay-common | Spring bean for ChoiceBankClient when sender-id (and private-key) are set; wires Resilience4j retry and circuit breaker if present; optional `ChoiceBankHttpAuditStore`. |
+| **ChoiceBankHttpAuditController** | vycepay-common | GET `/internal/choice-bank/http-traces` (unauthenticated); in-memory traces per JVM. |
 | **KycOnboardingFacade** | vycepay-kyc-service | Uses BankingProviderPort for submitEasyOnboardingRequest, getOnboardingStatus, sendOtp, resendOtp, confirmOperation. |
 | **TransactionFacade** | vycepay-transaction-service | Uses BankingProviderPort for applyForTransfer, depositFromMpesa, getTransResult, getTransList, getBankCodes, sendOtp, resendOtp, confirmOperation. |
 | **UtilityPaymentFacade** | vycepay-transaction-service | Utility payment and query endpoints; debits persist transactions. |

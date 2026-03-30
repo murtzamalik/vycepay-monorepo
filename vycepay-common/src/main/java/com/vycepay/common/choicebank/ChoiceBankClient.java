@@ -36,13 +36,14 @@ public class ChoiceBankClient {
     private final boolean loggingEnabled;
     private final boolean logBodies;
     private final boolean redactSignatures;
+    private final ChoiceBankHttpAuditStore auditStore;
 
     /**
      * Creates client without resilience (no retry/circuit breaker).
      */
     public ChoiceBankClient(String baseUrl, String senderId, String privateKey,
                             RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this(baseUrl, senderId, privateKey, restTemplate, objectMapper, null, null, true, true, true);
+        this(baseUrl, senderId, privateKey, restTemplate, objectMapper, null, null, true, true, true, null);
     }
 
     /**
@@ -51,16 +52,18 @@ public class ChoiceBankClient {
     public ChoiceBankClient(String baseUrl, String senderId, String privateKey,
                             RestTemplate restTemplate, ObjectMapper objectMapper,
                             CircuitBreaker circuitBreaker, Retry retry) {
-        this(baseUrl, senderId, privateKey, restTemplate, objectMapper, circuitBreaker, retry, true, true, true);
+        this(baseUrl, senderId, privateKey, restTemplate, objectMapper, circuitBreaker, retry, true, true, true, null);
     }
 
     /**
-     * Full constructor including outbound logging flags (see {@code vycepay.choice-bank.logging.*}).
+     * Full constructor including outbound logging flags (see {@code vycepay.choice-bank.logging.*})
+     * and optional in-memory HTTP audit (see {@code vycepay.choice-bank.audit.http.*}).
      */
     public ChoiceBankClient(String baseUrl, String senderId, String privateKey,
                             RestTemplate restTemplate, ObjectMapper objectMapper,
                             CircuitBreaker circuitBreaker, Retry retry,
-                            boolean loggingEnabled, boolean logBodies, boolean redactSignatures) {
+                            boolean loggingEnabled, boolean logBodies, boolean redactSignatures,
+                            ChoiceBankHttpAuditStore auditStore) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         this.senderId = senderId != null ? senderId : "VYCEIN";
         this.requestFactory = new ChoiceBankRequestFactory(this.senderId, privateKey, objectMapper);
@@ -71,6 +74,7 @@ public class ChoiceBankClient {
         this.loggingEnabled = loggingEnabled;
         this.logBodies = logBodies;
         this.redactSignatures = redactSignatures;
+        this.auditStore = auditStore;
     }
 
     /**
@@ -111,16 +115,68 @@ public class ChoiceBankClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<ChoiceBankRequest> entity = new HttpEntity<>(req, headers);
 
-        String json = restTemplate.postForObject(url, entity, String.class);
-        ChoiceBankResponse response = parseResponse(json);
+        String json;
+        try {
+            json = restTemplate.postForObject(url, entity, String.class);
+        } catch (RuntimeException ex) {
+            recordAuditHttpFailure(path, requestId, req, ex);
+            throw ex;
+        }
+
+        ChoiceBankResponse response;
+        try {
+            response = parseResponse(json);
+        } catch (IllegalStateException ex) {
+            recordAuditParseFailure(path, requestId, req, json, ex);
+            throw ex;
+        }
         if (response.getRequestId() == null) {
             response.setRequestId(requestId);
         }
+
+        recordAuditSuccess(path, requestId, req, json, response);
 
         if (loggingEnabled) {
             logChoiceResponse(path, requestId, response, json);
         }
         return response;
+    }
+
+    private String requestPayloadForAudit(ChoiceBankRequest req) {
+        try {
+            String raw = objectMapper.writeValueAsString(req);
+            return ChoiceBankLogSanitizer.sanitizeJson(raw, redactSignatures);
+        } catch (JsonProcessingException e) {
+            return "(unserializable request)";
+        }
+    }
+
+    private void recordAuditSuccess(String path, String outboundRequestId, ChoiceBankRequest req,
+                                    String rawJson, ChoiceBankResponse response) {
+        if (auditStore == null) {
+            return;
+        }
+        String correlationId = response.getRequestId() != null ? response.getRequestId() : outboundRequestId;
+        String respSanitized = ChoiceBankLogSanitizer.sanitizeJson(rawJson, redactSignatures);
+        auditStore.record(path, correlationId, requestPayloadForAudit(req), respSanitized,
+                response.getCode(), response.getMsg(), null);
+    }
+
+    private void recordAuditHttpFailure(String path, String requestId, ChoiceBankRequest req, RuntimeException ex) {
+        if (auditStore == null) {
+            return;
+        }
+        String msg = ex.getClass().getSimpleName() + ": " + (ex.getMessage() != null ? ex.getMessage() : "");
+        auditStore.record(path, requestId, requestPayloadForAudit(req), null, null, null, msg);
+    }
+
+    private void recordAuditParseFailure(String path, String requestId, ChoiceBankRequest req,
+                                         String rawJson, IllegalStateException ex) {
+        if (auditStore == null) {
+            return;
+        }
+        String safe = ChoiceBankLogSanitizer.sanitizeJson(rawJson, redactSignatures);
+        auditStore.record(path, requestId, requestPayloadForAudit(req), safe, null, null, ex.getMessage());
     }
 
     private void logChoiceRequest(String path, String requestId, ChoiceBankRequest req) {
