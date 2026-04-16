@@ -1,13 +1,12 @@
 package com.vycepay.wallet.application.facade;
 
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.wallet.application.WalletAccountContext;
 import com.vycepay.wallet.domain.model.AccountStatementJob;
 import com.vycepay.wallet.infrastructure.persistence.AccountStatementJobRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,14 +22,18 @@ import java.util.Map;
 @ConditionalOnBean(BankingProviderPort.class)
 public class AccountStatementFacade {
 
-    private static final Logger log = LoggerFactory.getLogger(AccountStatementFacade.class);
+    private static final String PATH_APPLY_ACCOUNT_STATEMENT = "statement/applyAccountStatement";
+    private static final String PATH_QUERY_ACCOUNT_STATEMENT = "statement/queryAccountStatement";
 
     private final BankingProviderPort bankingProvider;
+    private final ChoiceBankResponseAssessor choiceAssessor;
     private final AccountStatementJobRepository statementJobRepository;
 
     public AccountStatementFacade(BankingProviderPort bankingProvider,
+                                  ChoiceBankResponseAssessor choiceAssessor,
                                   AccountStatementJobRepository statementJobRepository) {
         this.bankingProvider = bankingProvider;
+        this.choiceAssessor = choiceAssessor;
         this.statementJobRepository = statementJobRepository;
     }
 
@@ -49,13 +52,8 @@ public class AccountStatementFacade {
         if (fileType != null) {
             params.put("fileType", fileType);
         }
-        ChoiceBankResponse response = bankingProvider.post("statement/applyAccountStatement", params);
-        if (!response.isSuccess()) {
-            log.warn("applyAccountStatement failed: {}", response.getMsg());
-            throw new BusinessException("CHOICE_BANK_ERROR",
-                    response.getMsg() != null ? response.getMsg() : "Statement apply failed",
-                    HttpStatus.BAD_GATEWAY);
-        }
+        ChoiceBankResponse response = bankingProvider.post(PATH_APPLY_ACCOUNT_STATEMENT, params);
+        choiceAssessor.requireSuccess(response, PATH_APPLY_ACCOUNT_STATEMENT);
         String choiceRequestId = response.getRequestId();
         if (choiceRequestId == null || choiceRequestId.isBlank()) {
             throw new BusinessException("CHOICE_BANK_ERROR", "Missing request id from Choice Bank",
@@ -87,12 +85,8 @@ public class AccountStatementFacade {
                         "Unknown statement request for this customer", HttpStatus.NOT_FOUND));
 
         var params = Map.<String, Object>of("requestId", requestId);
-        ChoiceBankResponse response = bankingProvider.post("statement/queryAccountStatement", params);
-        if (!response.isSuccess()) {
-            throw new BusinessException("CHOICE_BANK_ERROR",
-                    response.getMsg() != null ? response.getMsg() : "Statement query failed",
-                    HttpStatus.BAD_GATEWAY);
-        }
+        ChoiceBankResponse response = bankingProvider.post(PATH_QUERY_ACCOUNT_STATEMENT, params);
+        choiceAssessor.requireSuccess(response, PATH_QUERY_ACCOUNT_STATEMENT);
         Map<String, Object> out = new HashMap<>();
         if (response.getData() instanceof Map<?, ?> d) {
             @SuppressWarnings("unchecked")

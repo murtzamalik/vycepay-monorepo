@@ -147,10 +147,8 @@ public class TransactionController {
         }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        if (transactionFacade.confirmTransferOtp(customer.getId(), transactionId, otpCode)) {
-            return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_CONFIRMED", "Transaction OTP confirmed successfully."));
-        }
-        throw new BusinessException("INVALID_OTP", "Invalid OTP code.", HttpStatus.BAD_REQUEST);
+        transactionFacade.confirmTransferOtp(customer.getId(), transactionId, otpCode);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_CONFIRMED", "Transaction OTP confirmed successfully."));
     }
 
     /**

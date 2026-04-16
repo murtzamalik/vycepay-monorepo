@@ -2,14 +2,12 @@ package com.vycepay.transaction.application.facade;
 
 import com.vycepay.common.choicebank.RequestIdGenerator;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +23,6 @@ import java.util.UUID;
 @ConditionalOnBean(BankingProviderPort.class)
 public class UtilityPaymentFacade {
 
-    private static final Logger log = LoggerFactory.getLogger(UtilityPaymentFacade.class);
     private static final String STATUS_PENDING = "1";
     private static final String TYPE_UTILITY_AIRTIME = "UTILITY_AIRTIME";
     private static final String TYPE_UTILITY_AIRTIME_BULK = "UTILITY_AIRTIME_BULK";
@@ -33,11 +30,14 @@ public class UtilityPaymentFacade {
 
     private final BankingProviderPort bankingProvider;
     private final TransactionRepository transactionRepository;
+    private final ChoiceBankResponseAssessor choiceAssessor;
 
     public UtilityPaymentFacade(BankingProviderPort bankingProvider,
-                                TransactionRepository transactionRepository) {
+                                TransactionRepository transactionRepository,
+                                ChoiceBankResponseAssessor choiceAssessor) {
         this.bankingProvider = bankingProvider;
         this.transactionRepository = transactionRepository;
+        this.choiceAssessor = choiceAssessor;
     }
 
     @Transactional
@@ -71,7 +71,7 @@ public class UtilityPaymentFacade {
         }
         p.putIfAbsent("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post("utilityPayment/billQuery", p);
-        return unwrap(response);
+        return unwrap(response, "utilityPayment/billQuery");
     }
 
     public Map<String, Object> paymentQuery(String choiceAccountId, Map<String, Object> params) {
@@ -81,7 +81,7 @@ public class UtilityPaymentFacade {
         }
         p.putIfAbsent("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post("utilityPayment/paymentQuery", p);
-        return unwrap(response);
+        return unwrap(response, "utilityPayment/paymentQuery");
     }
 
     public Map<String, Object> bulkPaymentQuery(String choiceAccountId, Map<String, Object> params) {
@@ -91,7 +91,7 @@ public class UtilityPaymentFacade {
         }
         p.putIfAbsent("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post("utilityPayment/bulkPaymentQuery", p);
-        return unwrap(response);
+        return unwrap(response, "utilityPayment/bulkPaymentQuery");
     }
 
     private Transaction executeDebit(String path, String type,
@@ -103,11 +103,7 @@ public class UtilityPaymentFacade {
         }
         params.put("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post(path, params);
-        if (!response.isSuccess()) {
-            throw new BusinessException("UTILITY_PAYMENT_FAILED",
-                    response.getMsg() != null ? response.getMsg() : "Utility payment failed",
-                    HttpStatus.BAD_GATEWAY);
-        }
+        choiceAssessor.requireSuccess(response, path);
         String txId = extractTxId(response.getData());
         String requestId = response.getRequestId() != null ? response.getRequestId() : RequestIdGenerator.generate();
         BigDecimal amount = extractAmount(params);
@@ -133,13 +129,8 @@ public class UtilityPaymentFacade {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> unwrap(ChoiceBankResponse response) {
-        if (!response.isSuccess()) {
-            log.warn("Utility query failed: {}", response.getMsg());
-            throw new BusinessException("UTILITY_QUERY_FAILED",
-                    response.getMsg() != null ? response.getMsg() : "Utility query failed",
-                    HttpStatus.BAD_GATEWAY);
-        }
+    private Map<String, Object> unwrap(ChoiceBankResponse response, String path) {
+        choiceAssessor.requireSuccess(response, path);
         if (response.getData() instanceof Map) {
             return (Map<String, Object>) response.getData();
         }

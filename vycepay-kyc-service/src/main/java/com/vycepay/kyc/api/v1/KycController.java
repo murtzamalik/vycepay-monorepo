@@ -135,9 +135,7 @@ public class KycController {
         if (!kyc.getCustomerId().equals(customer.getId())) {
             throw new BusinessException("FORBIDDEN", "Onboarding request does not belong to this customer", HttpStatus.FORBIDDEN);
         }
-        if (kycFacade.confirmOtp(onboardingRequestId, otpCode)) {
-            return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_CONFIRMED", "KYC OTP confirmed successfully."));
-        }
-        throw new BusinessException("INVALID_OTP", "Invalid OTP code.", HttpStatus.BAD_REQUEST);
+        kycFacade.confirmOtp(onboardingRequestId, otpCode);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_CONFIRMED", "KYC OTP confirmed successfully."));
     }
 }

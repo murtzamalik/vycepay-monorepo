@@ -1,11 +1,11 @@
 package com.vycepay.transaction.application.facade;
 
+import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.choicebank.RequestIdGenerator;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
 import com.vycepay.transaction.domain.model.Transaction;
-import com.vycepay.transaction.domain.model.Wallet;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
 import org.slf4j.Logger;
@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,13 +35,16 @@ public class TransactionFacade {
     private final BankingProviderPort bankingProvider;
     private final TransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
+    private final ChoiceBankResponseAssessor choiceAssessor;
 
     public TransactionFacade(BankingProviderPort bankingProvider,
                              TransactionRepository transactionRepository,
-                             WalletRepository walletRepository) {
+                             WalletRepository walletRepository,
+                             ChoiceBankResponseAssessor choiceAssessor) {
         this.bankingProvider = bankingProvider;
         this.transactionRepository = transactionRepository;
         this.walletRepository = walletRepository;
+        this.choiceAssessor = choiceAssessor;
     }
 
     /**
@@ -81,7 +83,14 @@ public class TransactionFacade {
             params.put("remark", remark.length() > 100 ? remark.substring(0, 100) : remark);
         }
         ChoiceBankResponse response = bankingProvider.post("trans/v2/applyForTransfer", Map.copyOf(params));
+        choiceAssessor.requireSuccess(response, "trans/v2/applyForTransfer");
         String txId = extractTxId(response.getData());
+        if (txId == null || txId.isBlank()) {
+            throw new BusinessException(
+                    "CHOICE_INVALID_RESPONSE",
+                    "Choice Bank did not return txId for applyForTransfer",
+                    HttpStatus.BAD_GATEWAY);
+        }
         String requestId = response.getRequestId() != null ? response.getRequestId() : RequestIdGenerator.generate();
 
         Transaction tx = new Transaction();
@@ -123,7 +132,14 @@ public class TransactionFacade {
                 "mobile", mobile,
                 "amount", amountKes);
         ChoiceBankResponse response = bankingProvider.post("trans/depositFromMpesa", params);
+        choiceAssessor.requireSuccess(response, "trans/depositFromMpesa");
         String txId = extractTxId(response.getData());
+        if (txId == null || txId.isBlank()) {
+            throw new BusinessException(
+                    "CHOICE_INVALID_RESPONSE",
+                    "Choice Bank did not return txId for depositFromMpesa",
+                    HttpStatus.BAD_GATEWAY);
+        }
         String requestId = response.getRequestId() != null ? response.getRequestId() : RequestIdGenerator.generate();
 
         Transaction tx = new Transaction();
@@ -157,9 +173,7 @@ public class TransactionFacade {
         }
         var params = Map.<String, Object>of("businessId", tx.getChoiceTxId(), "otpType", otpType);
         ChoiceBankResponse response = bankingProvider.post("common/sendOtp", params);
-        if (!response.isSuccess()) {
-            throw new BusinessException("SEND_OTP_FAILED", "Send OTP failed: " + response.getMsg(), HttpStatus.BAD_GATEWAY);
-        }
+        choiceAssessor.requireSuccess(response, "common/sendOtp");
         log.info("OTP sent for transfer: txId={}", tx.getChoiceTxId());
     }
 
@@ -174,9 +188,7 @@ public class TransactionFacade {
         }
         var params = Map.<String, Object>of("businessId", tx.getChoiceTxId(), "otpType", otpType);
         ChoiceBankResponse response = bankingProvider.post("common/resendOtp", params);
-        if (!response.isSuccess()) {
-            throw new BusinessException("RESEND_OTP_FAILED", "Resend OTP failed: " + response.getMsg(), HttpStatus.BAD_GATEWAY);
-        }
+        choiceAssessor.requireSuccess(response, "common/resendOtp");
         log.info("OTP resent for transfer: txId={}", tx.getChoiceTxId());
     }
 
@@ -196,7 +208,8 @@ public class TransactionFacade {
         }
         var params = Map.<String, Object>of("businessId", tx.getChoiceTxId(), "otpCode", otpCode);
         ChoiceBankResponse response = bankingProvider.post("common/confirmOperation", params);
-        return response.isSuccess();
+        choiceAssessor.requireSuccess(response, "common/confirmOperation");
+        return true;
     }
 
     /**
@@ -215,10 +228,7 @@ public class TransactionFacade {
         }
         var params = Map.<String, Object>of("txId", tx.getChoiceTxId());
         ChoiceBankResponse response = bankingProvider.post("query/getTransResult", params);
-        if (!response.isSuccess()) {
-            log.warn("getTransResult failed for txId={}: {}", tx.getChoiceTxId(), response.getMsg());
-            return Map.of("error", response.getMsg());
-        }
+        choiceAssessor.requireSuccess(response, "query/getTransResult");
         return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
     }
 
@@ -227,10 +237,7 @@ public class TransactionFacade {
      */
     public Map<String, Object> getBankCodes() {
         ChoiceBankResponse response = bankingProvider.post("staticData/getBankCodes", Map.of());
-        if (!response.isSuccess()) {
-            log.warn("getBankCodes failed: {}", response.getMsg());
-            return Map.of();
-        }
+        choiceAssessor.requireSuccess(response, "staticData/getBankCodes");
         return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
     }
 
@@ -257,10 +264,7 @@ public class TransactionFacade {
         params.put("pageSize", pageSize);
         params.put("orderByDesc", 1);
         ChoiceBankResponse response = bankingProvider.post("query/getTransList", params);
-        if (!response.isSuccess()) {
-            log.warn("getTransList failed: {}", response.getMsg());
-            return Map.of();
-        }
+        choiceAssessor.requireSuccess(response, "query/getTransList");
         return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
     }
 

@@ -13,6 +13,15 @@ public class ErrorResponse {
     private String requestId;
     private Object details;
 
+    /** Choice BaaS response.code when failure originated upstream (optional). */
+    private String choiceCode;
+    /** Choice correlation id (requestId in BaaS envelope). */
+    private String choiceRequestId;
+    /** Choice API path that was invoked (e.g. trans/v2/applyForTransfer). */
+    private String choicePath;
+    /** Whether the catalog marks this failure as safe to retry. */
+    private Boolean retryable;
+
     public ErrorResponse() {
     }
 
@@ -53,5 +62,37 @@ public class ErrorResponse {
 
     public void setDetails(Object details) {
         this.details = details;
+    }
+
+    public String getChoiceCode() {
+        return choiceCode;
+    }
+
+    public void setChoiceCode(String choiceCode) {
+        this.choiceCode = choiceCode;
+    }
+
+    public String getChoiceRequestId() {
+        return choiceRequestId;
+    }
+
+    public void setChoiceRequestId(String choiceRequestId) {
+        this.choiceRequestId = choiceRequestId;
+    }
+
+    public String getChoicePath() {
+        return choicePath;
+    }
+
+    public void setChoicePath(String choicePath) {
+        this.choicePath = choicePath;
+    }
+
+    public Boolean getRetryable() {
+        return retryable;
+    }
+
+    public void setRetryable(Boolean retryable) {
+        this.retryable = retryable;
     }
 }

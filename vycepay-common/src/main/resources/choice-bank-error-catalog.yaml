@@ -1,0 +1,147 @@
+# Choice Bank BaaS API error mapping (top-level response.code).
+# Exact entries override prefix fallbacks. Prefixes are matched longest-first.
+
+default:
+  clientCode: CHOICE_BANK_ERROR
+  httpStatus: 502
+  retryable: false
+
+prefixFallbacks:
+  - prefix: "132"
+    clientCode: CHOICE_ONBOARDING_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "133"
+    clientCode: CHOICE_ACCOUNT_APPLICATION_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "131"
+    clientCode: CHOICE_AGREEMENT_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "13"
+    clientCode: CHOICE_ACCOUNT_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "14"
+    clientCode: CHOICE_TRANSACTION_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "12"
+    clientCode: CHOICE_VALIDATION_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "11"
+    clientCode: CHOICE_PERMISSION_ERROR
+    httpStatus: 403
+    retryable: false
+  - prefix: "15"
+    clientCode: CHOICE_QUERY_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "18"
+    clientCode: CHOICE_FILE_ERROR
+    httpStatus: 400
+    retryable: false
+  - prefix: "10"
+    clientCode: CHOICE_SYSTEM_ERROR
+    httpStatus: 503
+    retryable: true
+
+entries:
+  "10000":
+    clientCode: CHOICE_SYSTEM_ERROR
+    httpStatus: 502
+    retryable: false
+    category: SYSTEM
+  "10001":
+    clientCode: CHOICE_SYSTEM_BUSY
+    httpStatus: 503
+    retryable: true
+    category: SYSTEM
+  "10002":
+    clientCode: CHOICE_REQUEST_TIMEOUT
+    httpStatus: 504
+    retryable: true
+    category: SYSTEM
+  "11000":
+    clientCode: CHOICE_NO_PERMISSION
+    httpStatus: 403
+    category: PERMISSION
+  "11200":
+    clientCode: CHOICE_SMS_LIMIT_EXCEEDED
+    httpStatus: 400
+    category: VALIDATION
+  "11201":
+    clientCode: CHOICE_SMS_VERIFY_TOO_FREQUENT
+    httpStatus: 429
+    retryable: true
+    category: VALIDATION
+  "11202":
+    clientCode: CHOICE_SMS_CODE_LOCKED
+    httpStatus: 400
+    category: VALIDATION
+  "11203":
+    clientCode: CHOICE_WRONG_SMS_CODE
+    httpStatus: 400
+    category: VALIDATION
+  "13000":
+    clientCode: CHOICE_ACCOUNT_NOT_FOUND
+    httpStatus: 400
+    category: ACCOUNT
+  "13001":
+    clientCode: CHOICE_ACCOUNT_LOCKED
+    httpStatus: 403
+    category: ACCOUNT
+  "13002":
+    clientCode: CHOICE_ACCOUNT_CLOSED
+    httpStatus: 400
+    category: ACCOUNT
+  "13003":
+    clientCode: CHOICE_ACCOUNT_ABNORMAL
+    httpStatus: 400
+    category: ACCOUNT
+  "13004":
+    clientCode: CHOICE_ACCOUNT_ALREADY_EXISTS
+    httpStatus: 409
+    category: ACCOUNT
+  "13005":
+    clientCode: CHOICE_USER_NOT_FOUND
+    httpStatus: 404
+    category: ACCOUNT
+  "14001":
+    clientCode: CHOICE_TX_NOT_FOUND
+    httpStatus: 404
+    category: TRANSACTION
+  "14006":
+    clientCode: CHOICE_TX_DAILY_LIMIT
+    httpStatus: 400
+    category: TRANSACTION
+  "14007":
+    clientCode: CHOICE_TX_AMOUNT_DAILY_LIMIT
+    httpStatus: 400
+    category: TRANSACTION
+  "14008":
+    clientCode: CHOICE_TX_SAME_ACCOUNT
+    httpStatus: 400
+    category: TRANSACTION
+  "14009":
+    clientCode: CHOICE_INSUFFICIENT_BALANCE
+    httpStatus: 400
+    category: TRANSACTION
+  "14012":
+    clientCode: CHOICE_BANK_CODE_NOT_FOUND
+    httpStatus: 400
+    category: TRANSACTION
+  "14021":
+    clientCode: CHOICE_TRANSACTION_LIMITATION
+    httpStatus: 400
+    category: TRANSACTION
+  "14029":
+    clientCode: CHOICE_TX_ALREADY_PROCESSED
+    httpStatus: 409
+    category: TRANSACTION
+  "14031":
+    clientCode: CHOICE_TX_ALREADY_CONFIRMED
+    httpStatus: 409
+    category: TRANSACTION

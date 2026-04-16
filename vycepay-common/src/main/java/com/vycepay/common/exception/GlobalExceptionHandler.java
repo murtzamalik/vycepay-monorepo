@@ -27,6 +27,19 @@ public class GlobalExceptionHandler {
                 e.getCode(), e.getMessage(), getRequestId(), null));
     }
 
+    @ExceptionHandler(ChoiceBankUpstreamException.class)
+    public ResponseEntity<ErrorResponse> handleChoiceUpstream(ChoiceBankUpstreamException e) {
+        log.warn("Choice Bank upstream error: clientCode={} choiceCode={} path={} - {}",
+                e.getCode(), e.getChoiceCode(), e.getChoicePath(), e.getMessage());
+        ErrorResponse body = new ErrorResponse(
+                e.getCode(), e.getMessage(), getRequestId(), null);
+        body.setChoiceCode(e.getChoiceCode());
+        body.setChoiceRequestId(e.getChoiceRequestId());
+        body.setChoicePath(e.getChoicePath());
+        body.setRetryable(e.isRetryable());
+        return ResponseEntity.status(e.getHttpStatus()).body(body);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException e) {
         log.warn("Bad request: {}", e.getMessage());
