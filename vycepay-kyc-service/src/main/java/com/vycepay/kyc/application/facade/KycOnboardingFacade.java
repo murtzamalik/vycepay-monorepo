@@ -117,7 +117,18 @@ public class KycOnboardingFacade {
         Map<String, Object> params = Map.of("onboardingRequestId", onboardingRequestId);
         ChoiceBankResponse response = bankingProvider.post(PATH_GET_ONBOARDING_STATUS, params);
         choiceAssessor.requireSuccess(response, PATH_GET_ONBOARDING_STATUS);
-        return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
+        if (response.getData() == null) {
+            return Map.of();
+        }
+        if (response.getData() instanceof Map<?, ?> data) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> typed = (Map<String, Object>) data;
+            return typed;
+        }
+        throw new BusinessException(
+                "CHOICE_INVALID_RESPONSE",
+                "Choice Bank returned unexpected data for " + PATH_GET_ONBOARDING_STATUS,
+                HttpStatus.BAD_GATEWAY);
     }
 
     @SuppressWarnings("unchecked")

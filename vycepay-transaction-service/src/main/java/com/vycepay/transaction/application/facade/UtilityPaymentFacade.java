@@ -5,6 +5,7 @@ import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
+import org.springframework.http.HttpStatus;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -105,6 +106,12 @@ public class UtilityPaymentFacade {
         ChoiceBankResponse response = bankingProvider.post(path, params);
         choiceAssessor.requireSuccess(response, path);
         String txId = extractTxId(response.getData());
+        if (txId == null || txId.isBlank()) {
+            throw new BusinessException(
+                    "CHOICE_INVALID_RESPONSE",
+                    "Choice Bank did not return a transaction id for " + path,
+                    HttpStatus.BAD_GATEWAY);
+        }
         String requestId = response.getRequestId() != null ? response.getRequestId() : RequestIdGenerator.generate();
         BigDecimal amount = extractAmount(params);
 

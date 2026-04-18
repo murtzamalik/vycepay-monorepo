@@ -84,4 +84,17 @@ class TransactionFacadeTransferFailureTest {
 
         verify(transactionRepository, never()).save(any(Transaction.class));
     }
+
+    @Test
+    void getBankCodes_whenSuccessButDataIsNotMap_throwsControlledError() {
+        ChoiceBankResponse resp = new ChoiceBankResponse();
+        resp.setCode("00000");
+        resp.setRequestId("cb-req-3");
+        resp.setData("not-a-map");
+        when(bankingProvider.post(eq("staticData/getBankCodes"), any())).thenReturn(resp);
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> facade.getBankCodes());
+        assertEquals("CHOICE_INVALID_RESPONSE", ex.getCode());
+        assertEquals(org.springframework.http.HttpStatus.BAD_GATEWAY, ex.getHttpStatus());
+    }
 }
