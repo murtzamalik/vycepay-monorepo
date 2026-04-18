@@ -10,6 +10,7 @@ import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -166,11 +167,11 @@ public final class ChoiceBankSignatureUtil {
     }
 
     /**
-     * Flattens a nested Map for signing. Nested keys use dot notation (e.g. data.accountId).
-     * Per Choice Bank: same flattening used for request params and response data.
+     * Flattens a nested Map for BaaS signing (Choice Bank authentication / Postman).
+     * Objects use dot notation; empty arrays become {@code path=[]}; non-empty arrays use {@code path[0]}, {@code path[1]}, …
      *
      * @param flat   Target map to add flattened entries to
-     * @param prefix Prefix for keys (e.g. "data")
+     * @param prefix Prefix for keys (e.g. "data" or "params")
      * @param map    Nested map to flatten
      */
     @SuppressWarnings("unchecked")
@@ -181,9 +182,50 @@ public final class ChoiceBankSignatureUtil {
             Object val = e.getValue();
             if (val instanceof Map) {
                 flattenNested(flat, key, (Map<String, Object>) val);
-            } else if (val != null) {
-                flat.put(key, String.valueOf(val));
+            } else {
+                flattenSigningValue(flat, key, val);
             }
+        }
+    }
+
+    /**
+     * Flattens one value for BaaS signing: nested {@link Map}, {@link Collection} (array rules), or scalar.
+     */
+    @SuppressWarnings("unchecked")
+    public static void flattenSigningValue(Map<String, String> flat, String key, Object val) {
+        if (val == null) {
+            return;
+        }
+        if (val instanceof Map) {
+            flattenNested(flat, key, (Map<String, Object>) val);
+            return;
+        }
+        if (val instanceof Collection) {
+            flattenCollectionForSigning(flat, key, (Collection<?>) val);
+            return;
+        }
+        flat.put(key, String.valueOf(val));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void flattenCollectionForSigning(Map<String, String> flat, String prefix, Collection<?> col) {
+        if (col.isEmpty()) {
+            flat.put(prefix, "[]");
+            return;
+        }
+        int i = 0;
+        for (Object item : col) {
+            String indexed = prefix + "[" + i + "]";
+            if (item == null) {
+                flat.put(indexed, "");
+            } else if (item instanceof Map) {
+                flattenNested(flat, indexed, (Map<String, Object>) item);
+            } else if (item instanceof Collection) {
+                flattenCollectionForSigning(flat, indexed, (Collection<?>) item);
+            } else {
+                flat.put(indexed, String.valueOf(item));
+            }
+            i++;
         }
     }
 

@@ -229,7 +229,7 @@ public class TransactionFacade {
         var params = Map.<String, Object>of("txId", tx.getChoiceTxId());
         ChoiceBankResponse response = bankingProvider.post("query/getTransResult", params);
         choiceAssessor.requireSuccess(response, "query/getTransResult");
-        return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
+        return requireMapData(response.getData(), "query/getTransResult");
     }
 
     /**
@@ -238,14 +238,14 @@ public class TransactionFacade {
     public Map<String, Object> getBankCodes() {
         ChoiceBankResponse response = bankingProvider.post("staticData/getBankCodes", Map.of());
         choiceAssessor.requireSuccess(response, "staticData/getBankCodes");
-        return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
+        return requireMapData(response.getData(), "staticData/getBankCodes");
     }
 
     /**
      * Queries Choice Bank transaction list (query/getTransList) for an account.
      *
      * @param choiceAccountId Choice Bank account ID
-     * @param userId          User ID in our system (Choice userId)
+     * @param userId          Choice BaaS end-user id ({@code kyc_verification.choice_user_id}), not VycePay external id
      * @param startTime       UTC timestamp ms
      * @param endTime         UTC timestamp ms
      * @param pageNo          Page number (1-based)
@@ -265,7 +265,7 @@ public class TransactionFacade {
         params.put("orderByDesc", 1);
         ChoiceBankResponse response = bankingProvider.post("query/getTransList", params);
         choiceAssessor.requireSuccess(response, "query/getTransList");
-        return response.getData() != null ? (Map<String, Object>) response.getData() : Map.of();
+        return requireMapData(response.getData(), "query/getTransList");
     }
 
     @SuppressWarnings("unchecked")
@@ -275,5 +275,19 @@ public class TransactionFacade {
             return id != null ? id.toString() : null;
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> requireMapData(Object data, String path) {
+        if (data == null) {
+            return Map.of();
+        }
+        if (data instanceof Map<?, ?>) {
+            return (Map<String, Object>) data;
+        }
+        throw new BusinessException(
+                "CHOICE_INVALID_RESPONSE",
+                "Choice Bank returned unexpected data for " + path,
+                HttpStatus.BAD_GATEWAY);
     }
 }

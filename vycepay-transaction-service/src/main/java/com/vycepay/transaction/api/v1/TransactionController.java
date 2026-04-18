@@ -18,6 +18,7 @@ import com.vycepay.transaction.application.facade.TransactionFacade;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.domain.model.TransactionDisplayStatus;
 import com.vycepay.transaction.infrastructure.persistence.CustomerRepository;
+import com.vycepay.transaction.infrastructure.persistence.KycVerificationRepository;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.TransactionSpecification;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
@@ -44,16 +45,19 @@ public class TransactionController {
     private final CustomerRepository customerRepository;
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final KycVerificationRepository kycVerificationRepository;
 
     public TransactionController(
             @org.springframework.beans.factory.annotation.Autowired(required = false) TransactionFacade transactionFacade,
             CustomerRepository customerRepository,
             WalletRepository walletRepository,
-            TransactionRepository transactionRepository) {
+            TransactionRepository transactionRepository,
+            KycVerificationRepository kycVerificationRepository) {
         this.transactionFacade = transactionFacade;
         this.customerRepository = customerRepository;
         this.walletRepository = walletRepository;
         this.transactionRepository = transactionRepository;
+        this.kycVerificationRepository = kycVerificationRepository;
     }
 
     /**
@@ -193,6 +197,7 @@ public class TransactionController {
     /**
      * Queries Choice Bank transaction list for the customer's wallet (Choice Bank source of truth).
      * Use for syncing or when local history may be incomplete.
+     * Requires {@code kyc_verification.choice_user_id} from the latest KYC row (same id Choice expects as {@code userId}).
      */
     @GetMapping("/choice-history")
     public ResponseEntity<Map<String, Object>> getChoiceHistory(
@@ -206,8 +211,16 @@ public class TransactionController {
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var wallet = walletRepository.findByCustomerId(customer.getId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Wallet not found", HttpStatus.NOT_FOUND));
+        var kycRows = kycVerificationRepository.findByCustomerIdOrderByCreatedAtDesc(customer.getId());
+        var choiceUserId = kycRows.isEmpty() ? null : kycRows.get(0).getChoiceUserId();
+        if (choiceUserId == null || choiceUserId.isBlank()) {
+            throw new BusinessException(
+                    "CHOICE_USER_ID_MISSING",
+                    "Choice user id not available yet; complete onboarding.",
+                    HttpStatus.CONFLICT);
+        }
         var result = transactionFacade.getChoiceTransList(
-                wallet.getChoiceAccountId(), externalId, startTime, endTime, page, size);
+                wallet.getChoiceAccountId(), choiceUserId, startTime, endTime, page, size);
         return ResponseEntity.ok(result);
     }
 

@@ -1,6 +1,5 @@
 package com.vycepay.common.choicebank;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vycepay.common.choicebank.dto.ChoiceBankRequest;
 
 import java.util.HashMap;
@@ -16,12 +15,10 @@ public class ChoiceBankRequestFactory {
     private static final String LOCALE = "en_KE";
     private final String senderId;
     private final String privateKey;
-    private final ObjectMapper objectMapper;
 
-    public ChoiceBankRequestFactory(String senderId, String privateKey, ObjectMapper objectMapper) {
+    public ChoiceBankRequestFactory(String senderId, String privateKey) {
         this.senderId = senderId;
         this.privateKey = privateKey;
-        this.objectMapper = objectMapper;
     }
 
     /**
@@ -53,9 +50,8 @@ public class ChoiceBankRequestFactory {
 
     /**
      * Flattens request into key=value map for signing.
-     * Nested keys use dot notation (e.g. params.name).
+     * Nested keys use dot notation (e.g. params.name); arrays use bracket indexes per Choice BaaS.
      */
-    @SuppressWarnings("unchecked")
     private Map<String, String> flattenForSigning(String requestId, long timestamp, String salt, Map<String, Object> params) {
         Map<String, String> flat = new HashMap<>();
         flat.put("locale", LOCALE);
@@ -65,23 +61,11 @@ public class ChoiceBankRequestFactory {
         flat.put("timestamp", String.valueOf(timestamp));
 
         if (params != null && !params.isEmpty()) {
-            flattenNested(flat, "params", params);
+            ChoiceBankSignatureUtil.flattenNested(flat, "params", params);
         } else {
             // Choice Bank: params must be in flattened string; empty = {}
             flat.put("params", "{}");
         }
         return flat;
-    }
-
-    private void flattenNested(Map<String, String> flat, String prefix, Map<String, Object> map) {
-        for (Map.Entry<String, Object> e : map.entrySet()) {
-            String key = prefix + "." + e.getKey();
-            Object val = e.getValue();
-            if (val instanceof Map) {
-                flattenNested(flat, key, (Map<String, Object>) val);
-            } else if (val != null) {
-                flat.put(key, String.valueOf(val));
-            }
-        }
     }
 }

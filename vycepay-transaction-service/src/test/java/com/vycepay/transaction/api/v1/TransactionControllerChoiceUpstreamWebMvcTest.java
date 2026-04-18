@@ -6,6 +6,7 @@ import com.vycepay.transaction.application.facade.TransactionFacade;
 import com.vycepay.transaction.domain.model.Customer;
 import com.vycepay.transaction.domain.model.Wallet;
 import com.vycepay.transaction.infrastructure.persistence.CustomerRepository;
+import com.vycepay.transaction.infrastructure.persistence.KycVerificationRepository;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
 import com.vycepay.common.exception.ChoiceBankUpstreamException;
@@ -52,6 +53,8 @@ class TransactionControllerChoiceUpstreamWebMvcTest {
     private WalletRepository walletRepository;
     @MockBean
     private TransactionRepository transactionRepository;
+    @MockBean
+    private KycVerificationRepository kycVerificationRepository;
 
     @Test
     void send_whenChoiceUpstream_returnsMappedStatusAndFields() throws Exception {
