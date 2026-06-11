@@ -1,0 +1,59 @@
+name: Admin Portal CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  backend-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Test admin service
+        run: mvn -pl vycepay-admin-service -am test
+
+  frontend-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: vycepay-admin-portal/package-lock.json
+      - name: Install dependencies
+        working-directory: vycepay-admin-portal
+        run: npm ci
+      - name: Typecheck
+        working-directory: vycepay-admin-portal
+        run: npm run typecheck
+      - name: Lint
+        working-directory: vycepay-admin-portal
+        run: npm run lint
+      - name: Test
+        working-directory: vycepay-admin-portal
+        run: npm test
+      - name: Build
+        working-directory: vycepay-admin-portal
+        run: npm run build
+      - name: Production dependency audit
+        working-directory: vycepay-admin-portal
+        run: npm run audit:prod
+
+  compose-admin:
+    runs-on: ubuntu-latest
+    env:
+      ADMIN_JWT_SECRET: ci-only-admin-secret-minimum-32-bytes-change
+      JWT_SECRET: ci-only-customer-secret-minimum-32-bytes
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose files
+        run: |
+          docker compose -f docker-compose.yml config >/dev/null
+          docker compose -f docker-compose.vycepay.yml config >/dev/null

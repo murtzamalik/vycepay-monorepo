@@ -15,6 +15,7 @@ COPY vycepay-kyc-service/pom.xml vycepay-kyc-service/
 COPY vycepay-wallet-service/pom.xml vycepay-wallet-service/
 COPY vycepay-transaction-service/pom.xml vycepay-transaction-service/
 COPY vycepay-activity-service/pom.xml vycepay-activity-service/
+COPY vycepay-admin-service/pom.xml vycepay-admin-service/
 
 # Download dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/* && \
@@ -30,6 +31,7 @@ COPY vycepay-kyc-service vycepay-kyc-service
 COPY vycepay-wallet-service vycepay-wallet-service
 COPY vycepay-transaction-service vycepay-transaction-service
 COPY vycepay-activity-service vycepay-activity-service
+COPY vycepay-admin-service vycepay-admin-service
 
 RUN mvn package -DskipTests -B -q
 
@@ -52,10 +54,11 @@ COPY --from=builder /build/vycepay-kyc-service/target/vycepay-kyc-service-*.jar 
 COPY --from=builder /build/vycepay-wallet-service/target/vycepay-wallet-service-*.jar /app/wallet.jar
 COPY --from=builder /build/vycepay-transaction-service/target/vycepay-transaction-service-*.jar /app/transaction.jar
 COPY --from=builder /build/vycepay-activity-service/target/vycepay-activity-service-*.jar /app/activity.jar
+COPY --from=builder /build/vycepay-admin-service/target/vycepay-admin-service-*.jar /app/admin.jar
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-EXPOSE 3306 8080 8081 8082 8083 8084 8085 8086
+EXPOSE 3306 8080 8081 8082 8083 8084 8085 8086 8090
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

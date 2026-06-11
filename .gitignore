@@ -10,6 +10,9 @@ target/
 *.iws
 .env
 .env.local
+node_modules/
+.next/
+npm-debug.log*
 
 
 choicebank_Callback/

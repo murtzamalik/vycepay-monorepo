@@ -32,6 +32,8 @@ All documentation is in the [`docs/`](docs/) folder. **For a full picture (inclu
 | vycepay-wallet-service | Account mapping, balance cache | 8084 |
 | vycepay-transaction-service | Transfer, deposit, history, idempotency | 8085 |
 | vycepay-activity-service | Audit logging | 8086 |
+| vycepay-admin-service | Backoffice admin APIs, RBAC, sessions, audit | 8090 |
+| vycepay-admin-portal | Next.js backoffice portal | 3000 |
 
 ## Docker
 
@@ -39,7 +41,7 @@ All documentation is in the [`docs/`](docs/) folder. **For a full picture (inclu
 ```bash
 docker compose up -d --build
 ```
-- Uses `docker-compose.yml` and `Dockerfile.services`. BFF: http://localhost:9080. Set `JWT_SECRET`, `CHOICE_BANK_SENDER_ID`, `CHOICE_BANK_PRIVATE_KEY` (and optionally `MYSQL_*`) via `.env` or environment.
+- Uses `docker-compose.yml` and `Dockerfile.services`. BFF: http://localhost:9080. Admin API: http://localhost:8090. Admin portal: http://localhost:3000. Set `JWT_SECRET`, `ADMIN_JWT_SECRET`, `CHOICE_BANK_SENDER_ID`, `CHOICE_BANK_PRIVATE_KEY` (and optionally `MYSQL_*`) via `.env` or environment.
 
 **Single container (all apps + MariaDB in one):**
 ```bash

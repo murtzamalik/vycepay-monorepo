@@ -46,6 +46,8 @@ export SPRING_DATASOURCE_URL="jdbc:mysql://127.0.0.1:3306/vycepay?useSSL=false&s
 export DB_USERNAME=vycepay
 export DB_PASSWORD=vycepay
 export JWT_SECRET="${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}"
+export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-dev}"
+export ADMIN_JWT_SECRET="${ADMIN_JWT_SECRET:-dev-only-admin-secret-change-before-prod-123456}"
 
 (PORT=8081 java -jar /app/callback.jar) &
 (PORT=8082 java -jar /app/auth.jar) &
@@ -53,6 +55,7 @@ export JWT_SECRET="${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs2
 (PORT=8084 java -jar /app/wallet.jar) &
 (PORT=8085 java -jar /app/transaction.jar) &
 (PORT=8086 java -jar /app/activity.jar) &
+(PORT=8090 java -jar /app/admin.jar) &
 
 # BFF (single entry for mobile) - start after backends
 sleep 5

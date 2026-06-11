@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: vycepay-admin-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC}
+    username: ${DB_USERNAME:vycepay}
+    password: ${DB_PASSWORD:vycepay}
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+vycepay:
+  jwt:
+    secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
+  admin:
+    jwt:
+      secret: ${ADMIN_JWT_SECRET:}
+      expiration-ms: ${ADMIN_JWT_EXPIRATION_MS:900000}
+    cors:
+      allowed-origins: ${ADMIN_CORS_ORIGINS:http://localhost:3000}
+    login:
+      max-attempts: ${ADMIN_LOGIN_MAX_ATTEMPTS:5}
+      lockout-minutes: ${ADMIN_LOCKOUT_MINUTES:15}
+    export:
+      max-rows: ${ADMIN_EXPORT_MAX_ROWS:10000}
+    rate-limit:
+      login:
+        limit: ${ADMIN_RATE_LIMIT_LOGIN_LIMIT:5}
+        window-seconds: ${ADMIN_RATE_LIMIT_LOGIN_WINDOW_SECONDS:60}
+      reset:
+        limit: ${ADMIN_RATE_LIMIT_RESET_LIMIT:3}
+        window-seconds: ${ADMIN_RATE_LIMIT_RESET_WINDOW_SECONDS:300}
+      export:
+        limit: ${ADMIN_RATE_LIMIT_EXPORT_LIMIT:5}
+        window-seconds: ${ADMIN_RATE_LIMIT_EXPORT_WINDOW_SECONDS:300}
+      mutation:
+        limit: ${ADMIN_RATE_LIMIT_MUTATION_LIMIT:30}
+        window-seconds: ${ADMIN_RATE_LIMIT_MUTATION_WINDOW_SECONDS:60}
+    bootstrap:
+      username: ${ADMIN_BOOTSTRAP_USERNAME:}
+      email: ${ADMIN_BOOTSTRAP_EMAIL:}
+      password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+      full-name: ${ADMIN_BOOTSTRAP_FULL_NAME:Super Admin}
+    health:
+      services:
+        - name: BFF
+          url: ${ADMIN_HEALTH_BFF_URL:http://localhost:8080/actuator/health}
+        - name: Callback
+          url: ${ADMIN_HEALTH_CALLBACK_URL:http://localhost:8081/actuator/health}
+        - name: Auth
+          url: ${ADMIN_HEALTH_AUTH_URL:http://localhost:8082/actuator/health}
+        - name: KYC
+          url: ${ADMIN_HEALTH_KYC_URL:http://localhost:8083/actuator/health}
+        - name: Wallet
+          url: ${ADMIN_HEALTH_WALLET_URL:http://localhost:8084/actuator/health}
+        - name: Transaction
+          url: ${ADMIN_HEALTH_TRANSACTION_URL:http://localhost:8085/actuator/health}
+        - name: Activity
+          url: ${ADMIN_HEALTH_ACTIVITY_URL:http://localhost:8086/actuator/health}
+      choice-bank-url: ${CHOICE_BANK_BASE_URL:https://baas-pilot.choicebankapi.com}

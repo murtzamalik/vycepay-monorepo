@@ -1,0 +1,44 @@
+package com.vycepay.admin.application.service;
+
+import java.util.List;
+import java.util.UUID;
+
+import com.vycepay.admin.api.v1.dto.AdminRequests.AdminPasswordResetRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.AdminUserCreateRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.AdminUserUpdateRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.CallbackRetryRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.CustomerStatusRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.MenuRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.RoleRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.WalletStatusRequest;
+import com.vycepay.common.exception.BusinessException;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** Performs controlled admin mutations with reason capture and immutable audit entries. */
+@Service
+public class AdminMutationService {
+    private final JdbcTemplate jdbcTemplate; private final AdminSecurityContext securityContext; private final AdminAuditService auditService; private final PasswordEncoder passwordEncoder;
+    public AdminMutationService(JdbcTemplate jdbcTemplate, AdminSecurityContext securityContext, AdminAuditService auditService, PasswordEncoder passwordEncoder) { this.jdbcTemplate=jdbcTemplate; this.securityContext=securityContext; this.auditService=auditService; this.passwordEncoder=passwordEncoder; }
+    @Transactional public void updateCustomerStatus(String id, CustomerStatusRequest body, HttpServletRequest req){ Long pk=customerPk(id); jdbcTemplate.update("UPDATE customer SET status=? WHERE id=?", body.status(), pk); auditService.log(securityContext.currentAdmin(), body.status()+"_CUSTOMER", "customer", String.valueOf(pk), body.reason(), "{\"status\":\""+body.status()+"\"}", req); }
+    @Transactional public void updateWalletStatus(Long id, WalletStatusRequest body, HttpServletRequest req){ int rows=jdbcTemplate.update("UPDATE wallet SET status=? WHERE id=?", body.status(), id); if(rows==0) throw notFound("WALLET_NOT_FOUND"); auditService.log(securityContext.currentAdmin(), body.status()+"_WALLET", "wallet", String.valueOf(id), body.reason(), "{\"status\":\""+body.status()+"\"}", req); }
+    @Transactional public void retryCallback(Long id, CallbackRetryRequest body, HttpServletRequest req){ int rows=jdbcTemplate.update("UPDATE choice_bank_callback SET processed=FALSE, processing_error=NULL WHERE id=? AND processed=FALSE", id); if(rows==0 && jdbcTemplate.queryForObject("SELECT COUNT(*) FROM choice_bank_callback WHERE id=?", Long.class, id)==0) throw notFound("CALLBACK_NOT_FOUND"); auditService.log(securityContext.currentAdmin(), "RETRY_CALLBACK", "choice_bank_callback", String.valueOf(id), body.reason(), "{\"queued\":true}", req); }
+    @Transactional public Long createMenu(MenuRequest body, HttpServletRequest req){ jdbcTemplate.update("INSERT INTO admin_menu (name, route, icon, parent_id, sort_order) VALUES (?, ?, ?, ?, ?)", body.name(), body.route(), body.icon(), body.parentId(), intVal(body.sortOrder())); Long id=jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class); auditService.log(securityContext.currentAdmin(), "CREATE_MENU", "admin_menu", String.valueOf(id), null, "{}", req); return id; }
+    @Transactional public void updateMenu(Long id, MenuRequest body, HttpServletRequest req){ jdbcTemplate.update("UPDATE admin_menu SET name=?, route=?, icon=?, parent_id=?, sort_order=? WHERE id=?", body.name(), body.route(), body.icon(), body.parentId(), intVal(body.sortOrder()), id); auditService.log(securityContext.currentAdmin(), "UPDATE_MENU", "admin_menu", String.valueOf(id), null, "{}", req); }
+    @Transactional public void deleteMenu(Long id, HttpServletRequest req){ Long count=jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admin_role_menu WHERE menu_id=?", Long.class, id); if(count!=null&&count>0) throw new BusinessException("MENU_ASSIGNED", "Cannot delete a menu assigned to roles", HttpStatus.CONFLICT); jdbcTemplate.update("DELETE FROM admin_menu WHERE id=?", id); auditService.log(securityContext.currentAdmin(), "DELETE_MENU", "admin_menu", String.valueOf(id), null, "{}", req); }
+    @Transactional public Long createRole(RoleRequest body, HttpServletRequest req){ jdbcTemplate.update("INSERT INTO admin_role (name, description) VALUES (?, ?)", body.name(), body.description()); Long id=jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class); replaceRoleAssignments(id, body.menuIds(), body.permissionCodes()); auditService.log(securityContext.currentAdmin(), "CREATE_ROLE", "admin_role", String.valueOf(id), body.reason(), "{}", req); return id; }
+    @Transactional public void updateRole(Long id, RoleRequest body, HttpServletRequest req){ jdbcTemplate.update("UPDATE admin_role SET name=?, description=? WHERE id=?", body.name(), body.description(), id); replaceRoleAssignments(id, body.menuIds(), body.permissionCodes()); auditService.log(securityContext.currentAdmin(), "UPDATE_ROLE", "admin_role", String.valueOf(id), body.reason(), "{}", req); }
+    @Transactional public void deleteRole(Long id, HttpServletRequest req){ Long count=jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admin_user_role WHERE role_id=?", Long.class, id); if(count!=null&&count>0) throw new BusinessException("ROLE_ASSIGNED", "Cannot delete a role assigned to users", HttpStatus.CONFLICT); jdbcTemplate.update("DELETE FROM admin_role WHERE id=?", id); auditService.log(securityContext.currentAdmin(), "DELETE_ROLE", "admin_role", String.valueOf(id), null, "{}", req); }
+    @Transactional public Long createAdminUser(AdminUserCreateRequest body, HttpServletRequest req){ jdbcTemplate.update("INSERT INTO admin_user (external_id, username, email, full_name, password_hash, status) VALUES (?, ?, ?, ?, ?, 'ACTIVE')", UUID.randomUUID().toString(), body.username(), body.email(), body.fullName(), passwordEncoder.encode(body.password())); Long id=jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class); replaceUserRoles(id, body.roleIds()); auditService.log(securityContext.currentAdmin(), "CREATE_ADMIN_USER", "admin_user", String.valueOf(id), body.reason(), "{}", req); return id; }
+    @Transactional public void updateAdminUser(Long id, AdminUserUpdateRequest body, HttpServletRequest req){ jdbcTemplate.update("UPDATE admin_user SET email=?, full_name=?, status=? WHERE id=?", body.email(), body.fullName(), body.status(), id); replaceUserRoles(id, body.roleIds()); auditService.log(securityContext.currentAdmin(), "UPDATE_ADMIN_USER", "admin_user", String.valueOf(id), body.reason(), "{}", req); }
+    @Transactional public void resetAdminPassword(Long id, AdminPasswordResetRequest body, HttpServletRequest req){ jdbcTemplate.update("UPDATE admin_user SET password_hash=? WHERE id=?", passwordEncoder.encode(body.newPassword()), id); jdbcTemplate.update("UPDATE admin_session SET revoked=TRUE, revoked_at=CURRENT_TIMESTAMP WHERE admin_user_id=?", id); auditService.log(securityContext.currentAdmin(), "RESET_ADMIN_PASSWORD", "admin_user", String.valueOf(id), body.reason(), "{}", req); }
+    private void replaceRoleAssignments(Long roleId, List<Long> menuIds, List<String> permissionCodes){ jdbcTemplate.update("DELETE FROM admin_role_menu WHERE role_id=?", roleId); jdbcTemplate.update("DELETE FROM admin_role_permission WHERE role_id=?", roleId); for(Long menuId: menuIds) jdbcTemplate.update("INSERT INTO admin_role_menu (role_id, menu_id) VALUES (?, ?)", roleId, menuId); for(String code: permissionCodes) jdbcTemplate.update("INSERT INTO admin_role_permission (role_id, permission_id) SELECT ?, id FROM admin_permission WHERE code=?", roleId, code); }
+    private void replaceUserRoles(Long userId, List<Long> roleIds){ jdbcTemplate.update("DELETE FROM admin_user_role WHERE user_id=?", userId); for(Long roleId: roleIds) jdbcTemplate.update("INSERT INTO admin_user_role (user_id, role_id) VALUES (?, ?)", userId, roleId); }
+    private Long customerPk(String id){ var rows=jdbcTemplate.queryForList("SELECT id FROM customer WHERE external_id=? OR id=?", id, numericId(id)); if(rows.isEmpty()) throw notFound("CUSTOMER_NOT_FOUND"); return ((Number)rows.get(0).get("id")).longValue(); }
+    private BusinessException notFound(String code){ return new BusinessException(code, "Resource not found", HttpStatus.NOT_FOUND); }
+    private Long numericId(String id){ try{return Long.parseLong(id);}catch(Exception e){return -1L;} } private int intVal(Object v){ return v instanceof Number n?n.intValue():v==null?0:Integer.parseInt(String.valueOf(v)); }
+}

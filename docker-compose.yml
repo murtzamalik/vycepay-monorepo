@@ -14,7 +14,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-vycepay}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
     ports:
-      - "3306:3306"
+      - "${MYSQL_HOST_PORT:-3306}:3306"
     volumes:
       - vycepay_mysql_data:/var/lib/mysql
     healthcheck:
@@ -36,6 +36,9 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      VYCEPAY_CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      VYCEPAY_CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      VYCEPAY_CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
     depends_on:
       mysql:
@@ -55,6 +58,9 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      VYCEPAY_CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      VYCEPAY_CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      VYCEPAY_CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -74,6 +80,9 @@ services:
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
       JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      VYCEPAY_CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      VYCEPAY_CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      VYCEPAY_CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -93,6 +102,9 @@ services:
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
       JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      VYCEPAY_CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      VYCEPAY_CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      VYCEPAY_CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -131,6 +143,9 @@ services:
       DB_USERNAME: ${MYSQL_USER:-vycepay}
       DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
       JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      VYCEPAY_CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+      VYCEPAY_CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      VYCEPAY_CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -160,6 +175,52 @@ services:
       - activity
     ports:
       - "9080:8080"
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    container_name: vycepay-admin
+    command: ["java", "-jar", "/app/admin.jar"]
+    environment:
+      PORT: "8090"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/vycepay?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      DB_USERNAME: ${MYSQL_USER:-vycepay}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-vycepay}
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-dev-only-admin-secret-change-before-prod-123456}
+      ADMIN_CORS_ORIGINS: ${ADMIN_CORS_ORIGINS:-http://localhost:3000}
+      ADMIN_BOOTSTRAP_USERNAME: ${ADMIN_BOOTSTRAP_USERNAME:-}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      ADMIN_HEALTH_BFF_URL: "http://bff:8080/actuator/health"
+      ADMIN_HEALTH_CALLBACK_URL: "http://callback:8081/actuator/health"
+      ADMIN_HEALTH_AUTH_URL: "http://auth:8082/actuator/health"
+      ADMIN_HEALTH_KYC_URL: "http://kyc:8083/actuator/health"
+      ADMIN_HEALTH_WALLET_URL: "http://wallet:8084/actuator/health"
+      ADMIN_HEALTH_TRANSACTION_URL: "http://transaction:8085/actuator/health"
+      ADMIN_HEALTH_ACTIVITY_URL: "http://activity:8086/actuator/health"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+
+  admin-portal:
+    build:
+      context: ./vycepay-admin-portal
+      dockerfile: Dockerfile
+    container_name: vycepay-admin-portal
+    environment:
+      ADMIN_API_URL: "http://admin:8090"
+      NEXT_PUBLIC_ADMIN_API_URL: "http://localhost:8090"
+    depends_on:
+      - admin
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
 volumes:

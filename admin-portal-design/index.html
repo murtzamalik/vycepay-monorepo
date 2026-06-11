@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VycePay — Admin Portal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        base: '#070912',
+        surface: '#0F1221',
+        elevated: '#141828',
+        overlay: '#1A1F35',
+        border: '#1B2040',
+        'border-strong': '#252D50',
+        brand: '#4F79FF',
+        'brand-dim': 'rgba(79,121,255,0.12)',
+        'brand-glow': 'rgba(79,121,255,0.25)',
+        success: '#0FD67C',
+        'success-dim': 'rgba(15,214,124,0.12)',
+        warning: '#F5A623',
+        'warning-dim': 'rgba(245,166,35,0.12)',
+        danger: '#FF3D57',
+        'danger-dim': 'rgba(255,61,87,0.12)',
+        purple: '#8B5CF6',
+        'purple-dim': 'rgba(139,92,246,0.12)',
+        't1': '#E4E7F2',
+        't2': '#6B7394',
+        't3': '#3D4460',
+      }
+    }
+  }
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#070912;color:#E4E7F2;overflow-x:hidden}
+.mono{font-family:'JetBrains Mono',monospace}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#0F1221}
+::-webkit-scrollbar-thumb{background:#252D50;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#3A4468}
+
+/* SCREENS */
+.screen{display:none}
+.screen.active{display:block}
+.auth-screen{display:none}
+.auth-screen.active{display:flex}
+
+/* SIDEBAR */
+.sidebar{
+  width:248px;min-width:248px;background:#0B0D18;
+  border-right:1px solid #1B2040;
+  height:100vh;overflow-y:auto;flex-shrink:0;
+  display:flex;flex-direction:column;
+}
+.nav-section-label{
+  padding:20px 16px 6px;
+  font-size:10px;font-weight:700;letter-spacing:.1em;
+  color:#3D4460;text-transform:uppercase;
+}
+.nav-item{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 12px;margin:1px 8px;border-radius:7px;
+  color:#6B7394;font-size:13px;font-weight:500;
+  cursor:pointer;transition:all .15s;user-select:none;
+}
+.nav-item:hover{background:rgba(79,121,255,.08);color:#C5CBE8}
+.nav-item.active{background:rgba(79,121,255,.15);color:#4F79FF}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke-width:1.8}
+.nav-sub{padding-left:16px}
+.nav-sub .nav-item{font-size:12.5px;padding:6px 12px}
+
+/* HEADER */
+.topbar{
+  height:56px;background:#0B0D18;
+  border-bottom:1px solid #1B2040;
+  display:flex;align-items:center;
+  padding:0 24px;gap:16px;flex-shrink:0;
+}
+
+/* CARDS */
+.card{background:#0F1221;border:1px solid #1B2040;border-radius:12px;padding:20px}
+.card-sm{background:#0F1221;border:1px solid #1B2040;border-radius:10px;padding:16px}
+.card-elevated{background:#141828;border:1px solid #1B2040;border-radius:12px;padding:20px}
+
+/* KPI CARD */
+.kpi-card{
+  background:#0F1221;border:1px solid #1B2040;border-radius:12px;
+  padding:20px;position:relative;overflow:hidden;
+  transition:border-color .2s;
+}
+.kpi-card:hover{border-color:#252D50}
+.kpi-card::before{
+  content:'';position:absolute;top:0;right:0;
+  width:120px;height:120px;border-radius:50%;
+  filter:blur(40px);opacity:.4;pointer-events:none;
+}
+.kpi-blue::before{background:#4F79FF}
+.kpi-green::before{background:#0FD67C}
+.kpi-amber::before{background:#F5A623}
+.kpi-purple::before{background:#8B5CF6}
+
+/* BADGES */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:20px;
+  font-size:11px;font-weight:600;line-height:1;white-space:nowrap;
+}
+.badge-success{background:rgba(15,214,124,.12);color:#0FD67C}
+.badge-warning{background:rgba(245,166,35,.12);color:#F5A623}
+.badge-danger{background:rgba(255,61,87,.12);color:#FF3D57}
+.badge-info{background:rgba(79,121,255,.12);color:#4F79FF}
+.badge-gray{background:rgba(107,115,148,.12);color:#6B7394}
+.badge-purple{background:rgba(139,92,246,.12);color:#8B5CF6}
+.badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* STATUS DOT */
+.status-dot{
+  width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;
+}
+.dot-up{background:#0FD67C;box-shadow:0 0 6px rgba(15,214,124,.5)}
+.dot-down{background:#FF3D57;box-shadow:0 0 6px rgba(255,61,87,.5)}
+.dot-degraded{background:#F5A623;box-shadow:0 0 6px rgba(245,166,35,.5)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{
+  padding:10px 14px;text-align:left;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  color:#3D4460;text-transform:uppercase;
+  border-bottom:1px solid #1B2040;background:#0B0D18;
+  white-space:nowrap;
+}
+.tbl th:first-child{border-radius:0}
+.tbl td{
+  padding:11px 14px;border-bottom:1px solid #141828;
+  color:#C5CBE8;vertical-align:middle;
+}
+.tbl tr:hover td{background:rgba(255,255,255,.018)}
+.tbl tr:last-child td{border-bottom:none}
+
+/* INPUTS */
+.inp{
+  background:#0B0D18;border:1px solid #1B2040;border-radius:7px;
+  padding:8px 12px;color:#E4E7F2;font-size:13px;width:100%;
+  outline:none;transition:border-color .15s;font-family:'Inter',sans-serif;
+}
+.inp:focus{border-color:#4F79FF;box-shadow:0 0 0 3px rgba(79,121,255,.12)}
+.inp::placeholder{color:#3D4460}
+.inp-label{font-size:12px;font-weight:500;color:#6B7394;margin-bottom:5px;display:block}
+.inp-group{margin-bottom:16px}
+
+/* BUTTONS */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 14px;border-radius:7px;font-size:13px;
+  font-weight:500;cursor:pointer;border:none;
+  transition:all .15s;white-space:nowrap;font-family:'Inter',sans-serif;
+}
+.btn-primary{background:#4F79FF;color:#fff}
+.btn-primary:hover{background:#3D66E8}
+.btn-secondary{background:#141828;color:#C5CBE8;border:1px solid #1B2040}
+.btn-secondary:hover{background:#1A1F35;border-color:#252D50}
+.btn-danger{background:rgba(255,61,87,.1);color:#FF3D57;border:1px solid rgba(255,61,87,.2)}
+.btn-danger:hover{background:rgba(255,61,87,.18)}
+.btn-success{background:rgba(15,214,124,.1);color:#0FD67C;border:1px solid rgba(15,214,124,.2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:7px;border-radius:7px}
+
+/* TABS */
+.tab-bar{display:flex;border-bottom:1px solid #1B2040;gap:4px;margin-bottom:20px}
+.tab-btn{
+  padding:9px 16px;font-size:13px;font-weight:500;
+  color:#6B7394;border:none;background:none;
+  border-bottom:2px solid transparent;cursor:pointer;
+  transition:all .15s;margin-bottom:-1px;
+}
+.tab-btn.active{color:#4F79FF;border-bottom-color:#4F79FF}
+.tab-btn:hover:not(.active){color:#C5CBE8}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* TIMELINE */
+.tl-item{position:relative;padding-left:28px;padding-bottom:20px}
+.tl-item::before{
+  content:'';position:absolute;left:7px;top:18px;
+  width:1.5px;bottom:0;background:#1B2040;
+}
+.tl-item:last-child::before{display:none}
+.tl-dot{
+  position:absolute;left:0;top:3px;
+  width:15px;height:15px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:1.5px solid #252D50;background:#0F1221;
+}
+
+/* CHECKBOX */
+.chk{
+  width:15px;height:15px;border:1.5px solid #252D50;
+  border-radius:4px;background:#0B0D18;
+  display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;transition:all .15s;
+}
+.chk.checked{background:#4F79FF;border-color:#4F79FF}
+
+/* SKELETON */
+.skeleton{
+  background:linear-gradient(90deg,#141828 25%,#1A1F35 50%,#141828 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.5s infinite;
+  border-radius:5px;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* PROGRESS BAR */
+.progress-bar{height:6px;background:#141828;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s}
+
+/* GLOW EFFECTS */
+.glow-blue{box-shadow:0 0 20px rgba(79,121,255,.15)}
+.glow-green{box-shadow:0 0 20px rgba(15,214,124,.12)}
+
+/* SCROLLABLE TABLE WRAPPER */
+.tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid #1B2040}
+.tbl-wrap .tbl th:first-child,.tbl-wrap .tbl td:first-child{padding-left:20px}
+
+/* FILTER BAR */
+.filter-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:14px 20px;border-bottom:1px solid #1B2040;
+  flex-wrap:wrap;
+}
+
+/* SELECT */
+.sel{
+  background:#0B0D18;border:1px solid #1B2040;border-radius:7px;
+  padding:7px 10px;color:#C5CBE8;font-size:12.5px;
+  outline:none;cursor:pointer;font-family:'Inter',sans-serif;
+}
+.sel:focus{border-color:#4F79FF}
+
+/* BREADCRUMB */
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#3D4460}
+.breadcrumb .sep{color:#252D50}
+.breadcrumb .current{color:#6B7394}
+.breadcrumb a{color:#3D4460;cursor:pointer}
+.breadcrumb a:hover{color:#6B7394}
+
+/* ALERT */
+.alert{
+  display:flex;gap:10px;padding:12px 14px;border-radius:8px;
+  font-size:13px;margin-bottom:8px;
+}
+.alert-warning{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:#F5A623}
+.alert-danger{background:rgba(255,61,87,.08);border:1px solid rgba(255,61,87,.2);color:#FF3D57}
+.alert-info{background:rgba(79,121,255,.08);border:1px solid rgba(79,121,255,.2);color:#4F79FF}
+.alert-success{background:rgba(15,214,124,.08);border:1px solid rgba(15,214,124,.2);color:#0FD67C}
+
+/* DIVIDER */
+.divider{height:1px;background:#1B2040;margin:16px 0}
+
+/* CIRCUIT BREAKER */
+.cb-closed{background:rgba(15,214,124,.08);border:1px solid rgba(15,214,124,.2);color:#0FD67C;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.cb-open{background:rgba(255,61,87,.08);border:1px solid rgba(255,61,87,.2);color:#FF3D57;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.cb-half{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:#F5A623;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace}
+
+/* TOOLTIP */
+.tooltip-wrap{position:relative}
+.tooltip-wrap:hover .tooltip{display:block}
+.tooltip{
+  display:none;position:absolute;bottom:calc(100%+6px);left:50%;
+  transform:translateX(-50%);background:#1A1F35;border:1px solid #252D50;
+  padding:5px 9px;border-radius:5px;font-size:11.5px;color:#C5CBE8;
+  white-space:nowrap;z-index:100;pointer-events:none;
+}
+
+/* MENU TREE */
+.menu-parent{margin-bottom:4px}
+.menu-parent-label{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;
+  color:#C5CBE8;background:#141828;border:1px solid #1B2040;
+  user-select:none;
+}
+.menu-children{padding:4px 0 4px 24px}
+.menu-child-item{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-radius:5px;font-size:12.5px;color:#6B7394;cursor:pointer;
+  transition:background .12s;
+}
+.menu-child-item:hover{background:rgba(79,121,255,.05)}
+
+/* ROLE PREVIEW PANEL */
+.role-preview-item{
+  display:flex;align-items:center;gap:7px;padding:5px 8px;
+  border-radius:5px;font-size:12px;color:#C5CBE8;
+  background:#141828;border:1px solid #1B2040;margin-bottom:4px;
+}
+
+/* AVATAR */
+.avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,#4F79FF,#8B5CF6);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.avatar-lg{width:52px;height:52px;font-size:18px}
+.avatar-sm{width:28px;height:28px;font-size:11px}
+
+/* SPARKLINE */
+.spark{display:flex;align-items:flex-end;gap:2px;height:28px}
+.spark-bar{width:4px;border-radius:2px;transition:height .3s}
+
+/* PAGINATION */
+.pg-btn{
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  border-radius:6px;font-size:13px;cursor:pointer;
+  color:#6B7394;border:1px solid #1B2040;background:#0B0D18;
+  transition:all .15s;
+}
+.pg-btn:hover{border-color:#252D50;color:#C5CBE8}
+.pg-btn.active{background:#4F79FF;border-color:#4F79FF;color:#fff}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* EMPTY STATE */
+.empty-state{
+  text-align:center;padding:60px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+
+/* SECTION HEADER */
+.section-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;
+}
+.section-title{font-size:15px;font-weight:600;color:#E4E7F2}
+.section-sub{font-size:12.5px;color:#6B7394;margin-top:2px}
+
+/* RAW JSON VIEWER */
+.json-viewer{
+  background:#0B0D18;border:1px solid #1B2040;border-radius:8px;
+  padding:16px;font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:#A8B4D8;line-height:1.7;
+  overflow-x:auto;white-space:pre;max-height:400px;overflow-y:auto;
+}
+
+/* METRIC ROW */
+.metric-row{display:flex;gap:6px;flex-wrap:wrap}
+.metric-pill{
+  padding:4px 10px;border-radius:6px;font-size:12px;
+  background:#141828;border:1px solid #1B2040;color:#6B7394;
+}
+.metric-pill span{color:#E4E7F2;font-weight:600}
+
+/* SWITCH */
+.switch{
+  width:36px;height:20px;border-radius:10px;
+  background:#1B2040;position:relative;cursor:pointer;
+  transition:background .2s;flex-shrink:0;
+}
+.switch.on{background:#4F79FF}
+.switch::after{
+  content:'';position:absolute;
+  width:14px;height:14px;border-radius:50%;
+  background:#fff;top:3px;left:3px;
+  transition:transform .2s;
+}
+.switch.on::after{transform:translateX(16px)}
+
+/* FUNNEL CHART */
+.funnel-step{
+  border-radius:8px;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;margin-bottom:6px;position:relative;overflow:hidden;
+}
+
+/* SYSTEM SERVICE CARD */
+.svc-card{
+  background:#0F1221;border:1px solid #1B2040;border-radius:10px;padding:16px;
+  transition:border-color .2s;
+}
+.svc-card:hover{border-color:#252D50}
+
+/* COLLAPSIBLE NAV */
+.nav-collapse-btn{cursor:pointer}
+.nav-collapse-content{overflow:hidden;transition:max-height .2s;max-height:200px}
+.nav-collapse-content.collapsed{max-height:0}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     AUTH SCREENS (Login, Forgot Password)
+     ============================================================ -->
+<div id="auth-wrap">
+
+  <!-- A1: LOGIN -->
+  <div id="screen-login" class="auth-screen active" style="min-height:100vh;background:#070912;background-image:radial-gradient(ellipse at 20% 40%,rgba(79,121,255,.07) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(139,92,246,.05) 0%,transparent 50%);display:flex;align-items:center;justify-content:center">
+    <div style="width:100%;max-width:420px;padding:32px">
+      <!-- Logo -->
+      <div style="text-align:center;margin-bottom:36px">
+        <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:38px;height:38px;background:linear-gradient(135deg,#4F79FF,#8B5CF6);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <span style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.4px">VycePay</span>
+        </div>
+        <p style="font-size:13px;color:#3D4460;font-weight:500;letter-spacing:.02em">ADMIN PORTAL</p>
+      </div>
+
+      <!-- Card -->
+      <div style="background:#0F1221;border:1px solid #1B2040;border-radius:16px;padding:32px">
+        <h2 style="font-size:20px;font-weight:700;color:#E4E7F2;margin-bottom:6px">Welcome back</h2>
+        <p style="font-size:13px;color:#6B7394;margin-bottom:28px">Sign in to your admin account</p>
+
+        <div class="inp-group">
+          <label class="inp-label">Email address</label>
+          <input class="inp" type="email" placeholder="admin@vycepay.com" value="admin@vycepay.com">
+        </div>
+        <div class="inp-group">
+          <label class="inp-label" style="display:flex;justify-content:space-between">
+            <span>Password</span>
+            <span style="color:#4F79FF;cursor:pointer;font-size:12px" onclick="showForgot()">Forgot password?</span>
+          </label>
+          <div style="position:relative">
+            <input class="inp" type="password" placeholder="••••••••••" id="login-pw" value="••••••••••" style="padding-right:40px">
+            <div style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#3D4460">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px">
+          <div class="chk checked" id="rem-chk" onclick="this.classList.toggle('checked')">
+            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg>
+          </div>
+          <span style="font-size:13px;color:#6B7394;cursor:pointer" onclick="document.getElementById('rem-chk').classList.toggle('checked')">Remember me for 30 days</span>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px;font-weight:600;border-radius:9px" onclick="loginEnter()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Sign in
+        </button>
+
+        <div style="margin-top:20px;padding-top:20px;border-top:1px solid #1B2040;text-align:center">
+          <p style="font-size:12px;color:#3D4460">Last login: Today at 09:14 AM · 41.90.144.12</p>
+        </div>
+      </div>
+
+      <p style="text-align:center;font-size:12px;color:#252D50;margin-top:24px">© 2026 VycePay · Secured · All rights reserved</p>
+    </div>
+  </div>
+
+  <!-- A2: FORGOT PASSWORD -->
+  <div id="screen-forgot" class="auth-screen" style="min-height:100vh;background:#070912;background-image:radial-gradient(ellipse at 80% 20%,rgba(79,121,255,.07) 0%,transparent 60%);display:flex;align-items:center;justify-content:center">
+    <div style="width:100%;max-width:420px;padding:32px">
+      <div style="text-align:center;margin-bottom:36px">
+        <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:38px;height:38px;background:linear-gradient(135deg,#4F79FF,#8B5CF6);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <span style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.4px">VycePay</span>
+        </div>
+        <p style="font-size:13px;color:#3D4460;font-weight:500;letter-spacing:.02em">ADMIN PORTAL</p>
+      </div>
+
+      <div style="background:#0F1221;border:1px solid #1B2040;border-radius:16px;padding:32px">
+        <div style="width:48px;height:48px;background:rgba(79,121,255,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </div>
+        <h2 style="font-size:20px;font-weight:700;color:#E4E7F2;margin-bottom:6px">Reset password</h2>
+        <p style="font-size:13px;color:#6B7394;margin-bottom:28px">Enter your email to receive a reset link</p>
+
+        <div class="inp-group">
+          <label class="inp-label">Email address</label>
+          <input class="inp" type="email" placeholder="admin@vycepay.com">
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px;font-weight:600;border-radius:9px">
+          Send reset link
+        </button>
+
+        <div style="margin-top:16px;text-align:center">
+          <span style="font-size:13px;color:#4F79FF;cursor:pointer" onclick="showLogin()">← Back to sign in</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /auth-wrap -->
+
+<!-- ============================================================
+     APP SHELL
+     ============================================================ -->
+<div id="app-wrap" style="display:none;flex-direction:row;min-height:100vh">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <!-- Logo -->
+    <div style="padding:18px 16px 14px;border-bottom:1px solid #1B2040">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:32px;height:32px;background:linear-gradient(135deg,#4F79FF,#8B5CF6);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">VycePay</div>
+          <div style="font-size:10px;color:#3D4460;font-weight:600;letter-spacing:.06em">ADMIN PORTAL</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav style="flex:1;padding:8px 0;overflow-y:auto">
+
+      <div class="nav-item active" id="nav-dashboard" onclick="navigate('screen-dashboard','nav-dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+
+      <div class="nav-section-label">Operations</div>
+
+      <div class="nav-item" id="nav-customers" onclick="navigate('screen-customers','nav-customers')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Customers
+      </div>
+
+      <div class="nav-item" id="nav-kyc" onclick="navigate('screen-kyc-list','nav-kyc')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        KYC Management
+      </div>
+
+      <div class="nav-item" id="nav-wallets" onclick="navigate('screen-wallet-list','nav-wallets')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Wallets
+      </div>
+
+      <!-- Transactions expandable -->
+      <div>
+        <div class="nav-item" id="nav-tx" onclick="navigate('screen-transactions','nav-tx');toggleSub('tx-sub')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Transactions
+          <svg id="tx-sub-arrow" style="margin-left:auto;width:12px;height:12px;transition:transform .2s" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="tx-sub" class="nav-sub nav-collapse-content">
+          <div class="nav-item" id="nav-all-tx" onclick="navigate('screen-transactions','nav-all-tx')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            All Transactions
+          </div>
+          <div class="nav-item" id="nav-failed-tx" onclick="navigate('screen-failed-tx','nav-failed-tx')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:#FF3D57"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span>Failed Transactions</span>
+            <span class="badge badge-danger" style="margin-left:auto;font-size:10px;padding:2px 6px">14</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-item" id="nav-callbacks" onclick="navigate('screen-callback-log','nav-callbacks')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.11a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+        Callbacks
+        <span class="badge badge-warning" style="margin-left:auto;font-size:10px;padding:2px 6px">3</span>
+      </div>
+
+      <div class="nav-section-label">Reports</div>
+
+      <div class="nav-item" id="nav-vol" onclick="navigate('screen-report-volume','nav-vol')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Volume Report
+      </div>
+
+      <div class="nav-item" id="nav-kyc-funnel" onclick="navigate('screen-report-kyc','nav-kyc-funnel')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        KYC Funnel
+      </div>
+
+      <div class="nav-item" id="nav-growth" onclick="navigate('screen-report-growth','nav-growth')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Customer Growth
+      </div>
+
+      <div class="nav-item" id="nav-audit" onclick="navigate('screen-audit-log','nav-audit')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Audit Log
+      </div>
+
+      <div class="nav-section-label">System</div>
+
+      <div class="nav-item" id="nav-health" onclick="navigate('screen-health','nav-health')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        System Health
+      </div>
+
+      <div class="nav-section-label">Administration</div>
+
+      <div class="nav-item" id="nav-menus" onclick="navigate('screen-menu-list','nav-menus')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        Menu Management
+      </div>
+
+      <div class="nav-item" id="nav-roles" onclick="navigate('screen-role-list','nav-roles')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><line x1="19" y1="8" x2="23" y2="8"/><line x1="21" y1="6" x2="21" y2="10"/></svg>
+        Roles
+      </div>
+
+      <div class="nav-item" id="nav-admins" onclick="navigate('screen-admin-users','nav-admins')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Admin Users
+      </div>
+
+    </nav>
+
+    <!-- Bottom user card -->
+    <div style="padding:12px 8px;border-top:1px solid #1B2040">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:8px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.03)'" onmouseleave="this.style.background='transparent'">
+        <div class="avatar" style="background:linear-gradient(135deg,#4F79FF,#6B46E8)">SA</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:#C5CBE8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Super Admin</div>
+          <div style="font-size:11px;color:#3D4460">admin@vycepay.com</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <div style="flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div id="breadcrumb-area" class="breadcrumb" style="flex:1">
+        <a onclick="navigate('screen-dashboard','nav-dashboard')">Home</a>
+        <span class="sep">›</span>
+        <span class="current" id="bc-current">Dashboard</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <!-- Notifications -->
+        <div style="position:relative">
+          <button class="btn btn-secondary btn-sm btn-icon" style="position:relative">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          </button>
+          <span style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;background:#FF3D57;border-radius:50%;border:1.5px solid #0B0D18"></span>
+        </div>
+        <!-- Search -->
+        <div style="position:relative">
+          <input class="inp" style="width:200px;padding-left:32px;font-size:12.5px;height:34px" placeholder="Search...">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <!-- Help -->
+        <button class="btn btn-secondary btn-sm btn-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </button>
+        <!-- Admin avatar -->
+        <div class="avatar" style="cursor:pointer;border:2px solid #252D50">SA</div>
+      </div>
+    </div>
+
+    <!-- SCREENS CONTAINER -->
+    <div style="flex:1;overflow-y:auto;padding:24px" id="screens-container">
+
+<!-- ============================================================ D1: DASHBOARD ============================================================ -->
+<div id="screen-dashboard" class="screen active">
+  <!-- Page header -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
+    <div>
+      <h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Dashboard</h1>
+      <p style="font-size:13px;color:#6B7394;margin-top:3px">Monday, 12 May 2026 · Live overview</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select class="sel">
+        <option>Last 30 days</option>
+        <option>Last 7 days</option>
+        <option>Today</option>
+        <option>This month</option>
+      </select>
+      <button class="btn btn-secondary btn-sm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Row -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+    <div class="kpi-card kpi-blue">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:11.5px;font-weight:600;color:#6B7394;letter-spacing:.04em;text-transform:uppercase">Total Customers</span>
+        <div style="width:32px;height:32px;background:rgba(79,121,255,.12);border-radius:8px;display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+      </div>
+      <div style="font-size:30px;font-weight:800;color:#E4E7F2;letter-spacing:-.5px;font-family:'JetBrains Mono',monospace">2,847</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:8px">
+        <span style="font-size:12px;color:#0FD67C;font-weight:600">↑ +124</span>
+        <span style="font-size:12px;color:#3D4460">vs last 30 days</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:11.5px;font-weight:600;color:#6B7394;letter-spacing:.04em;text-transform:uppercase">Active Wallets</span>
+        <div style="width:32px;height:32px;background:rgba(15,214,124,.12);border-radius:8px;display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+      </div>
+      <div style="font-size:30px;font-weight:800;color:#E4E7F2;letter-spacing:-.5px;font-family:'JetBrains Mono',monospace">1,934</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:8px">
+        <span style="font-size:12px;color:#0FD67C;font-weight:600">↑ +89</span>
+        <span style="font-size:12px;color:#3D4460">vs last 30 days</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:11.5px;font-weight:600;color:#6B7394;letter-spacing:.04em;text-transform:uppercase">Today's Volume</span>
+        <div style="width:32px;height:32px;background:rgba(245,166,35,.12);border-radius:8px;display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+      </div>
+      <div style="font-size:26px;font-weight:800;color:#E4E7F2;letter-spacing:-.5px;font-family:'JetBrains Mono',monospace">KES 4.28M</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:8px">
+        <span style="font-size:12px;color:#F5A623;font-weight:600">↓ -8.2%</span>
+        <span style="font-size:12px;color:#3D4460">vs yesterday</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-purple">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:11.5px;font-weight:600;color:#6B7394;letter-spacing:.04em;text-transform:uppercase">KYC Approval Rate</span>
+        <div style="width:32px;height:32px;background:rgba(139,92,246,.12);border-radius:8px;display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+      </div>
+      <div style="font-size:30px;font-weight:800;color:#E4E7F2;letter-spacing:-.5px;font-family:'JetBrains Mono',monospace">78.4%</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:8px">
+        <span style="font-size:12px;color:#0FD67C;font-weight:600">↑ +2.1%</span>
+        <span style="font-size:12px;color:#3D4460">vs last month</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Area chart + side panels -->
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px">
+    <!-- Transaction Volume Chart -->
+    <div class="card">
+      <div class="section-hdr" style="margin-bottom:6px">
+        <div>
+          <div class="section-title">Transaction Volume</div>
+          <div class="section-sub">30-day daily volume in KES</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <span class="badge badge-info">● Transfers</span>
+          <span class="badge badge-success">● Deposits</span>
+        </div>
+      </div>
+      <div style="height:200px;position:relative">
+        <canvas id="chart-volume"></canvas>
+      </div>
+    </div>
+
+    <!-- Right stack: Donut + Alerts -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- Tx Type Donut -->
+      <div class="card" style="flex:1">
+        <div class="section-title" style="margin-bottom:14px">Transaction Types</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:90px;height:90px;flex-shrink:0">
+            <canvas id="chart-donut"></canvas>
+          </div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#4F79FF;display:inline-block"></span><span style="font-size:12px;color:#6B7394">Transfers</span></div>
+              <span class="mono" style="font-size:12px;color:#E4E7F2;font-weight:600">63%</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#0FD67C;display:inline-block"></span><span style="font-size:12px;color:#6B7394">Deposits</span></div>
+              <span class="mono" style="font-size:12px;color:#E4E7F2;font-weight:600">37%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- KYC Bar -->
+      <div class="card" style="flex:1">
+        <div class="section-title" style="margin-bottom:14px">KYC Status Breakdown</div>
+        <div style="height:80px;position:relative">
+          <canvas id="chart-kyc-bar"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Alerts + Recent Transactions -->
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:16px">
+    <!-- Alerts panel -->
+    <div class="card">
+      <div class="section-hdr">
+        <div class="section-title">⚡ Alerts</div>
+        <span class="badge badge-danger">3 active</span>
+      </div>
+      <div class="alert alert-danger">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div><strong>3 unprocessed callbacks</strong><br><span style="font-size:11.5px;opacity:.8">Notification type 0002 — awaiting retry</span></div>
+      </div>
+      <div class="alert alert-warning">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div><strong>14 stuck PENDING tx</strong><br><span style="font-size:11.5px;opacity:.8">Older than 15 min — no 0002 callback</span></div>
+      </div>
+      <div class="alert alert-info">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div><strong>Choice Bank latency high</strong><br><span style="font-size:11.5px;opacity:.8">Avg 2.4s — above 1.5s threshold</span></div>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:4px">View all alerts</button>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card" style="padding:0">
+      <div style="padding:16px 20px;border-bottom:1px solid #1B2040;display:flex;align-items:center;justify-content:space-between">
+        <div class="section-title">Recent Transactions</div>
+        <button class="btn btn-secondary btn-sm" onclick="navigate('screen-transactions','nav-tx')">View all →</button>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th>Transaction ID</th><th>Customer</th><th>Type</th><th>Amount</th><th>Status</th><th>Time</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-tx-detail','nav-tx')">VY-20260512-0041</td><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#4F79FF,#8B5CF6)">JM</div><div><div style="font-size:12.5px;color:#C5CBE8">James Mwangi</div><div style="font-size:11px;color:#3D4460">+254 712 345 678</div></div></div></td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 12,500</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">2 min ago</td></tr>
+          <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-tx-detail','nav-tx')">VY-20260512-0040</td><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#4F79FF)">AO</div><div><div style="font-size:12.5px;color:#C5CBE8">Amina Osman</div><div style="font-size:11px;color:#3D4460">+254 722 987 654</div></div></div></td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 5,000</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">8 min ago</td></tr>
+          <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer">VY-20260512-0039</td><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#F5A623,#FF3D57)">PK</div><div><div style="font-size:12.5px;color:#C5CBE8">Peter Kamau</div><div style="font-size:11px;color:#3D4460">+254 733 111 222</div></div></div></td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 8,750</td><td><span class="badge badge-danger">● Failed</span></td><td style="font-size:12px;color:#3D4460">14 min ago</td></tr>
+          <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer">VY-20260512-0038</td><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#8B5CF6,#4F79FF)">GW</div><div><div style="font-size:12.5px;color:#C5CBE8">Grace Wanjiku</div><div style="font-size:11px;color:#3D4460">+254 700 555 888</div></div></div></td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 20,000</td><td><span class="badge badge-warning">● Pending</span></td><td style="font-size:12px;color:#3D4460">21 min ago</td></tr>
+          <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer">VY-20260512-0037</td><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#8B5CF6)">DM</div><div><div style="font-size:12.5px;color:#C5CBE8">David Mutua</div><div style="font-size:11px;color:#3D4460">+254 721 444 777</div></div></div></td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 3,200</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">35 min ago</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ C1: CUSTOMER LIST ============================================================ -->
+<div id="screen-customers" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Customers</h1>
+      <p style="font-size:13px;color:#6B7394;margin-top:3px">2,847 total customers registered</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0">
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div style="position:relative;flex:1;max-width:280px">
+        <input class="inp" style="padding-left:32px;font-size:12.5px" placeholder="Search by name, mobile, ID…">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <select class="sel"><option>All Statuses</option><option>Active</option><option>Suspended</option><option>Pending</option></select>
+      <select class="sel"><option>All KYC States</option><option>Approved</option><option>Pending</option><option>Rejected</option><option>Not Started</option></select>
+      <select class="sel"><option>All Wallet States</option><option>Has Wallet</option><option>No Wallet</option></select>
+      <input type="date" class="sel" style="color:#6B7394">
+      <button class="btn btn-secondary btn-sm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filters
+      </button>
+    </div>
+    <table class="tbl">
+      <thead><tr>
+        <th style="width:20px"><div class="chk"></div></th>
+        <th>Customer</th><th>Mobile</th><th>Status</th><th>KYC</th><th>Wallet Balance</th><th>Registered</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        <tr><td><div class="chk"></div></td><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#4F79FF,#8B5CF6)">JM</div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">James Mwangi</div><div style="font-size:11px;color:#3D4460" class="mono">cust_a1b2c3d4</div></div></div></td><td style="font-size:12.5px" class="mono">+254 712 345 678</td><td><span class="badge badge-success">Active</span></td><td><span class="badge badge-success">Approved</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 45,320</td><td style="font-size:12px;color:#3D4460">Jan 14, 2026</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">View</button><button class="btn btn-secondary btn-sm">Edit</button></div></td></tr>
+        <tr><td><div class="chk"></div></td><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#4F79FF)">AO</div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Amina Osman</div><div style="font-size:11px;color:#3D4460" class="mono">cust_e5f6g7h8</div></div></div></td><td style="font-size:12.5px" class="mono">+254 722 987 654</td><td><span class="badge badge-success">Active</span></td><td><span class="badge badge-success">Approved</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 12,800</td><td style="font-size:12px;color:#3D4460">Feb 3, 2026</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">View</button><button class="btn btn-secondary btn-sm">Edit</button></div></td></tr>
+        <tr><td><div class="chk"></div></td><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#F5A623,#FF3D57)">PK</div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Peter Kamau</div><div style="font-size:11px;color:#3D4460" class="mono">cust_i9j0k1l2</div></div></div></td><td style="font-size:12.5px" class="mono">+254 733 111 222</td><td><span class="badge badge-warning">Pending</span></td><td><span class="badge badge-warning">Pending</span></td><td class="mono" style="color:#3D4460">—</td><td style="font-size:12px;color:#3D4460">Mar 21, 2026</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">View</button><button class="btn btn-secondary btn-sm">Edit</button></div></td></tr>
+        <tr><td><div class="chk"></div></td><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#8B5CF6,#4F79FF)">GW</div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Grace Wanjiku</div><div style="font-size:11px;color:#3D4460" class="mono">cust_m3n4o5p6</div></div></div></td><td style="font-size:12.5px" class="mono">+254 700 555 888</td><td><span class="badge badge-danger">Suspended</span></td><td><span class="badge badge-success">Approved</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 2,100</td><td style="font-size:12px;color:#3D4460">Dec 9, 2025</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">View</button><button class="btn btn-secondary btn-sm">Edit</button></div></td></tr>
+        <tr><td><div class="chk"></div></td><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#8B5CF6)">DM</div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">David Mutua</div><div style="font-size:11px;color:#3D4460" class="mono">cust_q7r8s9t0</div></div></div></td><td style="font-size:12.5px" class="mono">+254 721 444 777</td><td><span class="badge badge-success">Active</span></td><td><span class="badge badge-danger">Rejected</span></td><td class="mono" style="color:#3D4460">—</td><td style="font-size:12px;color:#3D4460">Apr 5, 2026</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">View</button><button class="btn btn-secondary btn-sm">Edit</button></div></td></tr>
+        <tr><td><div class="chk"></div></td><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#FF3D57,#8B5CF6)">FN</div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Faith Njoki</div><div style="font-size:11px;color:#3D4460" class="mono">cust_u1v2w3x4</div></div></div></td><td style="font-size:12.5px" class="mono">+254 745 320 190</td><td><span class="badge badge-success">Active</span></td><td><span class="badge badge-success">Approved</span></td><td class="mono" style="color:#E4E7F2;font-weight:600">KES 88,450</td><td style="font-size:12px;color:#3D4460">May 1, 2026</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">View</button><button class="btn btn-secondary btn-sm">Edit</button></div></td></tr>
+      </tbody>
+    </table>
+    <!-- Pagination -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040">
+      <span style="font-size:12.5px;color:#6B7394">Showing 1–6 of 2,847</span>
+      <div style="display:flex;gap:4px">
+        <div class="pg-btn" style="opacity:.3">‹</div>
+        <div class="pg-btn active">1</div>
+        <div class="pg-btn">2</div>
+        <div class="pg-btn">3</div>
+        <div class="pg-btn" style="font-size:11px;width:auto;padding:0 8px">…</div>
+        <div class="pg-btn">475</div>
+        <div class="pg-btn">›</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ C2: CUSTOMER DETAIL ============================================================ -->
+<div id="screen-customer-detail" class="screen">
+  <!-- Profile Header -->
+  <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,#0F1221 60%,#141828);border-color:#252D50">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:18px">
+        <div class="avatar avatar-lg" style="background:linear-gradient(135deg,#4F79FF,#8B5CF6);border:3px solid #252D50">JM</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <h2 style="font-size:20px;font-weight:800;color:#E4E7F2">James Mwangi</h2>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span class="mono" style="font-size:12px;color:#6B7394">+254 712 345 678</span>
+            <span style="font-size:12px;color:#3D4460">·</span>
+            <span class="mono" style="font-size:12px;color:#3D4460">cust_a1b2c3d4</span>
+            <span style="font-size:12px;color:#3D4460">·</span>
+            <span style="font-size:12px;color:#3D4460">Member since Jan 14, 2026</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-edit','nav-customers')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit
+        </button>
+        <button class="btn btn-danger btn-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          Suspend
+        </button>
+      </div>
+    </div>
+    <!-- Quick stats row -->
+    <div style="display:flex;gap:24px;margin-top:20px;padding-top:20px;border-top:1px solid #1B2040">
+      <div><div style="font-size:11px;color:#3D4460;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:3px">Total Sent</div><div class="mono" style="font-size:15px;font-weight:700;color:#E4E7F2">KES 184,500</div></div>
+      <div style="width:1px;background:#1B2040"></div>
+      <div><div style="font-size:11px;color:#3D4460;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:3px">Total Deposited</div><div class="mono" style="font-size:15px;font-weight:700;color:#E4E7F2">KES 230,000</div></div>
+      <div style="width:1px;background:#1B2040"></div>
+      <div><div style="font-size:11px;color:#3D4460;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:3px">Transactions</div><div class="mono" style="font-size:15px;font-weight:700;color:#E4E7F2">47</div></div>
+      <div style="width:1px;background:#1B2040"></div>
+      <div><div style="font-size:11px;color:#3D4460;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:3px">Last Active</div><div style="font-size:13px;font-weight:600;color:#E4E7F2">2 hours ago</div></div>
+      <div style="width:1px;background:#1B2040"></div>
+      <div><div style="font-size:11px;color:#3D4460;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:3px">Failed Tx</div><div class="mono" style="font-size:15px;font-weight:700;color:#FF3D57">2</div></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar" id="cust-tabs">
+    <button class="tab-btn active" onclick="switchTab('cust-tabs','cust-panes',0)">Overview</button>
+    <button class="tab-btn" onclick="switchTab('cust-tabs','cust-panes',1)">Transactions</button>
+    <button class="tab-btn" onclick="switchTab('cust-tabs','cust-panes',2)">KYC</button>
+    <button class="tab-btn" onclick="switchTab('cust-tabs','cust-panes',3)">Activity</button>
+  </div>
+
+  <div id="cust-panes">
+    <!-- Overview tab -->
+    <div class="tab-pane active">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- Wallet Card -->
+        <div class="card" style="background:linear-gradient(135deg,#0F1221,#141828);border-color:#252D50">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:600;color:#6B7394;text-transform:uppercase;letter-spacing:.06em">Wallet</div>
+            <span class="badge badge-success">Active</span>
+          </div>
+          <div style="font-size:28px;font-weight:800;color:#E4E7F2;letter-spacing:-.5px;margin-bottom:4px;font-family:'JetBrains Mono',monospace">KES 45,320.00</div>
+          <div style="font-size:12px;color:#3D4460;margin-bottom:16px">Balance · Updated 4 min ago</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:10px">
+              <div style="font-size:10.5px;color:#3D4460;margin-bottom:3px">Choice Account ID</div>
+              <div class="mono" style="font-size:11.5px;color:#6B7394">CHC-KE-20240114-9921</div>
+            </div>
+            <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:10px">
+              <div style="font-size:10.5px;color:#3D4460;margin-bottom:3px">Account Type</div>
+              <div class="mono" style="font-size:11.5px;color:#6B7394">C002 (Savings)</div>
+            </div>
+          </div>
+        </div>
+        <!-- Customer Info -->
+        <div class="card">
+          <div class="section-title" style="margin-bottom:14px">Customer Details</div>
+          <div style="display:grid;gap:10px">
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">Full Name</span>
+              <span style="font-size:13px;color:#C5CBE8;font-weight:500">James Mwangi Njoroge</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">Mobile</span>
+              <span class="mono" style="font-size:12.5px;color:#C5CBE8">+254 712 345 678</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">Email</span>
+              <span style="font-size:12.5px;color:#C5CBE8">james.mwangi@email.com</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">External ID</span>
+              <span class="mono" style="font-size:11.5px;color:#3D4460">cust_a1b2c3d4</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:12.5px;color:#6B7394">Registered</span>
+              <span style="font-size:12.5px;color:#C5CBE8">January 14, 2026 · 10:22 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Transactions tab -->
+    <div class="tab-pane">
+      <div class="card" style="padding:0">
+        <div class="filter-bar">
+          <select class="sel"><option>All Types</option><option>Transfer</option><option>Deposit</option></select>
+          <select class="sel"><option>All Statuses</option><option>Completed</option><option>Pending</option><option>Failed</option></select>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>TX ID</th><th>Type</th><th>Amount</th><th>Payee</th><th>Status</th><th>Date</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260512-0041</td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:600;color:#E4E7F2">KES 12,500</td><td style="font-size:12px;color:#6B7394">Equity Bank · 0123456789</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">May 12, 2026</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+            <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260510-0028</td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="font-weight:600;color:#E4E7F2">KES 25,000</td><td style="font-size:12px;color:#6B7394">M-PESA STK Push</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">May 10, 2026</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+            <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260508-0019</td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:600;color:#E4E7F2">KES 8,750</td><td style="font-size:12px;color:#6B7394">KCB Bank · 9876543210</td><td><span class="badge badge-danger">● Failed</span></td><td style="font-size:12px;color:#3D4460">May 8, 2026</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- KYC tab -->
+    <div class="tab-pane">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="section-hdr"><div class="section-title">KYC Status</div><span class="badge badge-success">Approved</span></div>
+          <div class="tl-item">
+            <div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div style="font-size:13px;font-weight:500;color:#C5CBE8">Account Opened</div>
+            <div style="font-size:12px;color:#3D4460">Choice Bank status: 7 · Jan 16, 2026</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div style="font-size:13px;font-weight:500;color:#C5CBE8">OTP Confirmed</div>
+            <div style="font-size:12px;color:#3D4460">KYC OTP verified · Jan 15, 2026</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div style="font-size:13px;font-weight:500;color:#C5CBE8">Onboarding Submitted</div>
+            <div style="font-size:12px;color:#3D4460">Documents submitted · Jan 14, 2026</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title" style="margin-bottom:14px">Identity Information</div>
+          <div style="display:grid;gap:10px">
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">ID Type</span>
+              <span style="font-size:13px;color:#C5CBE8;font-weight:500">National ID</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">ID Number</span>
+              <span class="mono" style="font-size:13px;color:#C5CBE8">29345678</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040">
+              <span style="font-size:12.5px;color:#6B7394">Choice Onboarding ID</span>
+              <span class="mono" style="font-size:11.5px;color:#3D4460">ONB-20260114-44821</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:12.5px;color:#6B7394">Choice User ID</span>
+              <span class="mono" style="font-size:11.5px;color:#3D4460">CHCUSR-9921</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Activity tab -->
+    <div class="tab-pane">
+      <div class="card">
+        <div class="section-hdr" style="margin-bottom:18px">
+          <div class="section-title">Recent Activity</div>
+          <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>Export</button>
+        </div>
+        <div class="tl-item"><div class="tl-dot" style="background:rgba(79,121,255,.15);border-color:#4F79FF"><span style="font-size:6px;color:#4F79FF">●</span></div><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#C5CBE8;font-weight:500">TRANSFER_INITIATED</div><div style="font-size:11.5px;color:#3D4460;margin-top:2px">Transaction VY-20260512-0041 · IP: 41.90.144.12</div></div><span style="font-size:11.5px;color:#3D4460">2 min ago</span></div></div>
+        <div class="tl-item"><div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><span style="font-size:6px;color:#0FD67C">●</span></div><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#C5CBE8;font-weight:500">LOGIN_SUCCESS</div><div style="font-size:11.5px;color:#3D4460;margin-top:2px">OTP verified · IP: 41.90.144.12 · Android 14</div></div><span style="font-size:11.5px;color:#3D4460">1 hr ago</span></div></div>
+        <div class="tl-item"><div class="tl-dot" style="background:rgba(245,166,35,.15);border-color:#F5A623"><span style="font-size:6px;color:#F5A623">●</span></div><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#C5CBE8;font-weight:500">DEPOSIT_INITIATED</div><div style="font-size:11.5px;color:#3D4460;margin-top:2px">M-PESA STK Push · KES 25,000</div></div><span style="font-size:11.5px;color:#3D4460">2 days ago</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ K1: KYC LIST ============================================================ -->
+<div id="screen-kyc-list" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">KYC Management</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Monitor onboarding applications and identity verification status</p></div>
+    <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <div style="background:#0F1221;border:1px solid #1B2040;border-radius:8px;padding:12px 16px;min-width:110px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Total</div><div class="mono" style="font-size:20px;font-weight:700;color:#E4E7F2">2,184</div></div>
+    <div style="background:#0F1221;border:1px solid rgba(15,214,124,.2);border-radius:8px;padding:12px 16px;min-width:110px"><div style="font-size:10px;color:#0FD67C;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Approved</div><div class="mono" style="font-size:20px;font-weight:700;color:#0FD67C">1,712</div></div>
+    <div style="background:#0F1221;border:1px solid rgba(245,166,35,.2);border-radius:8px;padding:12px 16px;min-width:110px"><div style="font-size:10px;color:#F5A623;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Pending</div><div class="mono" style="font-size:20px;font-weight:700;color:#F5A623">298</div></div>
+    <div style="background:#0F1221;border:1px solid rgba(255,61,87,.2);border-radius:8px;padding:12px 16px;min-width:110px"><div style="font-size:10px;color:#FF3D57;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Rejected</div><div class="mono" style="font-size:20px;font-weight:700;color:#FF3D57">174</div></div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <div style="position:relative;flex:1;max-width:260px"><input class="inp" style="padding-left:32px;font-size:12.5px" placeholder="Search customer or request ID…"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <select class="sel"><option>All Statuses</option><option>Approved</option><option>Pending</option><option>Rejected</option></select>
+      <select class="sel"><option>All ID Types</option><option>National ID</option><option>Passport</option></select>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Customer</th><th>Onboarding Request ID</th><th>ID Type</th><th>Choice Status</th><th>KYC Status</th><th>Submitted</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#4F79FF,#8B5CF6)">JM</div><div><div style="font-size:12.5px;color:#C5CBE8">James Mwangi</div><div style="font-size:11px;color:#3D4460">+254 712 345 678</div></div></div></td><td class="mono" style="font-size:11.5px;color:#4F79FF">ONB-20260114-44821</td><td style="font-size:12.5px">National ID</td><td><span class="badge badge-gray mono">7</span></td><td><span class="badge badge-success">Approved</span></td><td style="font-size:12px;color:#3D4460">Jan 14, 2026</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-kyc-detail','nav-kyc')">View</button></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#F5A623,#FF3D57)">PK</div><div><div style="font-size:12.5px;color:#C5CBE8">Peter Kamau</div><div style="font-size:11px;color:#3D4460">+254 733 111 222</div></div></div></td><td class="mono" style="font-size:11.5px;color:#4F79FF">ONB-20260321-66701</td><td style="font-size:12.5px">National ID</td><td><span class="badge badge-warning mono">1</span></td><td><span class="badge badge-warning">Pending</span></td><td style="font-size:12px;color:#3D4460">Mar 21, 2026</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-kyc-detail','nav-kyc')">View</button></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#8B5CF6)">DM</div><div><div style="font-size:12.5px;color:#C5CBE8">David Mutua</div><div style="font-size:11px;color:#3D4460">+254 721 444 777</div></div></div></td><td class="mono" style="font-size:11.5px;color:#4F79FF">ONB-20260405-71204</td><td style="font-size:12.5px">Passport</td><td><span class="badge badge-danger mono">3</span></td><td><span class="badge badge-danger">Rejected</span></td><td style="font-size:12px;color:#3D4460">Apr 5, 2026</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-kyc-detail','nav-kyc')">View</button></td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Showing 1–3 of 2,184</span><div style="display:flex;gap:4px"><div class="pg-btn" style="opacity:.3">‹</div><div class="pg-btn active">1</div><div class="pg-btn">2</div><div class="pg-btn">›</div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ K2: KYC DETAIL ============================================================ -->
+<div id="screen-kyc-detail" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-kyc-list','nav-kyc')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">KYC Detail — James Mwangi</h1>
+    <span class="badge badge-success" style="font-size:12px">Approved</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">Choice Bank References</div>
+        <div style="display:grid;gap:10px">
+          <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:12px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Onboarding Request ID</div><div class="mono" style="font-size:12.5px;color:#4F79FF">ONB-20260114-44821</div></div>
+          <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:12px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Choice User ID</div><div class="mono" style="font-size:12.5px;color:#C5CBE8">CHCUSR-9921</div></div>
+          <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:12px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Choice Account ID</div><div class="mono" style="font-size:12.5px;color:#C5CBE8">CHC-KE-20240114-9921</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px">Identity Documents</div>
+        <div style="display:grid;gap:10px">
+          <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">ID Type</span><span style="font-size:13px;font-weight:500;color:#C5CBE8">National ID</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">ID Number</span><span class="mono" style="font-size:13px;color:#C5CBE8">29345678</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12.5px;color:#6B7394">Selfie</span><span style="font-size:12.5px;color:#4F79FF;cursor:pointer">View ↗</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:16px">KYC Timeline</div>
+      <div class="tl-item"><div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Account Opened — Status 7</div><div style="font-size:11.5px;color:#3D4460">Callback 0001 received · Jan 16, 10:48 AM</div></div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">OTP Confirmed</div><div style="font-size:11.5px;color:#3D4460">Choice OTP verified · Jan 15, 03:22 PM</div></div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:rgba(79,121,255,.15);border-color:#4F79FF"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Onboarding Submitted</div><div style="font-size:11.5px;color:#3D4460">Documents sent to Choice Bank · Jan 14, 10:22 AM</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ W1: WALLET LIST ============================================================ -->
+<div id="screen-wallet-list" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Wallets</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">1,934 active wallets · Total balance KES 284,712,500</p></div>
+    <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>Export</button>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <div style="position:relative;flex:1;max-width:260px"><input class="inp" style="padding-left:32px;font-size:12.5px" placeholder="Search by customer, account ID…"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <select class="sel"><option>All Statuses</option><option>Active</option><option>Frozen</option></select>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Customer</th><th>Choice Account ID</th><th>Balance</th><th>Type</th><th>Status</th><th>Last Updated</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#4F79FF,#8B5CF6)">JM</div><div style="font-size:12.5px;color:#C5CBE8">James Mwangi</div></div></td><td class="mono" style="font-size:11.5px;color:#4F79FF">CHC-KE-20240114-9921</td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 45,320.00</td><td><span class="badge badge-gray">C002</span></td><td><span class="badge badge-success">Active</span></td><td style="font-size:12px;color:#3D4460">4 min ago</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-wallet-detail','nav-wallets')">View</button></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#4F79FF)">AO</div><div style="font-size:12.5px;color:#C5CBE8">Amina Osman</div></div></td><td class="mono" style="font-size:11.5px;color:#4F79FF">CHC-KE-20240203-3312</td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 12,800.00</td><td><span class="badge badge-gray">C002</span></td><td><span class="badge badge-success">Active</span></td><td style="font-size:12px;color:#3D4460">1 hr ago</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-wallet-detail','nav-wallets')">View</button></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#8B5CF6,#4F79FF)">GW</div><div style="font-size:12.5px;color:#C5CBE8">Grace Wanjiku</div></div></td><td class="mono" style="font-size:11.5px;color:#4F79FF">CHC-KE-20251209-7743</td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 2,100.00</td><td><span class="badge badge-gray">C002</span></td><td><span class="badge badge-danger">Frozen</span></td><td style="font-size:12px;color:#3D4460">3 days ago</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-wallet-detail','nav-wallets')">View</button></td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Showing 1–3 of 1,934</span><div style="display:flex;gap:4px"><div class="pg-btn" style="opacity:.3">‹</div><div class="pg-btn active">1</div><div class="pg-btn">2</div><div class="pg-btn">›</div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ W2: WALLET DETAIL ============================================================ -->
+<div id="screen-wallet-detail" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-wallet-list','nav-wallets')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Wallet Detail</h1>
+    <span class="badge badge-success">Active</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card" style="background:linear-gradient(135deg,#0F1221,#141828);border-color:#252D50">
+      <div style="font-size:11px;color:#3D4460;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:8px">Current Balance</div>
+      <div class="mono" style="font-size:32px;font-weight:800;color:#E4E7F2;margin-bottom:4px">KES 45,320.00</div>
+      <div style="font-size:12px;color:#3D4460;margin-bottom:16px">Updated 4 min ago via callback 0003</div>
+      <div style="display:flex;gap:8px"><button class="btn btn-secondary btn-sm">Freeze Wallet</button><button class="btn btn-secondary btn-sm">Query Balance</button></div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:14px">Wallet References</div>
+      <div style="display:grid;gap:8px">
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Customer</span><span style="font-size:13px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-customer-detail','nav-customers')">James Mwangi ↗</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Choice Account ID</span><span class="mono" style="font-size:11.5px;color:#C5CBE8">CHC-KE-20240114-9921</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Account Type</span><span style="font-size:12.5px;color:#C5CBE8">C002 — Savings</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12.5px;color:#6B7394">Created</span><span style="font-size:12.5px;color:#C5CBE8">Jan 16, 2026 · 10:48 AM</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="padding:0">
+    <div style="padding:16px 20px;border-bottom:1px solid #1B2040"><div class="section-title">Transaction History</div></div>
+    <table class="tbl">
+      <thead><tr><th>TX ID</th><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260512-0041</td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="color:#FF3D57;font-weight:600">− KES 12,500</td><td><span class="badge badge-success">Completed</span></td><td style="font-size:12px;color:#3D4460">May 12, 2026</td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260510-0028</td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="color:#0FD67C;font-weight:600">+ KES 25,000</td><td><span class="badge badge-success">Completed</span></td><td style="font-size:12px;color:#3D4460">May 10, 2026</td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260508-0019</td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="color:#FF3D57;font-weight:600">− KES 8,750</td><td><span class="badge badge-danger">Failed</span></td><td style="font-size:12px;color:#3D4460">May 8, 2026</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ C3: CUSTOMER EDIT ============================================================ -->
+<div id="screen-customer-edit" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-customer-detail','nav-customers')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Edit Customer — James Mwangi</h1>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:16px">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:20px">Profile Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="inp-group"><label class="inp-label">First Name</label><input class="inp" value="James"></div>
+          <div class="inp-group"><label class="inp-label">Last Name</label><input class="inp" value="Mwangi Njoroge"></div>
+          <div class="inp-group"><label class="inp-label">Email Address</label><input class="inp" type="email" value="james.mwangi@email.com"></div>
+          <div class="inp-group"><label class="inp-label">Mobile</label><input class="inp" value="+254 712 345 678" disabled style="opacity:.5;cursor:not-allowed"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:4px">Account Status</div>
+        <p style="font-size:12.5px;color:#6B7394;margin-bottom:16px">Changing status will immediately affect the customer's ability to transact.</p>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-success btn-sm">Set Active</button>
+          <button class="btn btn-danger btn-sm">Suspend Account</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:14px">Save Changes</div>
+        <p style="font-size:12.5px;color:#6B7394;margin-bottom:16px">All changes are logged in the audit trail with your admin credentials.</p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">Save Changes</button>
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="navigate('screen-customer-detail','nav-customers')">Cancel</button>
+      </div>
+      <div class="card" style="border-color:rgba(255,61,87,.2);background:rgba(255,61,87,.04)">
+        <div style="font-size:13px;font-weight:700;color:#FF3D57;margin-bottom:10px">⚠ Danger Zone</div>
+        <p style="font-size:12px;color:#6B7394;margin-bottom:12px">Permanently deactivate this customer. This will freeze all wallet operations and flag the account.</p>
+        <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center">Deactivate Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ T1: ALL TRANSACTIONS ============================================================ -->
+<div id="screen-transactions" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Transactions</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">8,412 total transactions across all customers</p></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <div style="position:relative;flex:1;max-width:280px"><input class="inp" style="padding-left:32px;font-size:12.5px" placeholder="TX ID, customer, payee account…"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <select class="sel"><option>All Types</option><option>Transfer</option><option>Deposit</option></select>
+      <select class="sel"><option>All Statuses</option><option>Completed</option><option>Pending</option><option>Failed</option></select>
+      <input type="date" class="sel" style="color:#6B7394">
+      <input type="date" class="sel" style="color:#6B7394">
+      <select class="sel"><option>Any Amount</option><option>0–5,000</option><option>5,000–50,000</option><option>50,000+</option></select>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Transaction ID</th><th>Customer</th><th>Type</th><th>Amount</th><th>Payee</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-tx-detail','nav-tx')">VY-20260512-0041</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#4F79FF,#8B5CF6)">JM</div><span style="font-size:12.5px;color:#C5CBE8">James Mwangi</span></div></td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 12,500</td><td style="font-size:12px;color:#6B7394">Equity · 0123456789</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">May 12, 09:41</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260512-0040</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#4F79FF)">AO</div><span style="font-size:12.5px;color:#C5CBE8">Amina Osman</span></div></td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 5,000</td><td style="font-size:12px;color:#6B7394">M-PESA STK</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">May 12, 09:33</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260512-0039</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#F5A623,#FF3D57)">PK</div><span style="font-size:12.5px;color:#C5CBE8">Peter Kamau</span></div></td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 8,750</td><td style="font-size:12px;color:#6B7394">KCB · 9876543210</td><td><span class="badge badge-danger">● Failed</span></td><td style="font-size:12px;color:#3D4460">May 12, 09:27</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260512-0038</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#8B5CF6,#4F79FF)">GW</div><span style="font-size:12.5px;color:#C5CBE8">Grace Wanjiku</span></div></td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 20,000</td><td style="font-size:12px;color:#6B7394">M-PESA STK</td><td><span class="badge badge-warning">● Pending</span></td><td style="font-size:12px;color:#3D4460">May 12, 09:20</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260512-0037</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#8B5CF6)">DM</div><span style="font-size:12.5px;color:#C5CBE8">David Mutua</span></div></td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 3,200</td><td style="font-size:12px;color:#6B7394">Equity · 5544332211</td><td><span class="badge badge-success">● Completed</span></td><td style="font-size:12px;color:#3D4460">May 12, 09:06</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Showing 1–5 of 8,412</span><div style="display:flex;gap:4px"><div class="pg-btn" style="opacity:.3">‹</div><div class="pg-btn active">1</div><div class="pg-btn">2</div><div class="pg-btn">3</div><div class="pg-btn" style="width:auto;padding:0 8px;font-size:11px">…</div><div class="pg-btn">1,683</div><div class="pg-btn">›</div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ T2: TRANSACTION DETAIL ============================================================ -->
+<div id="screen-tx-detail" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-transactions','nav-tx')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Transaction Detail</h1>
+    <span class="badge badge-success">● Completed</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <!-- Left: VycePay record -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <div style="width:28px;height:28px;background:rgba(79,121,255,.12);border-radius:7px;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+          <div class="section-title">VycePay Record</div>
+        </div>
+        <div style="display:grid;gap:9px">
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Transaction ID</span><span class="mono" style="font-size:12px;color:#4F79FF">VY-20260512-0041</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">External ID (UUID)</span><span class="mono" style="font-size:11px;color:#C5CBE8">a1b2c3d4-e5f6-7890</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Customer</span><span style="font-size:13px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-customer-detail','nav-customers')">James Mwangi ↗</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Type</span><span class="badge badge-info">Transfer</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Amount</span><span class="mono" style="font-size:14px;font-weight:700;color:#E4E7F2">KES 12,500.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Fee</span><span class="mono" style="font-size:12.5px;color:#C5CBE8">KES 50.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Remark</span><span style="font-size:12.5px;color:#C5CBE8">School fees</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12.5px;color:#6B7394">Idempotency Key</span><span class="mono" style="font-size:11px;color:#3D4460">IK-20260512-JM-001</span></div>
+        </div>
+      </div>
+      <!-- Payee -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px">Payee Details</div>
+        <div style="display:grid;gap:9px">
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Bank</span><span style="font-size:13px;color:#C5CBE8;font-weight:500">Equity Bank Kenya</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Bank Code</span><span class="mono" style="font-size:12.5px;color:#C5CBE8">EQT</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Account Number</span><span class="mono" style="font-size:12.5px;color:#C5CBE8">0123456789</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12.5px;color:#6B7394">Account Name</span><span style="font-size:13px;color:#C5CBE8">Mary Njeri Kamau</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Right: Choice Bank + Timeline -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <div style="width:28px;height:28px;background:rgba(139,92,246,.12);border-radius:7px;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+          <div class="section-title">Choice Bank References</div>
+        </div>
+        <div style="display:grid;gap:9px">
+          <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:12px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Choice TX ID</div><div class="mono" style="font-size:12px;color:#8B5CF6">CHC-TX-20260512-99341</div></div>
+          <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:12px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Choice Request ID</div><div class="mono" style="font-size:12px;color:#C5CBE8">CHCREQ-20260512-88120</div></div>
+          <div style="background:#0B0D18;border:1px solid #1B2040;border-radius:7px;padding:12px"><div style="font-size:10px;color:#3D4460;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Payer Account (Wallet)</div><div class="mono" style="font-size:12px;color:#C5CBE8">CHC-KE-20240114-9921</div></div>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;margin-top:12px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          Query Choice Bank Status
+        </button>
+      </div>
+      <!-- Status Timeline -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">Status Timeline</div>
+        <div class="tl-item"><div class="tl-dot" style="background:rgba(15,214,124,.15);border-color:#0FD67C"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div><div><div style="font-size:13px;font-weight:600;color:#0FD67C">Completed</div><div style="font-size:11.5px;color:#3D4460">Callback 0002 received · May 12, 09:43 AM</div></div></div>
+        <div class="tl-item"><div class="tl-dot" style="background:rgba(79,121,255,.15);border-color:#4F79FF"></div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Processing</div><div style="font-size:11.5px;color:#3D4460">Sent to Choice Bank · May 12, 09:41 AM</div></div></div>
+        <div class="tl-item"><div class="tl-dot" style="background:rgba(107,115,148,.15);border-color:#6B7394"></div><div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Created</div><div style="font-size:11.5px;color:#3D4460">Transaction initiated · May 12, 09:41 AM</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ T3: FAILED TRANSACTIONS ============================================================ -->
+<div id="screen-failed-tx" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Failed Transactions</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">14 failed transactions requiring attention</p></div>
+    <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>Export</button>
+  </div>
+  <!-- Error code grouping -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="background:rgba(255,61,87,.06);border:1px solid rgba(255,61,87,.2);border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#FF3D57;margin-bottom:3px;font-weight:700;letter-spacing:.06em">INSUFFICIENT_FUNDS</div><div class="mono" style="font-size:18px;font-weight:700;color:#FF3D57">6</div></div>
+    <div style="background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#F5A623;margin-bottom:3px;font-weight:700;letter-spacing:.06em">INVALID_ACCOUNT</div><div class="mono" style="font-size:18px;font-weight:700;color:#F5A623">4</div></div>
+    <div style="background:rgba(255,61,87,.06);border:1px solid rgba(255,61,87,.2);border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#FF3D57;margin-bottom:3px;font-weight:700;letter-spacing:.06em">TIMEOUT</div><div class="mono" style="font-size:18px;font-weight:700;color:#FF3D57">3</div></div>
+    <div style="background:rgba(107,115,148,.06);border:1px solid #1B2040;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#6B7394;margin-bottom:3px;font-weight:700;letter-spacing:.06em">OTHER</div><div class="mono" style="font-size:18px;font-weight:700;color:#6B7394">1</div></div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <select class="sel"><option>All Error Codes</option><option>INSUFFICIENT_FUNDS</option><option>INVALID_ACCOUNT</option><option>TIMEOUT</option></select>
+      <select class="sel"><option>All Types</option><option>Transfer</option><option>Deposit</option></select>
+      <input type="date" class="sel" style="color:#6B7394">
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Transaction ID</th><th>Customer</th><th>Type</th><th>Amount</th><th>Error Code</th><th>Error Message</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-tx-detail','nav-tx')">VY-20260512-0039</td><td style="font-size:12.5px;color:#C5CBE8">Peter Kamau</td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 8,750</td><td><span style="font-family:'JetBrains Mono';font-size:11px;color:#FF3D57;background:rgba(255,61,87,.1);padding:2px 6px;border-radius:4px">INSUFFICIENT_FUNDS</span></td><td style="font-size:12px;color:#6B7394;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Account balance too low for transfer</td><td style="font-size:12px;color:#3D4460">May 12, 09:27</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260511-0031</td><td style="font-size:12.5px;color:#C5CBE8">Samuel Odhiambo</td><td><span class="badge badge-info">Transfer</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 15,000</td><td><span style="font-family:'JetBrains Mono';font-size:11px;color:#F5A623;background:rgba(245,166,35,.1);padding:2px 6px;border-radius:4px">INVALID_ACCOUNT</span></td><td style="font-size:12px;color:#6B7394">Payee account number not found</td><td style="font-size:12px;color:#3D4460">May 11, 14:15</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#4F79FF">VY-20260511-0022</td><td style="font-size:12.5px;color:#C5CBE8">Ruth Achieng</td><td><span class="badge badge-success">Deposit</span></td><td class="mono" style="font-weight:700;color:#E4E7F2">KES 3,500</td><td><span style="font-family:'JetBrains Mono';font-size:11px;color:#FF3D57;background:rgba(255,61,87,.1);padding:2px 6px;border-radius:4px">TIMEOUT</span></td><td style="font-size:12px;color:#6B7394">Choice Bank API timeout after 30s</td><td style="font-size:12px;color:#3D4460">May 11, 11:02</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-tx-detail','nav-tx')">View</button></td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Showing 1–3 of 14</span><div style="display:flex;gap:4px"><div class="pg-btn" style="opacity:.3">‹</div><div class="pg-btn active">1</div><div class="pg-btn">2</div><div class="pg-btn">›</div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ CB1: CALLBACK LOG ============================================================ -->
+<div id="screen-callback-log" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Callback Log</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Choice Bank webhook audit — all incoming notifications</p></div>
+    <div style="display:flex;gap:8px"><span class="badge badge-warning" style="font-size:12px;padding:5px 10px">3 unprocessed</span><button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>Export</button></div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <select class="sel"><option>All Types</option><option>0001 — Onboarding</option><option>0002 — Transaction</option><option>0003 — Balance</option><option>0009 — Statement</option><option>0021 — Account Status</option></select>
+      <select class="sel"><option>All States</option><option>Processed</option><option>Unprocessed</option><option>Error</option></select>
+      <input type="date" class="sel" style="color:#6B7394">
+    </div>
+    <table class="tbl">
+      <thead><tr><th>ID</th><th>Type</th><th>Choice Request ID</th><th>Processed</th><th>Processing Error</th><th>Received</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">#4421</td><td><span class="badge badge-info">0002</span></td><td class="mono" style="font-size:11px;color:#4F79FF">CHCREQ-20260512-88120</td><td><span class="badge badge-success">✓ Yes</span></td><td style="font-size:12px;color:#3D4460">—</td><td style="font-size:12px;color:#3D4460">May 12, 09:43</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-callback-detail','nav-callbacks')">View</button></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">#4420</td><td><span class="badge badge-success">0003</span></td><td class="mono" style="font-size:11px;color:#4F79FF">CHCREQ-20260512-88119</td><td><span class="badge badge-success">✓ Yes</span></td><td style="font-size:12px;color:#3D4460">—</td><td style="font-size:12px;color:#3D4460">May 12, 09:42</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-callback-detail','nav-callbacks')">View</button></td></tr>
+        <tr style="background:rgba(245,166,35,.04)"><td class="mono" style="font-size:11.5px;color:#3D4460">#4419</td><td><span class="badge badge-info">0002</span></td><td class="mono" style="font-size:11px;color:#4F79FF">CHCREQ-20260512-88101</td><td><span class="badge badge-warning">✗ No</span></td><td style="font-size:12px;color:#FF3D57;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Transaction not found in DB</td><td style="font-size:12px;color:#3D4460">May 12, 08:11</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-callback-detail','nav-callbacks')">View</button><button class="btn btn-warning btn-sm" style="background:rgba(245,166,35,.1);color:#F5A623;border:1px solid rgba(245,166,35,.2);padding:5px 10px;font-size:12px;border-radius:7px;cursor:pointer">Retry</button></div></td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">#4418</td><td><span class="badge badge-purple">0001</span></td><td class="mono" style="font-size:11px;color:#4F79FF">ONB-20260114-44821</td><td><span class="badge badge-success">✓ Yes</span></td><td style="font-size:12px;color:#3D4460">—</td><td style="font-size:12px;color:#3D4460">May 11, 22:14</td><td><button class="btn btn-secondary btn-sm" onclick="navigate('screen-callback-detail','nav-callbacks')">View</button></td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Showing 1–4 of 4,421</span><div style="display:flex;gap:4px"><div class="pg-btn" style="opacity:.3">‹</div><div class="pg-btn active">1</div><div class="pg-btn">2</div><div class="pg-btn">›</div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ CB2: CALLBACK DETAIL ============================================================ -->
+<div id="screen-callback-detail" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-callback-log','nav-callbacks')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Callback Detail — #4421</h1>
+    <span class="badge badge-info">0002 Transaction</span>
+    <span class="badge badge-success">Processed</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px">Callback Metadata</div>
+        <div style="display:grid;gap:9px">
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Notification Type</span><span class="badge badge-info">0002</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Choice Request ID</span><span class="mono" style="font-size:11.5px;color:#4F79FF">CHCREQ-20260512-88120</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Processed</span><span class="badge badge-success">Yes</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Processed At</span><span style="font-size:12.5px;color:#C5CBE8">May 12, 2026 · 09:43:22 AM</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12.5px;color:#6B7394">Received At</span><span style="font-size:12.5px;color:#C5CBE8">May 12, 2026 · 09:43:21 AM</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="section-title">Processing Error</div>
+        </div>
+        <div class="alert alert-success" style="margin:0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          No processing errors. Callback handled successfully.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="section-title">Raw Payload</div>
+        <button class="btn btn-secondary btn-sm">Copy JSON</button>
+      </div>
+      <div class="json-viewer">{
+  "notificationType": "0002",
+  "requestId": "CHCREQ-20260512-88120",
+  "sender": "VYCEPAY_KE",
+  "timestamp": "2026-05-12T09:43:21Z",
+  "params": {
+    "transactionId": "CHC-TX-20260512-99341",
+    "status": "SUCCESS",
+    "amount": "12500.00",
+    "currency": "KES",
+    "payerAccountId": "CHC-KE-20240114-9921",
+    "payeeAccountId": "EQT-0123456789",
+    "completedAt": "2026-05-12T09:43:18Z",
+    "errorCode": null,
+    "errorMsg": null
+  }
+}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ R1: TRANSACTION VOLUME REPORT ============================================================ -->
+<div id="screen-report-volume" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Transaction Volume Report</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Daily and cumulative transaction volumes in KES</p></div>
+    <div style="display:flex;gap:8px">
+      <select class="sel"><option>Last 30 days</option><option>Last 7 days</option><option>This month</option><option>Custom</option></select>
+      <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>Export</button>
+    </div>
+  </div>
+  <!-- Summary pills -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="card-sm" style="text-align:center"><div style="font-size:10.5px;color:#3D4460;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Total Volume</div><div class="mono" style="font-size:18px;font-weight:800;color:#E4E7F2">KES 128.4M</div></div>
+    <div class="card-sm" style="text-align:center"><div style="font-size:10.5px;color:#3D4460;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Total Transactions</div><div class="mono" style="font-size:18px;font-weight:800;color:#E4E7F2">8,412</div></div>
+    <div class="card-sm" style="text-align:center"><div style="font-size:10.5px;color:#3D4460;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Avg Daily Volume</div><div class="mono" style="font-size:18px;font-weight:800;color:#E4E7F2">KES 4.28M</div></div>
+    <div class="card-sm" style="text-align:center"><div style="font-size:10.5px;color:#3D4460;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Success Rate</div><div class="mono" style="font-size:18px;font-weight:800;color:#0FD67C">98.3%</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="section-hdr" style="margin-bottom:6px"><div class="section-title">Daily Volume (KES)</div><div style="display:flex;gap:6px"><span class="badge badge-info">● Transfers</span><span class="badge badge-success">● Deposits</span></div></div>
+      <div style="height:220px"><canvas id="chart-vol-report"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="section-hdr" style="margin-bottom:6px"><div class="section-title">Transaction Count</div></div>
+      <div style="height:220px"><canvas id="chart-tx-count"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ R2: KYC FUNNEL ============================================================ -->
+<div id="screen-report-kyc" class="screen">
+  <div style="margin-bottom:20px"><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">KYC Funnel Report</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Customer onboarding funnel — registrations to first transaction</p></div>
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:16px">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:20px">Onboarding Funnel</div>
+      <div style="padding:0 20px">
+        <div class="funnel-step" style="background:rgba(79,121,255,.12);border:1px solid rgba(79,121,255,.2)"><div><div style="font-size:13px;font-weight:600;color:#4F79FF">Registered</div><div style="font-size:11.5px;color:#6B7394;margin-top:2px">Mobile OTP verified</div></div><div class="mono" style="font-size:22px;font-weight:800;color:#4F79FF">2,847</div></div>
+        <div style="text-align:center;color:#3D4460;font-size:11px;padding:4px 0">↓ 76.7% continued</div>
+        <div class="funnel-step" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.2);width:90%;margin:0 auto"><div><div style="font-size:13px;font-weight:600;color:#8B5CF6">KYC Submitted</div><div style="font-size:11.5px;color:#6B7394;margin-top:2px">Documents sent to Choice Bank</div></div><div class="mono" style="font-size:22px;font-weight:800;color:#8B5CF6">2,184</div></div>
+        <div style="text-align:center;color:#3D4460;font-size:11px;padding:4px 0">↓ 78.4% approved</div>
+        <div class="funnel-step" style="background:rgba(15,214,124,.1);border:1px solid rgba(15,214,124,.2);width:78%;margin:0 auto"><div><div style="font-size:13px;font-weight:600;color:#0FD67C">KYC Approved</div><div style="font-size:11.5px;color:#6B7394;margin-top:2px">Account opened at Choice Bank</div></div><div class="mono" style="font-size:22px;font-weight:800;color:#0FD67C">1,712</div></div>
+        <div style="text-align:center;color:#3D4460;font-size:11px;padding:4px 0">↓ 95.2% transacted</div>
+        <div class="funnel-step" style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);width:64%;margin:0 auto"><div><div style="font-size:13px;font-weight:600;color:#F5A623">First Transaction</div><div style="font-size:11.5px;color:#6B7394;margin-top:2px">Transfer or M-PESA deposit</div></div><div class="mono" style="font-size:22px;font-weight:800;color:#F5A623">1,630</div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card"><div class="section-title" style="margin-bottom:14px">Funnel Metrics</div>
+        <div style="display:grid;gap:10px">
+          <div style="padding:10px;background:#0B0D18;border-radius:7px;border:1px solid #1B2040"><div style="font-size:11px;color:#3D4460;margin-bottom:4px">Registration → KYC</div><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:77%;background:#4F79FF"></div></div><span class="mono" style="font-size:12px;color:#4F79FF;font-weight:600">76.7%</span></div></div>
+          <div style="padding:10px;background:#0B0D18;border-radius:7px;border:1px solid #1B2040"><div style="font-size:11px;color:#3D4460;margin-bottom:4px">KYC → Approved</div><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:78%;background:#8B5CF6"></div></div><span class="mono" style="font-size:12px;color:#8B5CF6;font-weight:600">78.4%</span></div></div>
+          <div style="padding:10px;background:#0B0D18;border-radius:7px;border:1px solid #1B2040"><div style="font-size:11px;color:#3D4460;margin-bottom:4px">Approved → First Tx</div><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:95%;background:#0FD67C"></div></div><span class="mono" style="font-size:12px;color:#0FD67C;font-weight:600">95.2%</span></div></div>
+          <div style="padding:10px;background:#0B0D18;border-radius:7px;border:1px solid #1B2040"><div style="font-size:11px;color:#3D4460;margin-bottom:4px">Overall Conversion</div><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:57%;background:#F5A623"></div></div><span class="mono" style="font-size:12px;color:#F5A623;font-weight:600">57.3%</span></div></div>
+        </div>
+      </div>
+      <div class="card"><div class="section-title" style="margin-bottom:12px">Top Rejection Reasons</div>
+        <div style="display:grid;gap:7px">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:#6B7394">Blurry ID photo</span><span class="mono" style="color:#FF3D57;font-weight:600">68</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:#6B7394">Name mismatch</span><span class="mono" style="color:#FF3D57;font-weight:600">52</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:#6B7394">Expired document</span><span class="mono" style="color:#FF3D57;font-weight:600">34</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:#6B7394">Liveness check failed</span><span class="mono" style="color:#FF3D57;font-weight:600">20</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ R3: CUSTOMER GROWTH ============================================================ -->
+<div id="screen-report-growth" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Customer Growth Report</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">New registrations and active wallet trends over time</p></div>
+    <select class="sel"><option>Last 30 days</option><option>Last 90 days</option><option>This year</option></select>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+    <div class="kpi-card kpi-blue"><div style="font-size:11px;color:#6B7394;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">New This Month</div><div class="mono" style="font-size:26px;font-weight:800;color:#E4E7F2">+412</div><div style="font-size:12px;color:#0FD67C;margin-top:6px;font-weight:600">↑ +18% vs last month</div></div>
+    <div class="kpi-card kpi-green"><div style="font-size:11px;color:#6B7394;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Avg Daily Signups</div><div class="mono" style="font-size:26px;font-weight:800;color:#E4E7F2">13.7</div><div style="font-size:12px;color:#0FD67C;margin-top:6px;font-weight:600">↑ +4.2 vs last month</div></div>
+    <div class="kpi-card kpi-purple"><div style="font-size:11px;color:#6B7394;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Wallet Activation Rate</div><div class="mono" style="font-size:26px;font-weight:800;color:#E4E7F2">67.9%</div><div style="font-size:12px;color:#0FD67C;margin-top:6px;font-weight:600">↑ +1.8% vs last month</div></div>
+  </div>
+  <div class="card"><div class="section-hdr" style="margin-bottom:6px"><div class="section-title">Daily New Registrations</div><div style="display:flex;gap:6px"><span class="badge badge-info">● Registrations</span><span class="badge badge-success">● Wallets Created</span></div></div><div style="height:240px"><canvas id="chart-growth"></canvas></div></div>
+</div>
+
+<!-- ============================================================ AL1: AUDIT LOG ============================================================ -->
+<div id="screen-audit-log" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Audit Log</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">System-wide activity trail for compliance and forensics</p></div>
+    <button class="btn btn-secondary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>Export</button>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <div style="position:relative;flex:1;max-width:260px"><input class="inp" style="padding-left:32px;font-size:12.5px" placeholder="Search action, customer, IP…"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <select class="sel"><option>All Actions</option><option>LOGIN</option><option>TRANSFER</option><option>DEPOSIT</option><option>KYC_SUBMIT</option><option>PROFILE_UPDATE</option></select>
+      <input type="date" class="sel" style="color:#6B7394">
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Timestamp</th><th>Customer</th><th>Action</th><th>Resource</th><th>IP Address</th><th>Device</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">2026-05-12 09:41:22</td><td style="font-size:12.5px;color:#4F79FF;cursor:pointer" onclick="navigate('screen-customer-detail','nav-customers')">James Mwangi</td><td><span style="font-family:'JetBrains Mono';font-size:11px;background:rgba(79,121,255,.1);color:#4F79FF;padding:2px 6px;border-radius:4px">TRANSFER_INITIATED</span></td><td class="mono" style="font-size:11px;color:#6B7394">tx/VY-20260512-0041</td><td class="mono" style="font-size:11.5px;color:#3D4460">41.90.144.12</td><td style="font-size:12px;color:#3D4460">Android 14</td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">2026-05-12 08:30:11</td><td style="font-size:12.5px;color:#4F79FF;cursor:pointer">Amina Osman</td><td><span style="font-family:'JetBrains Mono';font-size:11px;background:rgba(15,214,124,.1);color:#0FD67C;padding:2px 6px;border-radius:4px">LOGIN_SUCCESS</span></td><td class="mono" style="font-size:11px;color:#6B7394">auth/session</td><td class="mono" style="font-size:11.5px;color:#3D4460">197.136.22.10</td><td style="font-size:12px;color:#3D4460">iOS 17</td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">2026-05-12 07:55:48</td><td style="font-size:12.5px;color:#4F79FF;cursor:pointer">Peter Kamau</td><td><span style="font-family:'JetBrains Mono';font-size:11px;background:rgba(255,61,87,.1);color:#FF3D57;padding:2px 6px;border-radius:4px">TRANSFER_FAILED</span></td><td class="mono" style="font-size:11px;color:#6B7394">tx/VY-20260512-0039</td><td class="mono" style="font-size:11.5px;color:#3D4460">102.0.8.201</td><td style="font-size:12px;color:#3D4460">Android 13</td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">2026-05-11 22:14:03</td><td style="font-size:12.5px;color:#4F79FF;cursor:pointer">Grace Wanjiku</td><td><span style="font-family:'JetBrains Mono';font-size:11px;background:rgba(139,92,246,.1);color:#8B5CF6;padding:2px 6px;border-radius:4px">KYC_SUBMITTED</span></td><td class="mono" style="font-size:11px;color:#6B7394">kyc/ONB-20260114</td><td class="mono" style="font-size:11.5px;color:#3D4460">154.123.8.90</td><td style="font-size:12px;color:#3D4460">Android 14</td></tr>
+        <tr><td class="mono" style="font-size:11.5px;color:#3D4460">2026-05-11 19:02:30</td><td style="font-size:12.5px;color:#4F79FF;cursor:pointer">David Mutua</td><td><span style="font-family:'JetBrains Mono';font-size:11px;background:rgba(245,166,35,.1);color:#F5A623;padding:2px 6px;border-radius:4px">DEPOSIT_INITIATED</span></td><td class="mono" style="font-size:11px;color:#6B7394">tx/VY-20260511-0019</td><td class="mono" style="font-size:11.5px;color:#3D4460">41.90.55.201</td><td style="font-size:12px;color:#3D4460">iOS 18</td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #1B2040"><span style="font-size:12.5px;color:#6B7394">Showing 1–5 of 48,291</span><div style="display:flex;gap:4px"><div class="pg-btn" style="opacity:.3">‹</div><div class="pg-btn active">1</div><div class="pg-btn">2</div><div class="pg-btn">›</div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ SH1: SYSTEM HEALTH ============================================================ -->
+<div id="screen-health" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">System Health</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Live status of all VycePay services and integrations</p></div>
+    <div style="display:flex;align-items:center;gap:8px"><div class="status-dot dot-up"></div><span style="font-size:13px;color:#0FD67C;font-weight:600">All Systems Operational</span><button class="btn btn-secondary btn-sm" style="margin-left:8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>Refresh</button></div>
+  </div>
+  <!-- Service Grid -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">BFF</span><div class="status-dot dot-up"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8080 · API Gateway</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-success">UP</span><span class="mono" style="font-size:11.5px;color:#6B7394">142ms</span></div><div style="margin-top:8px"><span class="cb-closed">CLOSED</span></div></div>
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">Auth</span><div class="status-dot dot-up"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8082 · Auth Service</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-success">UP</span><span class="mono" style="font-size:11.5px;color:#6B7394">88ms</span></div><div style="margin-top:8px"><span class="cb-closed">CLOSED</span></div></div>
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">KYC</span><div class="status-dot dot-up"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8083 · KYC Service</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-success">UP</span><span class="mono" style="font-size:11.5px;color:#6B7394">210ms</span></div><div style="margin-top:8px"><span class="cb-closed">CLOSED</span></div></div>
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">Wallet</span><div class="status-dot dot-up"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8084 · Wallet Service</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-success">UP</span><span class="mono" style="font-size:11.5px;color:#6B7394">95ms</span></div><div style="margin-top:8px"><span class="cb-closed">CLOSED</span></div></div>
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">Transaction</span><div class="status-dot dot-degraded"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8085 · Tx Service</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-warning">DEGRADED</span><span class="mono" style="font-size:11.5px;color:#F5A623">2,401ms</span></div><div style="margin-top:8px"><span class="cb-half">HALF-OPEN</span></div></div>
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">Activity</span><div class="status-dot dot-up"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8086 · Audit Service</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-success">UP</span><span class="mono" style="font-size:11.5px;color:#6B7394">61ms</span></div><div style="margin-top:8px"><span class="cb-closed">CLOSED</span></div></div>
+    <div class="svc-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#C5CBE8">Callback</span><div class="status-dot dot-up"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">:8081 · Webhook Recv.</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-success">UP</span><span class="mono" style="font-size:11.5px;color:#6B7394">44ms</span></div><div style="margin-top:8px"><span class="cb-closed">CLOSED</span></div></div>
+    <!-- Choice Bank -->
+    <div class="svc-card" style="border-color:rgba(139,92,246,.2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;font-weight:600;color:#8B5CF6">Choice Bank</span><div class="status-dot dot-degraded"></div></div><div style="font-size:11px;color:#3D4460;margin-bottom:4px">BaaS · External API</div><div style="display:flex;align-items:center;justify-content:space-between"><span class="badge badge-warning">HIGH LATENCY</span><span class="mono" style="font-size:11.5px;color:#F5A623">2,380ms</span></div><div style="margin-top:8px;font-size:11px;color:#3D4460">Last success: 2 min ago</div></div>
+  </div>
+  <!-- Callback ingestion chart -->
+  <div class="card"><div class="section-hdr" style="margin-bottom:6px"><div class="section-title">Callback Ingestion Rate (last 24h)</div><span class="badge badge-info">per hour</span></div><div style="height:160px"><canvas id="chart-callbacks-rate"></canvas></div></div>
+</div>
+
+<!-- ============================================================ M1: MENU LIST ============================================================ -->
+<div id="screen-menu-list" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Menu Management</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Define portal routes and navigation items attached to roles</p></div>
+    <button class="btn btn-primary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Menu</button>
+  </div>
+  <div class="card" style="padding:0">
+    <table class="tbl">
+      <thead><tr><th>Menu Name</th><th>Path / Route</th><th>Parent</th><th>Sort</th><th>Active</th><th>Roles</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td style="font-weight:600;color:#C5CBE8">Dashboard</td><td class="mono" style="font-size:12px;color:#4F79FF">/dashboard</td><td style="font-size:12px;color:#3D4460">—</td><td class="mono" style="font-size:12px">1</td><td><div class="switch on"></div></td><td style="font-size:12px;color:#6B7394">All roles</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')">Edit</button><button class="btn btn-danger btn-sm">Del</button></div></td></tr>
+        <tr><td style="font-weight:600;color:#C5CBE8">Customers</td><td class="mono" style="font-size:12px;color:#4F79FF">/customers</td><td style="font-size:12px;color:#3D4460">—</td><td class="mono" style="font-size:12px">2</td><td><div class="switch on"></div></td><td style="font-size:12px;color:#6B7394">Ops, Compliance, Super Admin</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')">Edit</button><button class="btn btn-danger btn-sm">Del</button></div></td></tr>
+        <tr><td style="padding-left:28px;font-size:13px;color:#6B7394">↳ Customer Detail</td><td class="mono" style="font-size:12px;color:#4F79FF">/customers/:id</td><td style="font-size:12px;color:#6B7394">Customers</td><td class="mono" style="font-size:12px">2.1</td><td><div class="switch on"></div></td><td style="font-size:12px;color:#6B7394">Ops, Compliance</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')">Edit</button><button class="btn btn-danger btn-sm">Del</button></div></td></tr>
+        <tr><td style="font-weight:600;color:#C5CBE8">Transactions</td><td class="mono" style="font-size:12px;color:#4F79FF">/transactions</td><td style="font-size:12px;color:#3D4460">—</td><td class="mono" style="font-size:12px">3</td><td><div class="switch on"></div></td><td style="font-size:12px;color:#6B7394">Ops, Finance, Super Admin</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')">Edit</button><button class="btn btn-danger btn-sm">Del</button></div></td></tr>
+        <tr><td style="font-weight:600;color:#C5CBE8">Reports</td><td class="mono" style="font-size:12px;color:#4F79FF">/reports</td><td style="font-size:12px;color:#3D4460">—</td><td class="mono" style="font-size:12px">4</td><td><div class="switch on"></div></td><td style="font-size:12px;color:#6B7394">Finance, Super Admin</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')">Edit</button><button class="btn btn-danger btn-sm">Del</button></div></td></tr>
+        <tr><td style="font-weight:600;color:#C5CBE8">System Health</td><td class="mono" style="font-size:12px;color:#4F79FF">/system-health</td><td style="font-size:12px;color:#3D4460">—</td><td class="mono" style="font-size:12px">5</td><td><div class="switch on"></div></td><td style="font-size:12px;color:#6B7394">Super Admin only</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-edit','nav-menus')">Edit</button><button class="btn btn-danger btn-sm">Del</button></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ M2: MENU EDIT ============================================================ -->
+<div id="screen-menu-edit" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-menu-list','nav-menus')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Create Menu Item</h1>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:16px">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:20px">Menu Configuration</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="inp-group" style="grid-column:1/-1"><label class="inp-label">Menu Name</label><input class="inp" placeholder="e.g. Customer Management"></div>
+        <div class="inp-group" style="grid-column:1/-1"><label class="inp-label">Route / Path</label><input class="inp" placeholder="e.g. /customers" value="/customers"></div>
+        <div class="inp-group"><label class="inp-label">Parent Menu</label><select class="inp sel"><option value="">— No parent (top-level) —</option><option>Transactions</option><option>Reports</option><option>Administration</option></select></div>
+        <div class="inp-group"><label class="inp-label">Sort Order</label><input class="inp" type="number" value="3" placeholder="1"></div>
+        <div class="inp-group"><label class="inp-label">Icon (Lucide name)</label><input class="inp" placeholder="e.g. users, wallet, shield"></div>
+        <div class="inp-group"><label class="inp-label">Status</label><select class="inp sel"><option>Active</option><option>Inactive</option></select></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px">Save</div>
+        <p style="font-size:12.5px;color:#6B7394;margin-bottom:14px">Saving will immediately update role-based navigation for all users assigned to roles that include this menu.</p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">Save Menu Item</button>
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="navigate('screen-menu-list','nav-menus')">Cancel</button>
+      </div>
+      <div class="card" style="border-color:rgba(79,121,255,.2);background:rgba(79,121,255,.03)">
+        <div style="font-size:12px;font-weight:600;color:#4F79FF;margin-bottom:8px">Preview</div>
+        <div class="nav-item active" style="pointer-events:none;margin:0">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          Customer Management
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ RL1: ROLE LIST ============================================================ -->
+<div id="screen-role-list" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Role Management</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Define roles and attach portal menus to control access</p></div>
+    <button class="btn btn-primary btn-sm" onclick="navigate('screen-role-edit','nav-roles')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create Role</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+    <div class="card" style="cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='#4F79FF'" onmouseleave="this.style.borderColor='#1B2040'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;background:rgba(79,121,255,.12);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div><div style="font-size:15px;font-weight:700;color:#E4E7F2">Super Admin</div></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-role-edit','nav-roles')">Edit</button></div>
+      </div>
+      <p style="font-size:12.5px;color:#6B7394;margin-bottom:12px">Full access to all portal sections and settings.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge badge-info">All 15 menus</span></div><span style="font-size:12px;color:#3D4460">2 users</span></div>
+    </div>
+    <div class="card" style="cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='#0FD67C'" onmouseleave="this.style.borderColor='#1B2040'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;background:rgba(15,214,124,.12);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0FD67C" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div><div style="font-size:15px;font-weight:700;color:#E4E7F2">Operations</div></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-role-edit','nav-roles')">Edit</button></div>
+      </div>
+      <p style="font-size:12.5px;color:#6B7394;margin-bottom:12px">Customer management, transactions, callbacks, and KYC.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge badge-success">9 menus</span></div><span style="font-size:12px;color:#3D4460">5 users</span></div>
+    </div>
+    <div class="card" style="cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='#F5A623'" onmouseleave="this.style.borderColor='#1B2040'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;background:rgba(245,166,35,.12);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div style="font-size:15px;font-weight:700;color:#E4E7F2">Finance</div></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-role-edit','nav-roles')">Edit</button></div>
+      </div>
+      <p style="font-size:12.5px;color:#6B7394;margin-bottom:12px">Transactions, reports, and wallets read-only access.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge badge-warning">6 menus</span></div><span style="font-size:12px;color:#3D4460">3 users</span></div>
+    </div>
+    <div class="card" style="cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='#8B5CF6'" onmouseleave="this.style.borderColor='#1B2040'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;background:rgba(139,92,246,.12);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div style="font-size:15px;font-weight:700;color:#E4E7F2">Compliance</div></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-role-edit','nav-roles')">Edit</button></div>
+      </div>
+      <p style="font-size:12.5px;color:#6B7394;margin-bottom:12px">KYC management, audit log, and customer profiles.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge badge-purple">5 menus</span></div><span style="font-size:12px;color:#3D4460">2 users</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ RL2: ROLE EDIT ============================================================ -->
+<div id="screen-role-edit" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-role-list','nav-roles')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Create / Edit Role</h1>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="inp-group" style="margin-bottom:0"><label class="inp-label">Role Name</label><input class="inp" placeholder="e.g. Operations" value="Operations"></div>
+      </div>
+      <!-- Menu assignment -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">Assign Menus</div>
+        <p style="font-size:12.5px;color:#6B7394;margin-bottom:16px">Check the menus this role can access. Child menus are included automatically when a parent is checked.</p>
+        <!-- Menu tree -->
+        <div style="display:grid;gap:6px" id="menu-tree">
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk checked" onclick="event.stopPropagation()"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span>Dashboard</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div></div>
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk checked" onclick="event.stopPropagation()"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span>Customers</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div><div class="menu-children"><div class="menu-child-item"><div class="chk checked"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span style="font-size:12.5px;color:#C5CBE8">Customer List</span></div><div class="menu-child-item"><div class="chk checked"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span style="font-size:12.5px;color:#C5CBE8">Customer Detail</span></div><div class="menu-child-item"><div class="chk"><span></span></div><span style="font-size:12.5px;color:#6B7394">Customer Edit</span></div></div></div>
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk checked" onclick="event.stopPropagation()"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span>KYC Management</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div><div class="menu-children"><div class="menu-child-item"><div class="chk checked"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span style="font-size:12.5px;color:#C5CBE8">KYC List</span></div><div class="menu-child-item"><div class="chk checked"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span style="font-size:12.5px;color:#C5CBE8">KYC Detail</span></div></div></div>
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk checked" onclick="event.stopPropagation()"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span>Transactions</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div><div class="menu-children"><div class="menu-child-item"><div class="chk checked"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span style="font-size:12.5px;color:#C5CBE8">All Transactions</span></div><div class="menu-child-item"><div class="chk checked"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></div><span style="font-size:12.5px;color:#C5CBE8">Failed Transactions</span></div></div></div>
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk" onclick="event.stopPropagation()"></div><span style="color:#6B7394">Reports</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div></div>
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk" onclick="event.stopPropagation()"></div><span style="color:#6B7394">System Health</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div></div>
+          <div class="menu-parent"><div class="menu-parent-label" onclick="toggleMenuGroup(this)"><div class="chk" onclick="event.stopPropagation()"></div><span style="color:#6B7394">Administration</span><span style="margin-left:auto;font-size:11px;color:#3D4460">▾</span></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Preview panel -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px">Save Role</div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">Save Role</button>
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="navigate('screen-role-list','nav-roles')">Cancel</button>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">Access Preview</div>
+        <p style="font-size:12px;color:#3D4460;margin-bottom:12px">Menus visible to users with the <strong style="color:#6B7394">Operations</strong> role:</p>
+        <div style="display:grid;gap:4px">
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Dashboard</span></div>
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Customer List</span></div>
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Customer Detail</span></div>
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>KYC List</span></div>
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>KYC Detail</span></div>
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>All Transactions</span></div>
+          <div class="role-preview-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4F79FF" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Failed Transactions</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ U1: ADMIN USERS ============================================================ -->
+<div id="screen-admin-users" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div><h1 style="font-size:22px;font-weight:800;color:#E4E7F2;letter-spacing:-.3px">Admin Users</h1><p style="font-size:13px;color:#6B7394;margin-top:3px">Manage back office user accounts and role assignments</p></div>
+    <button class="btn btn-primary btn-sm" onclick="navigate('screen-admin-user-edit','nav-admins')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add User</button>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="filter-bar">
+      <div style="position:relative;flex:1;max-width:260px"><input class="inp" style="padding-left:32px;font-size:12.5px" placeholder="Search by name or email…"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3D4460" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <select class="sel"><option>All Roles</option><option>Super Admin</option><option>Operations</option><option>Finance</option><option>Compliance</option></select>
+      <select class="sel"><option>All Statuses</option><option>Active</option><option>Inactive</option></select>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Admin User</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#4F79FF,#6B46E8)">SA</div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Super Admin</div></div></td><td style="font-size:12.5px;color:#6B7394">admin@vycepay.com</td><td><span class="badge badge-info">Super Admin</span></td><td><span class="badge badge-success">Active</span></td><td style="font-size:12px;color:#3D4460">Today · 09:14 AM</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-admin-user-edit','nav-admins')">Edit</button></div></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#0FD67C,#4F79FF)">RO</div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Rachel Omondi</div></div></td><td style="font-size:12.5px;color:#6B7394">rachel.ops@vycepay.com</td><td><span class="badge badge-success">Operations</span></td><td><span class="badge badge-success">Active</span></td><td style="font-size:12px;color:#3D4460">Today · 08:30 AM</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-admin-user-edit','nav-admins')">Edit</button><button class="btn btn-danger btn-sm">Deactivate</button></div></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#F5A623,#FF3D57)">BK</div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Brian Kiptoo</div></div></td><td style="font-size:12.5px;color:#6B7394">brian.finance@vycepay.com</td><td><span class="badge badge-warning">Finance</span></td><td><span class="badge badge-success">Active</span></td><td style="font-size:12px;color:#3D4460">Yesterday</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-admin-user-edit','nav-admins')">Edit</button><button class="btn btn-danger btn-sm">Deactivate</button></div></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:9px"><div class="avatar avatar-sm" style="background:linear-gradient(135deg,#8B5CF6,#4F79FF)">CN</div><div style="font-size:13px;font-weight:500;color:#C5CBE8">Cynthia Njuguna</div></div></td><td style="font-size:12.5px;color:#6B7394">cynthia.compliance@vycepay.com</td><td><span class="badge badge-purple">Compliance</span></td><td><span class="badge badge-gray">Inactive</span></td><td style="font-size:12px;color:#3D4460">May 2, 2026</td><td><div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="navigate('screen-admin-user-edit','nav-admins')">Edit</button><button class="btn btn-success btn-sm">Activate</button></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ U2: ADMIN USER EDIT ============================================================ -->
+<div id="screen-admin-user-edit" class="screen">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-secondary btn-sm" onclick="navigate('screen-admin-users','nav-admins')">← Back</button>
+    <h1 style="font-size:20px;font-weight:800;color:#E4E7F2">Create Admin User</h1>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:16px">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:20px">User Information</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="inp-group"><label class="inp-label">First Name</label><input class="inp" placeholder="Rachel"></div>
+        <div class="inp-group"><label class="inp-label">Last Name</label><input class="inp" placeholder="Omondi"></div>
+        <div class="inp-group" style="grid-column:1/-1"><label class="inp-label">Email Address</label><input class="inp" type="email" placeholder="rachel.ops@vycepay.com"></div>
+        <div class="inp-group"><label class="inp-label">Password</label><input class="inp" type="password" placeholder="Min 8 characters"></div>
+        <div class="inp-group"><label class="inp-label">Confirm Password</label><input class="inp" type="password" placeholder="Repeat password"></div>
+        <div class="inp-group" style="grid-column:1/-1">
+          <label class="inp-label">Assign Role</label>
+          <select class="inp sel">
+            <option>— Select a role —</option>
+            <option>Super Admin</option>
+            <option selected>Operations</option>
+            <option>Finance</option>
+            <option>Compliance</option>
+          </select>
+        </div>
+        <div class="inp-group" style="grid-column:1/-1">
+          <label class="inp-label">Status</label>
+          <select class="inp sel"><option>Active</option><option>Inactive</option></select>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px">Save User</div>
+        <p style="font-size:12.5px;color:#6B7394;margin-bottom:14px">User will receive a welcome email with login instructions.</p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">Create Admin User</button>
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="navigate('screen-admin-users','nav-admins')">Cancel</button>
+      </div>
+      <div class="card" style="border-color:rgba(79,121,255,.15);background:rgba(79,121,255,.03)">
+        <div style="font-size:12px;font-weight:700;color:#4F79FF;margin-bottom:10px">Role Menus Preview</div>
+        <p style="font-size:12px;color:#3D4460;margin-bottom:10px">Selected role: <strong style="color:#6B7394">Operations</strong></p>
+        <div style="display:grid;gap:4px;font-size:12px">
+          <div style="color:#6B7394">✓ Dashboard</div>
+          <div style="color:#6B7394">✓ Customers</div>
+          <div style="color:#6B7394">✓ KYC Management</div>
+          <div style="color:#6B7394">✓ Transactions</div>
+          <div style="color:#6B7394">✓ Callbacks</div>
+          <div style="color:#3D4460">✗ Reports (no access)</div>
+          <div style="color:#3D4460">✗ System Health (no access)</div>
+          <div style="color:#3D4460">✗ Administration (no access)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /screens-container -->
+  </div><!-- /main-content -->
+</div><!-- /app-wrap -->
+
+<script>
+// ======================================================
+// NAVIGATION
+// ======================================================
+const bcLabels = {
+  'screen-dashboard':'Dashboard','screen-customers':'Customers','screen-customer-detail':'Customer Detail',
+  'screen-customer-edit':'Edit Customer','screen-kyc-list':'KYC Management','screen-kyc-detail':'KYC Detail',
+  'screen-wallet-list':'Wallets','screen-wallet-detail':'Wallet Detail','screen-transactions':'Transactions',
+  'screen-tx-detail':'Transaction Detail','screen-failed-tx':'Failed Transactions',
+  'screen-callback-log':'Callback Log','screen-callback-detail':'Callback Detail',
+  'screen-report-volume':'Volume Report','screen-report-kyc':'KYC Funnel','screen-report-growth':'Customer Growth',
+  'screen-audit-log':'Audit Log','screen-health':'System Health',
+  'screen-menu-list':'Menu Management','screen-menu-edit':'Menu Edit',
+  'screen-role-list':'Role Management','screen-role-edit':'Role Edit',
+  'screen-admin-users':'Admin Users','screen-admin-user-edit':'Create User'
+};
+
+const chartsInited = {};
+
+function navigate(screenId, navId) {
+  document.getElementById('app-wrap').style.display = 'flex';
+  document.getElementById('auth-wrap').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(screenId);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (navId) { const nav = document.getElementById(navId); if (nav) nav.classList.add('active'); }
+  document.getElementById('bc-current').textContent = bcLabels[screenId] || screenId;
+  if (!chartsInited[screenId]) { initCharts(screenId); chartsInited[screenId] = true; }
+}
+
+function loginEnter() {
+  document.getElementById('auth-wrap').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'flex';
+  initCharts('screen-dashboard');
+  chartsInited['screen-dashboard'] = true;
+}
+function showForgot() {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-forgot').classList.add('active');
+}
+function showLogin() {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-login').classList.add('active');
+}
+
+function toggleSub(id) {
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id+'-arrow');
+  if (el) el.classList.toggle('collapsed');
+  if (arrow) arrow.style.transform = el.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+}
+
+function switchTab(tabBarId, panesId, idx) {
+  const tabs = document.getElementById(tabBarId).querySelectorAll('.tab-btn');
+  const panes = document.getElementById(panesId).querySelectorAll('.tab-pane');
+  tabs.forEach((t,i) => t.classList.toggle('active', i===idx));
+  panes.forEach((p,i) => p.classList.toggle('active', i===idx));
+}
+
+function toggleMenuGroup(el) {
+  const children = el.parentElement.querySelector('.menu-children');
+  if (children) children.style.display = children.style.display === 'none' ? 'block' : 'none';
+}
+
+// ======================================================
+// CHARTS
+// ======================================================
+Chart.defaults.color = '#3D4460';
+Chart.defaults.borderColor = '#1B2040';
+Chart.defaults.font.family = 'Inter';
+Chart.defaults.font.size = 11;
+
+function makeGradient(ctx, color, alpha1, alpha2) {
+  const g = ctx.createLinearGradient(0, 0, 0, 200);
+  g.addColorStop(0, color.replace(')',`,${alpha1})`).replace('rgb','rgba'));
+  g.addColorStop(1, color.replace(')',`,${alpha2})`).replace('rgb','rgba'));
+  return g;
+}
+
+// Generate 30-day labels
+const days30 = Array.from({length:30},(_,i)=>{const d=new Date('2026-04-12');d.setDate(d.getDate()+i);return `${d.getMonth()+1}/${d.getDate()}`});
+
+function initCharts(screenId) {
+  if (screenId === 'screen-dashboard') {
+    // Volume area chart
+    const vCtx = document.getElementById('chart-volume')?.getContext('2d');
+    if (vCtx) {
+      new Chart(vCtx, {
+        type:'line',
+        data:{
+          labels: days30,
+          datasets:[
+            {label:'Transfers',data:[2.1,2.4,1.9,2.8,3.1,2.6,2.9,3.4,2.7,3.0,3.5,2.8,3.2,3.7,3.0,3.4,3.8,2.9,3.6,4.0,3.3,3.7,4.1,3.5,3.9,4.3,3.6,4.0,4.4,2.7],
+              borderColor:'#4F79FF',borderWidth:2,fill:true,
+              backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,200);g.addColorStop(0,'rgba(79,121,255,.25)');g.addColorStop(1,'rgba(79,121,255,0)');return g},
+              tension:.4,pointRadius:0,pointHoverRadius:4},
+            {label:'Deposits',data:[1.2,1.4,1.1,1.6,1.8,1.5,1.7,2.0,1.6,1.8,2.1,1.7,1.9,2.2,1.8,2.0,2.3,1.7,2.1,2.4,2.0,2.2,2.5,2.1,2.3,2.6,2.2,2.4,2.8,1.6],
+              borderColor:'#0FD67C',borderWidth:2,fill:true,
+              backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,200);g.addColorStop(0,'rgba(15,214,124,.18)');g.addColorStop(1,'rgba(15,214,124,0)');return g},
+              tension:.4,pointRadius:0,pointHoverRadius:4}
+          ]
+        },
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'#141828',borderColor:'#252D50',borderWidth:1,padding:10,titleColor:'#C5CBE8',bodyColor:'#6B7394'}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8}},y:{grid:{color:'#1B2040'},ticks:{callback:v=>`${v}M`}}}}
+      });
+    }
+    // Donut
+    const dCtx = document.getElementById('chart-donut')?.getContext('2d');
+    if (dCtx) {
+      new Chart(dCtx, {
+        type:'doughnut',
+        data:{labels:['Transfers','Deposits'],datasets:[{data:[63,37],backgroundColor:['#4F79FF','#0FD67C'],borderColor:'#0F1221',borderWidth:3,hoverOffset:4}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#141828',borderColor:'#252D50',borderWidth:1}}}
+      });
+    }
+    // KYC bar
+    const kCtx = document.getElementById('chart-kyc-bar')?.getContext('2d');
+    if (kCtx) {
+      new Chart(kCtx, {
+        type:'bar',
+        data:{labels:['Approved','Pending','Rejected','Not Started'],datasets:[{data:[1712,298,174,663],backgroundColor:['#0FD67C','#F5A623','#FF3D57','#252D50'],borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#1B2040'},ticks:{maxTicksLimit:4}}}}
+      });
+    }
+  }
+  else if (screenId === 'screen-report-volume') {
+    const vc = document.getElementById('chart-vol-report')?.getContext('2d');
+    if (vc) {
+      new Chart(vc, {type:'bar',data:{labels:days30,datasets:[{label:'Transfers',data:days30.map(()=>Math.random()*3+1.5),backgroundColor:'rgba(79,121,255,.7)',borderRadius:3},{label:'Deposits',data:days30.map(()=>Math.random()*1.8+0.8),backgroundColor:'rgba(15,214,124,.6)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{display:false},ticks:{maxTicksLimit:8}},y:{stacked:true,grid:{color:'#1B2040'},ticks:{callback:v=>`${v}M`}}}}});
+    }
+    const tc = document.getElementById('chart-tx-count')?.getContext('2d');
+    if (tc) {
+      new Chart(tc, {type:'line',data:{labels:days30,datasets:[{label:'Count',data:days30.map(()=>Math.floor(Math.random()*120+180)),borderColor:'#8B5CF6',borderWidth:2,fill:true,backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,200);g.addColorStop(0,'rgba(139,92,246,.2)');g.addColorStop(1,'rgba(139,92,246,0)');return g},tension:.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8}},y:{grid:{color:'#1B2040'}}}}});
+    }
+  }
+  else if (screenId === 'screen-report-growth') {
+    const gc = document.getElementById('chart-growth')?.getContext('2d');
+    if (gc) {
+      new Chart(gc, {type:'line',data:{labels:days30,datasets:[{label:'Registrations',data:days30.map((_,i)=>Math.floor(8+i*0.4+Math.random()*6)),borderColor:'#4F79FF',borderWidth:2,fill:true,backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,240);g.addColorStop(0,'rgba(79,121,255,.2)');g.addColorStop(1,'rgba(79,121,255,0)');return g},tension:.4,pointRadius:0},{label:'Wallets Created',data:days30.map((_,i)=>Math.floor(5+i*0.3+Math.random()*5)),borderColor:'#0FD67C',borderWidth:2,fill:true,backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,240);g.addColorStop(0,'rgba(15,214,124,.15)');g.addColorStop(1,'rgba(15,214,124,0)');return g},tension:.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8}},y:{grid:{color:'#1B2040'}}}}});
+    }
+  }
+  else if (screenId === 'screen-health') {
+    const cc = document.getElementById('chart-callbacks-rate')?.getContext('2d');
+    if (cc) {
+      const hrs = Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}:00`);
+      new Chart(cc, {type:'bar',data:{labels:hrs,datasets:[{label:'Callbacks/hr',data:hrs.map((_,i)=>i<5||i>21?Math.floor(Math.random()*8+2):Math.floor(Math.random()*40+15)),backgroundColor:hrs.map((_,i)=>i===9?'#FF3D57':'rgba(79,121,255,.6)'),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#1B2040'},ticks:{maxTicksLimit:4}}}}});
+    }
+  }
+}
+</script>
+</body>
+</html>

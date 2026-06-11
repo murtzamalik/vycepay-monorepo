@@ -28,6 +28,7 @@
         <module>vycepay-wallet-service</module>
         <module>vycepay-transaction-service</module>
         <module>vycepay-activity-service</module>
+        <module>vycepay-admin-service</module>
     </modules>
 
     <properties>
