@@ -37,12 +37,15 @@ COPY vycepay-admin-service vycepay-admin-service
 RUN mvn package -DskipTests -B -q
 
 FROM eclipse-temurin:17-jre
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    mariadb-server mariadb-client \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /var/run/mysqld /var/lib/mysql \
-    && chown -R mysql:mysql /var/run/mysqld /var/lib/mysql \
-    && mariadb-install-db --user=mysql --datadir=/var/lib/mysql --skip-test-db
+ARG EMBED_MARIADB=false
+RUN apt-get update && apt-get install -y --no-install-recommends wget \
+    && if [ "$EMBED_MARIADB" = "true" ]; then \
+         apt-get install -y --no-install-recommends mariadb-server mariadb-client \
+         && mkdir -p /var/run/mysqld /var/lib/mysql \
+         && chown -R mysql:mysql /var/run/mysqld /var/lib/mysql \
+         && mariadb-install-db --user=mysql --datadir=/var/lib/mysql --skip-test-db; \
+       fi \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

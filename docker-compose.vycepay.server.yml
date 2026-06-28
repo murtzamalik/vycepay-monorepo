@@ -1,8 +1,4 @@
-# VycePay - Single container server deployment (callback on 8081, others on 9090-series)
-#
-# Run:
-#   docker compose -f docker-compose.vycepay.server.yml up -d --build
-
+# VycePay - Server deployment (external MySQL on DB host)
 name: vycepay-server
 
 services:
@@ -10,34 +6,43 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vycepay.server
+      args:
+        EMBED_MARIADB: "${VYCEPAY_EMBED_MARIADB:-false}"
     container_name: vycepay-server
     ports:
-      - "3306:3306"
-      # callback must be 8081
       - "8081:8081"
-      # admin API
       - "8090:8090"
-      # other services on 9090-series
-      - "9090:9090" # BFF
-      - "9091:9091" # Auth
-      - "9092:9092" # KYC
-      - "9093:9093" # Wallet
-      - "9094:9094" # Transaction
-      - "9095:9095" # Activity
+      - "9090:9090"
+      - "9091:9091"
+      - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
+      - "9095:9095"
     environment:
-      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-dev-only-admin-secret-change-before-prod-123456}
-      ADMIN_CORS_ORIGINS: ${ADMIN_CORS_ORIGINS:-http://localhost:3000}
+      DB_HOST: ${DB_HOST:?DB_HOST is required}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-vycepay}
+      DB_USERNAME: ${DB_USERNAME:-vycepay}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      ADMIN_CORS_ORIGINS: ${ADMIN_CORS_ORIGINS}
       ADMIN_BOOTSTRAP_USERNAME: ${ADMIN_BOOTSTRAP_USERNAME:-}
       ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
       CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
       CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
       CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
-    volumes:
-      - vycepay_mysql_data_server:/var/lib/mysql
+      SPRING_JPA_DATABASE_PLATFORM: ${SPRING_JPA_DATABASE_PLATFORM:-org.hibernate.dialect.MySQLDialect}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
     restart: unless-stopped
+    stop_grace_period: 60s
 
   admin-portal:
     build:
@@ -45,13 +50,11 @@ services:
       dockerfile: Dockerfile
     container_name: vycepay-admin-portal
     environment:
-      ADMIN_API_URL: "http://vycepay:8090"
-      NEXT_PUBLIC_ADMIN_API_URL: "http://localhost:8090"
+      ADMIN_API_URL: ${ADMIN_API_URL:-http://vycepay:8090}
+      NEXT_PUBLIC_ADMIN_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL:-http://46.225.160.93:8090}
     depends_on:
-      - vycepay
+      vycepay:
+        condition: service_healthy
     ports:
-      - "3000:3000"
+      - "${ADMIN_PORTAL_HOST_PORT:-8091}:3000"
     restart: unless-stopped
-
-volumes:
-  vycepay_mysql_data_server:

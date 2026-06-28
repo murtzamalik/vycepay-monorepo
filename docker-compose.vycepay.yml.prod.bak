@@ -1,0 +1,53 @@
+# VycePay - Single container deployment
+# Run: docker compose -f docker-compose.vycepay.yml up -d --build
+# Container name: vycepay
+
+name: vycepay
+
+services:
+  vycepay:
+    build:
+      context: .
+      dockerfile: Dockerfile.vycepay
+    container_name: vycepay
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"
+      - "9080:8080"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+      - "8085:8085"
+      - "8086:8086"
+      - "8090:8090"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET is required for production admin APIs}
+      ADMIN_CORS_ORIGINS: ${ADMIN_CORS_ORIGINS:-http://localhost:3000}
+      ADMIN_BOOTSTRAP_USERNAME: ${ADMIN_BOOTSTRAP_USERNAME:-}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
+      CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
+      CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
+    volumes:
+      - vycepay_mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+  admin-portal:
+    build:
+      context: ./vycepay-admin-portal
+      dockerfile: Dockerfile
+    container_name: vycepay-admin-portal
+    environment:
+      ADMIN_API_URL: "http://vycepay:8090"
+      NEXT_PUBLIC_ADMIN_API_URL: "http://localhost:8090"
+    depends_on:
+      - vycepay
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  vycepay_mysql_data:
