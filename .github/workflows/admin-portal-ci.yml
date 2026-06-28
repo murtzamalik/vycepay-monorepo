@@ -57,3 +57,4 @@ jobs:
         run: |
           docker compose -f docker-compose.yml config >/dev/null
           docker compose -f docker-compose.vycepay.yml config >/dev/null
+          docker compose -f docker-compose.vycepay.server.yml config >/dev/null

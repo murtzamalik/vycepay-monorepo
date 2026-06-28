@@ -44,6 +44,19 @@ mysql -u root -e "
 echo "Starting VycePay services (server port layout)..."
 
 export JWT_SECRET="${JWT_SECRET:-vycepay-default-secret-key-min-256-bits-for-hs256}"
+export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-dev}"
+export ADMIN_JWT_SECRET="${ADMIN_JWT_SECRET:-dev-only-admin-secret-change-before-prod-123456}"
+export ADMIN_CORS_ORIGINS="${ADMIN_CORS_ORIGINS:-http://localhost:3000}"
+export ADMIN_BOOTSTRAP_USERNAME="${ADMIN_BOOTSTRAP_USERNAME:-}"
+export ADMIN_BOOTSTRAP_EMAIL="${ADMIN_BOOTSTRAP_EMAIL:-}"
+export ADMIN_BOOTSTRAP_PASSWORD="${ADMIN_BOOTSTRAP_PASSWORD:-}"
+export ADMIN_HEALTH_BFF_URL="http://127.0.0.1:9090/actuator/health"
+export ADMIN_HEALTH_CALLBACK_URL="http://127.0.0.1:8081/actuator/health"
+export ADMIN_HEALTH_AUTH_URL="http://127.0.0.1:9091/actuator/health"
+export ADMIN_HEALTH_KYC_URL="http://127.0.0.1:9092/actuator/health"
+export ADMIN_HEALTH_WALLET_URL="http://127.0.0.1:9093/actuator/health"
+export ADMIN_HEALTH_TRANSACTION_URL="http://127.0.0.1:9094/actuator/health"
+export ADMIN_HEALTH_ACTIVITY_URL="http://127.0.0.1:9095/actuator/health"
 
 # Use env vars so Spring Boot picks them up (overrides fixed application.yml datasource if needed)
 export SPRING_DATASOURCE_URL="jdbc:mysql://127.0.0.1:3306/vycepay?useSSL=false&serverTimezone=UTC"
@@ -65,6 +78,7 @@ export DB_PASSWORD=vycepay
 (PORT=9093 java -jar /app/wallet.jar) &
 (PORT=9094 java -jar /app/transaction.jar) &
 (PORT=9095 java -jar /app/activity.jar) &
+(PORT=8090 java -jar /app/admin.jar) &
 
 # BFF (single entry point) - start after backends
 sleep 5
