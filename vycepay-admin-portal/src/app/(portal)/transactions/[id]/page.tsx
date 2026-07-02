@@ -1,5 +1,2 @@
-import { DetailPage } from '@/components/shared/DetailPage'
-
-export default function Page() {
-  return <DetailPage title="Transaction Detail" endpoint={(id) => `/transactions/${id}`} />
-}
+import { TransactionDetail } from '@/components/transactions/TransactionDetail'
+export default function Page() { return <TransactionDetail /> }

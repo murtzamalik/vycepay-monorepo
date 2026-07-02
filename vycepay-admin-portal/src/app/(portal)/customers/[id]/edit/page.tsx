@@ -1,2 +1,2 @@
-import { ActionPage } from '@/components/shared/ActionPage'
-export default function Page(){ return <ActionPage title='Customer Actions' description='Suspend or reactivate a customer with reason capture.' /> }
+import { CustomerDetail } from '@/components/customers/CustomerDetail'
+export default function Page() { return <CustomerDetail /> }

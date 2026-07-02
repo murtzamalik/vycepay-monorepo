@@ -51,6 +51,7 @@ docker compose -f docker-compose.vycepay.yml up -d --build
 
 **Single container (server port layout: callback 8081, BFF/backends 9090-series):**
 ```bash
+cp .env.example .env   # edit secrets and DEPLOY_PUBLIC_HOST first
 docker compose -f docker-compose.vycepay.server.yml up -d --build
 ```
 - Uses `docker-compose.vycepay.server.yml` and `Dockerfile.vycepay.server`. BFF: http://localhost:9090. Admin API: http://localhost:8090. Admin portal: http://localhost:3000.

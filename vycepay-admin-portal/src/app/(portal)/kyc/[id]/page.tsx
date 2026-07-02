@@ -1,5 +1,2 @@
-import { DetailPage } from '@/components/shared/DetailPage'
-
-export default function Page() {
-  return <DetailPage title="KYC Detail" endpoint={(id) => `/kyc/${id}`} />
-}
+import { KycDetail } from '@/components/kyc/KycDetail'
+export default function Page() { return <KycDetail /> }

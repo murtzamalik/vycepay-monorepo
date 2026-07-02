@@ -1,2 +1,2 @@
-import { ActionPage } from '@/components/shared/ActionPage'
-export default function Page(){ return <ActionPage title='Menu Edit' description='Create or update portal menu metadata.' /> }
+import { MenuEditor } from '@/components/admin/MenuEditor'
+export default function Page() { return <MenuEditor /> }

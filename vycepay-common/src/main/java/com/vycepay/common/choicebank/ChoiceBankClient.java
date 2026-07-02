@@ -65,7 +65,7 @@ public class ChoiceBankClient {
                             boolean loggingEnabled, boolean logBodies, boolean redactSignatures,
                             ChoiceBankHttpAuditStore auditStore) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        this.senderId = senderId != null ? senderId : "VYCEIN";
+        this.senderId = senderId != null && !senderId.isBlank() ? senderId : "";
         this.requestFactory = new ChoiceBankRequestFactory(this.senderId, privateKey);
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;

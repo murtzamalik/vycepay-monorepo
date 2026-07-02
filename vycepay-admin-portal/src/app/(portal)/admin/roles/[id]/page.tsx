@@ -1,5 +1,2 @@
-import { DetailPage } from '@/components/shared/DetailPage'
-
-export default function Page() {
-  return <DetailPage title="Role Detail" endpoint={(id) => `/roles/${id}`} />
-}
+import { RoleEditor } from '@/components/admin/RoleEditor'
+export default function Page() { return <RoleEditor /> }

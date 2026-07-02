@@ -84,7 +84,6 @@ echo "Starting VycePay services (server port layout)..."
 (PORT=9093 java -jar /app/wallet.jar) &
 (PORT=9094 java -jar /app/transaction.jar) &
 (PORT=9095 java -jar /app/activity.jar) &
-(PORT=8090 java -jar /app/admin.jar) &
 
 sleep 5
 

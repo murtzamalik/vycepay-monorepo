@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VycePay — 04 Home Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#1D9E75;--green-dark:#0F6E56;--navy:#0D1117;--surface:#161B24;--border:rgba(255,255,255,0.08);--text:#E8EAF0;--muted:#8B91A8;--red:#E24B4A;--amber:#EF9F27;--purple:#7F77DD;--blue:#378ADD;--font:'Inter',system-ui,sans-serif}
+body{background:#1a1f2e;display:flex;justify-content:center;padding:40px 20px;font-family:var(--font)}
+.pf{width:390px;background:var(--navy);border-radius:44px;border:1.5px solid rgba(255,255,255,0.12);overflow:hidden}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;font-size:12px;font-weight:600;color:var(--text)}
+/* header */
+.hdr{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 8px}
+.greeting{font-size:12px;color:var(--muted)}
+.uname{font-size:18px;font-weight:600;color:var(--text);margin-top:2px}
+.avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#1D9E75,#085041);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;position:relative}
+.notif-dot{width:9px;height:9px;background:#E24B4A;border-radius:50%;position:absolute;top:-1px;right:-1px;border:1.5px solid var(--navy)}
+/* wallet card */
+.wcard{margin:8px 16px 0;background:linear-gradient(135deg,#1D9E75 0%,#0F6E56 60%,#085041 100%);border-radius:22px;padding:22px;position:relative;overflow:hidden}
+.wcard::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.06)}
+.wcard::after{content:'';position:absolute;bottom:-20px;left:30px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.04)}
+.w-label{font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:0.5px}
+.w-balance{font-size:34px;font-weight:700;color:#fff;margin:5px 0 2px;letter-spacing:-1px;display:flex;align-items:baseline;gap:6px}
+.w-cur{font-size:17px;font-weight:400;opacity:0.8}
+.w-week{font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:18px}
+.w-bottom{display:flex;justify-content:space-between;align-items:flex-end}
+.w-acct-label{font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.5px}
+.w-acct-val{font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:0.5px;margin-top:2px}
+.w-eye{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+/* quick actions */
+.qa-label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.4px;text-transform:uppercase;padding:14px 20px 8px}
+.qa-row{display:flex;justify-content:space-between;padding:0 14px;gap:8px}
+.qa-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--surface);border:0.5px solid var(--border);border-radius:16px;padding:14px 4px;cursor:pointer}
+.qa-icon{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.qa-lbl{font-size:11px;color:var(--muted);text-align:center}
+/* tx list */
+.tx-label{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 8px}
+.tx-label span:first-child{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.4px;text-transform:uppercase}
+.tx-label span:last-child{font-size:12px;color:var(--green)}
+.tx-list{padding:0 16px 8px}
+.txi{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:0.5px solid var(--border)}
+.txi:last-child{border-bottom:none}
+.ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tname{font-size:13px;font-weight:500;color:var(--text)}
+.tsub{font-size:10px;color:var(--muted);margin-top:2px}
+.tamt{font-size:14px;font-weight:600;text-align:right}
+.ttime{font-size:10px;color:var(--muted);margin-top:2px;text-align:right}
+.pos{color:#1D9E75}.neg{color:var(--text)}
+/* bottom nav */
+.bnav{display:flex;justify-content:space-around;background:var(--surface);border-top:0.5px solid var(--border);padding:10px 0 22px}
+.ni{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.ni.active{color:var(--green)}
+.label{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px;letter-spacing:0.3px}
+</style></head><body><div>
+<div class="pf">
+  <div class="sb"><span>9:41</span><span style="display:flex;gap:4px;align-items:center"><span>●●●</span></span></div>
+  <div class="hdr">
+    <div><div class="greeting">Good morning</div><div class="uname">Amina Wanjiku</div></div>
+    <div class="avatar">AW<div class="notif-dot"></div></div>
+  </div>
+  <div class="wcard">
+    <div class="w-label">AVAILABLE BALANCE</div>
+    <div class="w-balance"><span class="w-cur">KES</span>12,450.00</div>
+    <div class="w-week">+KES 2,300 this week</div>
+    <div class="w-bottom">
+      <div><div class="w-acct-label">ACCOUNT</div><div class="w-acct-val">•••• •••• 4829</div></div>
+      <button class="w-eye"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
+  </div>
+  <div class="qa-label">Quick actions</div>
+  <div class="qa-row">
+    <div class="qa-btn"><div class="qa-icon" style="background:rgba(29,158,117,0.14)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div><div class="qa-lbl">Send</div></div>
+    <div class="qa-btn"><div class="qa-icon" style="background:rgba(55,138,221,0.14)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg></div><div class="qa-lbl">Deposit</div></div>
+    <div class="qa-btn"><div class="qa-icon" style="background:rgba(239,159,39,0.14)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EF9F27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5"/></svg></div><div class="qa-lbl">Airtime</div></div>
+    <div class="qa-btn"><div class="qa-icon" style="background:rgba(127,119,221,0.14)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="qa-lbl">Bills</div></div>
+    <div class="qa-btn"><div class="qa-icon" style="background:rgba(255,255,255,0.07)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B91A8" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div><div class="qa-lbl">More</div></div>
+  </div>
+  <div class="tx-label"><span>Recent transactions</span><span>See all</span></div>
+  <div class="tx-list">
+    <div class="txi"><div class="ico" style="background:rgba(29,158,117,0.12)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2" stroke-linecap="round"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></svg></div><div style="flex:1"><div class="tname">M-PESA Deposit</div><div class="tsub">From +254 712 345 678</div></div><div><div class="tamt pos">+2,300.00</div><div class="ttime">Today, 8:14 AM</div></div></div>
+    <div class="txi"><div class="ico" style="background:rgba(226,75,74,0.12)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E24B4A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div><div style="flex:1"><div class="tname">John Kamau</div><div class="tsub">Transfer · M-PESA</div></div><div><div class="tamt neg">-1,500.00</div><div class="ttime">Yesterday</div></div></div>
+    <div class="txi"><div class="ico" style="background:rgba(239,159,39,0.12)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF9F27" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/></svg></div><div style="flex:1"><div class="tname">Airtime – Safaricom</div><div class="tsub">Self recharge</div></div><div><div class="tamt neg">-200.00</div><div class="ttime">Mon, 26 Mar</div></div></div>
+    <div class="txi" style="border:none"><div class="ico" style="background:rgba(127,119,221,0.12)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div><div style="flex:1"><div class="tname">KPLC Prepaid</div><div class="tsub">Bill · #00200123</div></div><div><div class="tamt neg">-3,200.00</div><div class="ttime">Fri, 22 Mar</div></div></div>
+  </div>
+  <div class="bnav">
+    <div class="ni active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Home</div>
+    <div class="ni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 17 4 12 9 7"/><polyline points="15 7 20 12 15 17"/></svg>Transfers</div>
+    <div class="ni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Wallet</div>
+    <div class="ni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Activity</div>
+    <div class="ni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</div>
+  </div>
+</div>
+<div class="label">Screen 04 — Home Dashboard</div>
+</div></body></html>

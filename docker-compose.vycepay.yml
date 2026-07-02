@@ -41,8 +41,8 @@ services:
       dockerfile: Dockerfile
     container_name: vycepay-admin-portal
     environment:
-      ADMIN_API_URL: "http://vycepay:8090"
-      NEXT_PUBLIC_ADMIN_API_URL: "http://localhost:8090"
+      ADMIN_API_URL: ${ADMIN_API_URL:-http://vycepay:8090}
+      NEXT_PUBLIC_ADMIN_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL:-http://localhost:8090}
     depends_on:
       - vycepay
     ports:

@@ -44,6 +44,40 @@ services:
     restart: unless-stopped
     stop_grace_period: 60s
 
+  admin-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin-service
+    container_name: vycepay-admin-service
+    network_mode: "service:vycepay"
+    depends_on:
+      vycepay:
+        condition: service_started
+    environment:
+      PORT: "8090"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      ADMIN_CORS_ORIGINS: ${ADMIN_CORS_ORIGINS}
+      ADMIN_BOOTSTRAP_USERNAME: ${ADMIN_BOOTSTRAP_USERNAME:-}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      DB_HOST: ${DB_HOST:?DB_HOST is required}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-vycepay}
+      DB_USERNAME: ${DB_USERNAME:-vycepay}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_JPA_DATABASE_PLATFORM: ${SPRING_JPA_DATABASE_PLATFORM:-org.hibernate.dialect.MySQLDialect}
+      ADMIN_HEALTH_BFF_URL: http://127.0.0.1:9090/actuator/health
+      ADMIN_HEALTH_CALLBACK_URL: http://127.0.0.1:8081/actuator/health
+      ADMIN_HEALTH_AUTH_URL: http://127.0.0.1:9091/actuator/health
+      ADMIN_HEALTH_KYC_URL: http://127.0.0.1:9092/actuator/health
+      ADMIN_HEALTH_WALLET_URL: http://127.0.0.1:9093/actuator/health
+      ADMIN_HEALTH_TRANSACTION_URL: http://127.0.0.1:9094/actuator/health
+      ADMIN_HEALTH_ACTIVITY_URL: http://127.0.0.1:9095/actuator/health
+    restart: unless-stopped
+
   admin-portal:
     build:
       context: ./vycepay-admin-portal
@@ -51,10 +85,13 @@ services:
     container_name: vycepay-admin-portal
     environment:
       ADMIN_API_URL: ${ADMIN_API_URL:-http://vycepay:8090}
-      NEXT_PUBLIC_ADMIN_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL:-http://46.225.160.93:8090}
+      NEXT_PUBLIC_ADMIN_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL}
+      ADMIN_ALLOW_HTTP_COOKIES: ${ADMIN_ALLOW_HTTP_COOKIES:-true}
     depends_on:
       vycepay:
         condition: service_healthy
+      admin-api:
+        condition: service_started
     ports:
       - "${ADMIN_PORTAL_HOST_PORT:-8091}:3000"
     restart: unless-stopped

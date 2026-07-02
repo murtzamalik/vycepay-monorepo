@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { adminTokenCookieOptions } from '@/lib/auth-cookie'
 
 const ADMIN_API = process.env.ADMIN_API_URL || process.env.NEXT_PUBLIC_ADMIN_API_URL || 'http://localhost:8090'
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
   if (upstream.ok) {
     const json = JSON.parse(text)
     const token = json?.data?.token
-    if (token) (await cookies()).set('admin_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', maxAge: 15 * 60 })
+    if (token) (await cookies()).set('admin_token', token, adminTokenCookieOptions())
   }
   return new NextResponse(text, { status: upstream.status, headers: { 'Content-Type': upstream.headers.get('Content-Type') || 'application/json' } })
 }

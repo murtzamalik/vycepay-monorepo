@@ -1,0 +1,30 @@
+# Admin service only — used as a sidecar sharing vycepay-server network namespace.
+FROM eclipse-temurin:17-jdk AS builder
+WORKDIR /build
+
+COPY pom.xml .
+COPY vycepay-common/pom.xml vycepay-common/
+COPY vycepay-database/pom.xml vycepay-database/
+COPY vycepay-bff/pom.xml vycepay-bff/
+COPY vycepay-auth-service/pom.xml vycepay-auth-service/
+COPY vycepay-callback-service/pom.xml vycepay-callback-service/
+COPY vycepay-kyc-service/pom.xml vycepay-kyc-service/
+COPY vycepay-wallet-service/pom.xml vycepay-wallet-service/
+COPY vycepay-transaction-service/pom.xml vycepay-transaction-service/
+COPY vycepay-activity-service/pom.xml vycepay-activity-service/
+COPY vycepay-admin-service/pom.xml vycepay-admin-service/
+
+RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/* && \
+    mvn dependency:go-offline -B -q || true
+
+COPY vycepay-common vycepay-common
+COPY vycepay-database vycepay-database
+COPY vycepay-admin-service vycepay-admin-service
+
+RUN mvn -pl vycepay-admin-service -am package -DskipTests -B -q
+
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=builder /build/vycepay-admin-service/target/vycepay-admin-service-*.jar /app/admin.jar
+EXPOSE 8090
+CMD ["java", "-jar", "/app/admin.jar"]
