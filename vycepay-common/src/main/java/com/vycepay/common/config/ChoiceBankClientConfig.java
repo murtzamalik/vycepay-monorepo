@@ -15,19 +15,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
-/**
- * Spring configuration for Choice Bank API client.
- * Uses Resilience4j for retry and circuit breaker when available.
- */
 @Configuration
 @EnableConfigurationProperties({ChoiceBankLoggingProperties.class, ChoiceBankHttpAuditProperties.class})
 public class ChoiceBankClientConfig {
 
     private static final String RESILIENCE_INSTANCE = "choiceBank";
 
-    /**
-     * In-memory ring buffer of recent Choice HTTP calls; disabled when {@code vycepay.choice-bank.audit.http.enabled=false}.
-     */
     @Bean
     @ConditionalOnProperty(prefix = "vycepay.choice-bank.audit.http", name = "enabled", havingValue = "true", matchIfMissing = true)
     public ChoiceBankHttpAuditStore choiceBankHttpAuditStore(ChoiceBankHttpAuditProperties auditProperties) {
@@ -37,8 +30,8 @@ public class ChoiceBankClientConfig {
     @Bean
     public ChoiceBankClient choiceBankClient(
             @Value("${vycepay.choice-bank.base-url:https://baas-pilot.choicebankapi.com}") String baseUrl,
-            @Value("${vycepay.choice-bank.sender-id}") String senderId,
-            @Value("${vycepay.choice-bank.private-key}") String privateKey,
+            @Value("${vycepay.choice-bank.sender-id:}") String senderId,
+            @Value("${vycepay.choice-bank.private-key:}") String privateKey,
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
             ChoiceBankLoggingProperties loggingProperties,

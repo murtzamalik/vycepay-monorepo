@@ -17,12 +17,13 @@ spring:
 server:
   port: ${PORT:8081}
 
-# Callback signature verification (requires Choice Bank private key)
 vycepay:
   callback:
     verify-signature: ${CALLBACK_VERIFY_SIGNATURE:true}
   choice-bank:
-    private-key: ${CHOICE_BANK_PRIVATE_KEY:${VYCEPAY_CHOICE_BANK_PRIVATE_KEY:}}
+    base-url: ${CHOICE_BANK_BASE_URL:https://baas.choicedigitalbank.com}
+    sender-id: ${CHOICE_BANK_SENDER_ID:}
+    private-key: ${CHOICE_BANK_PRIVATE_KEY:}
 
 logging:
   level:

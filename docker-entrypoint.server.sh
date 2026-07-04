@@ -21,6 +21,17 @@ export DB_PASSWORD="${DB_PASSWORD:-${MYSQL_PASSWORD:-vycepay}}"
 export DB_NAME="${DB_NAME:-${MYSQL_DATABASE:-vycepay}}"
 export DB_PORT="${DB_PORT:-3306}"
 
+export CHOICE_BANK_BASE_URL="${CHOICE_BANK_BASE_URL:-https://baas.choicedigitalbank.com}"
+export CHOICE_BANK_SENDER_ID="${CHOICE_BANK_SENDER_ID:-}"
+export CHOICE_BANK_PRIVATE_KEY="${CHOICE_BANK_PRIVATE_KEY:-}"
+export CALLBACK_VERIFY_SIGNATURE="${CALLBACK_VERIFY_SIGNATURE:-true}"
+
+if [ -z "${CHOICE_BANK_SENDER_ID}" ] || [ -z "${CHOICE_BANK_PRIVATE_KEY}" ]; then
+  echo "WARNING: CHOICE_BANK_SENDER_ID or CHOICE_BANK_PRIVATE_KEY is empty; callback may fail"
+else
+  echo "Choice Bank configured (sender=${CHOICE_BANK_SENDER_ID}, base-url=${CHOICE_BANK_BASE_URL})"
+fi
+
 if [ -n "${DB_HOST:-}" ]; then
   echo "Using external database at ${DB_HOST}:${DB_PORT}/${DB_NAME}"
   export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL:-jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}"
@@ -78,12 +89,22 @@ fi
 
 echo "Starting VycePay services (server port layout)..."
 
-(PORT=8081 java -jar /app/callback.jar) &
-(PORT=9091 java -jar /app/auth.jar) &
-(PORT=9092 java -jar /app/kyc.jar) &
-(PORT=9093 java -jar /app/wallet.jar) &
-(PORT=9094 java -jar /app/transaction.jar) &
-(PORT=9095 java -jar /app/activity.jar) &
+JAVA_OPTS="${JAVA_OPTS:--Xms128m -Xmx384m}"
+
+start_jar() {
+  local port="$1"
+  local jar="$2"
+  echo "Starting ${jar} on port ${port}..."
+  (PORT="${port}" java ${JAVA_OPTS} -jar "/app/${jar}") &
+  sleep "${STARTUP_DELAY_SEC:-12}"
+}
+
+start_jar 8081 callback.jar
+start_jar 9091 auth.jar
+start_jar 9092 kyc.jar
+start_jar 9093 wallet.jar
+start_jar 9094 transaction.jar
+start_jar 9095 activity.jar
 
 sleep 5
 
@@ -93,6 +114,6 @@ export BFF_WALLETS_URL="http://127.0.0.1:9093"
 export BFF_TRANSACTIONS_URL="http://127.0.0.1:9094"
 export BFF_ACTIVITY_URL="http://127.0.0.1:9095"
 
-(PORT=9090 java -jar /app/bff.jar) &
+(PORT=9090 java ${JAVA_OPTS} -jar /app/bff.jar) &
 
 wait
