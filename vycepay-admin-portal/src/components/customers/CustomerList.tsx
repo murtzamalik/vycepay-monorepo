@@ -4,26 +4,29 @@ import { ListPage } from '@/components/shared/ListPage'
 import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { EntityLink } from '@/components/ui/EntityLink'
-import { formatDate, formatKes } from '@/lib/format'
+import { formatDate, formatFullName, formatKes, formatKycStatus, formatMobile } from '@/lib/format'
 import type { Column } from '@/lib/columns/types'
 
 const columns: Column[] = [
   {
     key: 'name',
     label: 'Customer',
-    render: (r) => (
+    render: (r) => {
+      const fullName = formatFullName(r.firstName, r.middleName, r.lastName)
+      const label = fullName === '—' ? formatMobile(r.mobileCountryCode, r.mobile) : fullName
+      return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-        <Avatar name={`${r.firstName} ${r.lastName}`} size="sm" />
+        <Avatar name={label} size="sm" />
         <div>
-          <div>{`${r.firstName ?? ''} ${r.lastName ?? ''}`.trim()}</div>
+          <div>{label}</div>
           <div className="mono muted" style={{ fontSize: 11 }}>{String(r.externalId)}</div>
         </div>
       </div>
-    ),
+    )},
   },
-  { key: 'mobile', label: 'Mobile', mono: true },
+  { key: 'mobile', label: 'Mobile', render: (r) => <span className="mono">{formatMobile(r.mobileCountryCode, r.mobile)}</span> },
   { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-  { key: 'kycStatus', label: 'KYC', render: (r) => <StatusBadge status={r.kycStatus} /> },
+  { key: 'kycStatus', label: 'KYC', render: (r) => <StatusBadge status={String(r.kycStatusLabel ?? formatKycStatus(r.kycStatus))} /> },
   { key: 'walletBalance', label: 'Balance', render: (r) => formatKes(r.walletBalance) },
   { key: 'createdAt', label: 'Registered', render: (r) => formatDate(r.createdAt) },
   {

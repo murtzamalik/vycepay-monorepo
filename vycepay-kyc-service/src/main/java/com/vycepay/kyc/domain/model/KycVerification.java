@@ -3,6 +3,7 @@ package com.vycepay.kyc.domain.model;
 import jakarta.persistence.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * KYC verification record. Maps to kyc_verification table.
@@ -39,6 +40,21 @@ public class KycVerification {
 
     @Column(name = "id_number")
     private String idNumber;
+
+    @Column(name = "middle_name")
+    private String middleName;
+
+    @Column(name = "birthday")
+    private LocalDate birthday;
+
+    @Column(name = "gender")
+    private Integer gender;
+
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "kra_pin")
+    private String kraPin;
 
     @Column(name = "id_front_url")
     private String idFrontUrl;
@@ -130,6 +146,46 @@ public class KycVerification {
 
     public void setIdNumber(String idNumber) {
         this.idNumber = idNumber;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
+    public LocalDate getBirthday() {
+        return birthday;
+    }
+
+    public void setBirthday(LocalDate birthday) {
+        this.birthday = birthday;
+    }
+
+    public Integer getGender() {
+        return gender;
+    }
+
+    public void setGender(Integer gender) {
+        this.gender = gender;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getKraPin() {
+        return kraPin;
+    }
+
+    public void setKraPin(String kraPin) {
+        this.kraPin = kraPin;
     }
 
     public String getIdFrontUrl() {

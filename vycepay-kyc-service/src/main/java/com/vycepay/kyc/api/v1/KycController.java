@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.vycepay.kyc.api.v1.dto.KycStatusResponse;
 import com.vycepay.kyc.api.v1.dto.KycSubmitRequest;
+import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.facade.KycOnboardingFacade;
 import com.vycepay.kyc.domain.model.Customer;
 import com.vycepay.kyc.domain.model.KycVerification;
@@ -77,7 +78,18 @@ public class KycController {
         Customer customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var params = request.toChoiceParams(externalId);
-        String onboardingRequestId = kycFacade.submitOnboarding(customer.getId(), externalId, params);
+        KycProfileCommand profile = new KycProfileCommand(
+                request.getFirstName(),
+                request.getMiddleName(),
+                request.getLastName(),
+                request.getBirthday(),
+                request.getGender(),
+                request.getIdType(),
+                request.getIdNumber(),
+                request.getAddress(),
+                request.getKraPin(),
+                request.getEmail());
+        String onboardingRequestId = kycFacade.submitOnboarding(customer.getId(), externalId, params, profile);
         return ResponseEntity.ok(new KycStatusResponse("1", onboardingRequestId, null));
     }
 

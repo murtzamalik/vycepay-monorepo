@@ -101,16 +101,43 @@ public class AdminReadService {
         Query q = customerQuery(search, status, false, false, range);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(q.sql + " ORDER BY c.created_at DESC LIMIT ? OFFSET ?", params(q.params, size, Pagination.offset(page, size)));
         maskCustomers(rows);
+        rows.forEach(row -> row.put("kycStatusLabel", kycStatusLabel((String) row.get("kycStatus"))));
         long total = jdbcTemplate.queryForObject(customerQuery(search, status, true, false, range).sql, Long.class, q.params.toArray());
         return Pagination.response(rows, page, size, total);
     }
 
     public Map<String, Object> customerDetail(String id) {
-        String sql = "SELECT c.id, c.external_id externalId, c.mobile_country_code mobileCountryCode, c.mobile, c.email, c.first_name firstName, c.last_name lastName, c.status, c.created_at createdAt, w.id walletId, w.balance_cache walletBalance, w.status walletStatus, w.choice_account_id choiceAccountId, k.status kycStatus FROM customer c LEFT JOIN wallet w ON w.customer_id=c.id LEFT JOIN kyc_verification k ON k.customer_id=c.id WHERE (c.external_id=? OR c.id=?)";
+        String sql = """
+                SELECT c.id, c.external_id externalId, c.mobile_country_code mobileCountryCode, c.mobile, c.email,
+                c.first_name firstName, c.last_name lastName, c.status, c.created_at createdAt, c.updated_at updatedAt,
+                w.id walletId, w.balance_cache walletBalance, w.status walletStatus, w.choice_account_id choiceAccountId,
+                w.currency walletCurrency, w.last_balance_update_at walletBalanceUpdatedAt,
+                k.id kycId, k.status kycStatus, k.choice_onboarding_request_id choiceOnboardingRequestId,
+                k.choice_user_id choiceUserId, k.choice_account_id kycChoiceAccountId, k.choice_account_type choiceAccountType,
+                k.id_type idType, k.id_number idNumber, k.middle_name middleName, k.birthday, k.gender, k.address, k.kra_pin kraPin,
+                k.rejection_reason_msgs rejectionReasonMsgs, k.id_front_url idFrontUrl, k.selfie_url selfieUrl,
+                k.created_at kycSubmittedAt, k.updated_at kycUpdatedAt
+                FROM customer c
+                LEFT JOIN wallet w ON w.customer_id = c.id
+                LEFT JOIN kyc_verification k ON k.id = (
+                    SELECT k2.id FROM kyc_verification k2 WHERE k2.customer_id = c.id ORDER BY k2.created_at DESC LIMIT 1
+                )
+                WHERE (c.external_id = ? OR c.id = ?)
+                """;
         var rows = jdbcTemplate.queryForList(sql, idParams(id));
         if (rows.isEmpty()) throw notFound("CUSTOMER_NOT_FOUND");
         Map<String, Object> row = rows.get(0);
         maskCustomer(row);
+        row.put("idNumber", maskingService.maskIdNumber((String) row.get("idNumber"), securityContext.hasPermission("customer:view_pii")));
+        row.put("kycStatusLabel", kycStatusLabel((String) row.get("kycStatus")));
+        row.put("idTypeLabel", idTypeLabel((String) row.get("idType")));
+        row.put("genderLabel", genderLabel(row.get("gender")));
+        if (!securityContext.hasPermission("kyc:view_documents")) {
+            row.remove("idFrontUrl");
+            row.remove("selfieUrl");
+        }
+        Long customerId = ((Number) row.get("id")).longValue();
+        row.put("deviceCount", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM device_token WHERE customer_id=?", Long.class, customerId));
         return row;
     }
 
@@ -143,12 +170,24 @@ public class AdminReadService {
 
     public Map<String, Object> customerKyc(String id) {
         Long customerId = customerPk(id);
-        var rows = jdbcTemplate.queryForList("SELECT * FROM kyc_verification WHERE customer_id=?", customerId);
+        var rows = jdbcTemplate.queryForList(
+                "SELECT id, customer_id customerId, choice_onboarding_request_id choiceOnboardingRequestId, choice_user_id choiceUserId, "
+                        + "choice_account_id choiceAccountId, choice_account_type choiceAccountType, status, id_type idType, id_number idNumber, "
+                        + "middle_name middleName, birthday, gender, address, kra_pin kraPin, rejection_reason_msgs rejectionReasonMsgs, "
+                        + "id_front_url idFrontUrl, selfie_url selfieUrl, created_at createdAt, updated_at updatedAt "
+                        + "FROM kyc_verification WHERE customer_id=? ORDER BY created_at DESC LIMIT 1",
+                customerId);
         if (rows.isEmpty()) return Map.of();
         Map<String, Object> row = rows.get(0);
         boolean docs = securityContext.hasPermission("kyc:view_documents");
-        if (!docs) { row.remove("id_front_url"); row.remove("selfie_url"); }
-        row.put("id_number", maskingService.maskIdNumber((String) row.get("id_number"), securityContext.hasPermission("customer:view_pii")));
+        if (!docs) {
+            row.remove("idFrontUrl");
+            row.remove("selfieUrl");
+        }
+        row.put("idNumber", maskingService.maskIdNumber((String) row.get("idNumber"), securityContext.hasPermission("customer:view_pii")));
+        row.put("kycStatusLabel", kycStatusLabel((String) row.get("status")));
+        row.put("idTypeLabel", idTypeLabel((String) row.get("idType")));
+        row.put("genderLabel", genderLabel(row.get("gender")));
         return row;
     }
 
@@ -471,6 +510,33 @@ public class AdminReadService {
     private void maskCustomer(Map<String, Object> row) {
         boolean pii = securityContext.hasPermission("customer:view_pii");
         row.put("mobile", maskingService.maskMobile((String) row.get("mobileCountryCode"), (String) row.get("mobile"), pii));
+        row.put("email", maskingService.maskEmail((String) row.get("email"), pii));
+    }
+
+    private String kycStatusLabel(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) return "Not started";
+        return switch (rawStatus) {
+            case "NOT_STARTED" -> "Not started";
+            case "1" -> "Pending review";
+            case "7" -> "Approved";
+            default -> "Rejected";
+        };
+    }
+
+    private String idTypeLabel(String idType) {
+        if (idType == null || idType.isBlank()) return null;
+        return switch (idType) {
+            case "101" -> "National ID";
+            case "102" -> "Alien ID";
+            case "103" -> "Passport";
+            default -> idType;
+        };
+    }
+
+    private String genderLabel(Object gender) {
+        if (gender == null) return null;
+        int value = gender instanceof Number n ? n.intValue() : Integer.parseInt(gender.toString());
+        return value == 0 ? "Female" : "Male";
     }
 
     private BusinessException notFound(String code) { return new BusinessException(code, "Resource not found", HttpStatus.NOT_FOUND); }

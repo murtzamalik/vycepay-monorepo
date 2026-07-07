@@ -58,6 +58,7 @@ public class OnboardingResultHandler implements NotificationHandler {
         String accountId = getString(params, "accountId");
         String accountType = getString(params, "accountType");
         String idNumber = getString(params, "idNumber");
+        String idType = getString(params, "idType");
         String rejectionReasonIds = getString(params, "rejectionReasonIds");
         String rejectionReasonMsgs = getString(params, "rejectionReasonMsgs");
 
@@ -65,6 +66,9 @@ public class OnboardingResultHandler implements NotificationHandler {
                 kyc -> {
                     kyc.setStatus(String.valueOf(status));
                     kyc.setChoiceUserId(userId);
+                    if (idType != null) {
+                        kyc.setIdType(idType);
+                    }
                     if (idNumber != null && encryptionPort != null) {
                         kyc.setIdNumber(encryptionPort.encrypt(idNumber));
                     } else if (idNumber != null) {

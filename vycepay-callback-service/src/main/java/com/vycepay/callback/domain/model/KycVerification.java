@@ -32,6 +32,9 @@ public class KycVerification {
     @Column(name = "status", nullable = false)
     private String status;
 
+    @Column(name = "id_type")
+    private String idType;
+
     @Column(name = "id_number", length = 64)
     private String idNumber;
 
@@ -95,6 +98,14 @@ public class KycVerification {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getIdType() {
+        return idType;
+    }
+
+    public void setIdType(String idType) {
+        this.idType = idType;
     }
 
     public String getIdNumber() {

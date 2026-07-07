@@ -24,7 +24,7 @@ export function CallbackDetail() {
   return (
     <DetailLayout
       header={<div><h2>Callback #{String(data.id)}</h2><StatusBadge status={data.processed ? 'COMPLETED' : 'PENDING'} /></div>}
-      actions={<CallbackActions id={params.id} />}
+      actions={<CallbackActions id={params.id} processed={Boolean(data.processed)} />}
     >
       <div className="card">
         <KeyValueGrid items={[
