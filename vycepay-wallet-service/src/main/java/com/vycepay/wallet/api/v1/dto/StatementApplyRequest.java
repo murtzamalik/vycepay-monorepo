@@ -13,7 +13,7 @@ public class StatementApplyRequest {
     @Schema(description = "Statement period end (Unix ms)")
     private long statementEndTime;
 
-    @Schema(description = "Optional file type per Choice (e.g. PDF/CSV code)")
+    @Schema(description = "Optional file type: 0=PDF, 1=Excel (mapped to Choice pdf/xlsx)")
     private Integer fileType;
 
     public long getStatementStartTime() {

@@ -10,18 +10,18 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Handles 0009 - Account statement generation result (legacy periodic statement callback).
+ * Handles 0015 - File job complete (account statement download URL per Choice Bank docs).
  */
 @Component
-public class AccountStatementResultHandler implements NotificationHandler {
+public class AccountStatementFileJobHandler implements NotificationHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(AccountStatementResultHandler.class);
-    private static final String NOTIFICATION_TYPE = "0009";
+    private static final Logger log = LoggerFactory.getLogger(AccountStatementFileJobHandler.class);
+    private static final String NOTIFICATION_TYPE = "0015";
 
     private final StatementJobCallbackUpdater updater;
     private final ObjectMapper objectMapper;
 
-    public AccountStatementResultHandler(StatementJobCallbackUpdater updater, ObjectMapper objectMapper) {
+    public AccountStatementFileJobHandler(StatementJobCallbackUpdater updater, ObjectMapper objectMapper) {
         this.updater = updater;
         this.objectMapper = objectMapper;
     }
