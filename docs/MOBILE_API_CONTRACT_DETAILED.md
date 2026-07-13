@@ -89,6 +89,8 @@ Known success `code` values for action endpoints:
 - `AUTH_LOGOUT_OK`
 - `DEVICE_REGISTERED`
 - `DEVICE_UNREGISTERED`
+- `HELP_CENTRE_OK`
+- `ABOUT_VYCEPAY_OK`
 - `KYC_OTP_SENT`
 - `KYC_OTP_RESENT`
 - `KYC_OTP_CONFIRMED`
@@ -208,6 +210,20 @@ Known success `code` values for action endpoints:
 - **DELETE** `/api/v1/auth/devices/{deviceId}`
 - **Auth:** Required (Bearer)
 - **Response:** `200 OK` with success envelope (`code = DEVICE_UNREGISTERED`)
+
+### 9) Help centre (profile)
+
+- **GET** `/api/v1/auth/support/help-centre`
+- **Auth:** Required (Bearer)
+- **Response:** `200 OK` with success envelope (`code = HELP_CENTRE_OK`)
+- **Response `data`:** `title`, `subtitle`, `contacts[]`, `categories[]` (FAQ groups), `legalLinks[]`, `securityNotice`
+
+### 10) About VycePay (profile)
+
+- **GET** `/api/v1/auth/support/about`
+- **Auth:** Required (Bearer)
+- **Response:** `200 OK` with success envelope (`code = ABOUT_VYCEPAY_OK`)
+- **Response `data`:** `appName`, `tagline`, `description`, `sections[]`, `highlights[]`, `links[]`, `bankingPartner`, `regulatoryDisclaimer`, `copyright`
 
 ---
 
