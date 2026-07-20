@@ -3,6 +3,7 @@ package com.vycepay.auth.api.v1;
 import com.vycepay.auth.api.v1.dto.AuthResponse;
 import com.vycepay.auth.api.v1.dto.CustomerProfileResponse;
 import com.vycepay.auth.api.v1.dto.RegisterDeviceRequest;
+import com.vycepay.auth.api.v1.dto.RegisterDeviceResponse;
 import com.vycepay.auth.api.v1.dto.RegisterRequest;
 import com.vycepay.auth.api.v1.dto.VerifyOtpRequest;
 import com.vycepay.auth.application.facade.AuthFacade;
@@ -117,23 +118,32 @@ public class AuthController {
 
     /**
      * Registers an FCM device token for push notifications.
-     * If the same token already exists for this customer, returns 200 without duplication.
+     * If the same token already exists for this customer, returns the existing deviceId
+     * and refreshes updated_at (no duplicate row).
      */
     @PostMapping("/devices")
-    public ResponseEntity<ApiSuccessResponse<Void>> registerDevice(
+    public ResponseEntity<ApiSuccessResponse<RegisterDeviceResponse>> registerDevice(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestBody RegisterDeviceRequest request) {
         Customer customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        deviceTokenRepository.findByCustomerIdAndFcmToken(customer.getId(), request.getFcmToken())
+        DeviceToken token = deviceTokenRepository.findByCustomerIdAndFcmToken(customer.getId(), request.getFcmToken())
+                .map(existing -> {
+                    if (request.getPlatform() != null && !request.getPlatform().isBlank()) {
+                        existing.setPlatform(request.getPlatform());
+                    }
+                    return deviceTokenRepository.save(existing);
+                })
                 .orElseGet(() -> {
-                    DeviceToken token = new DeviceToken();
-                    token.setCustomerId(customer.getId());
-                    token.setFcmToken(request.getFcmToken());
-                    token.setPlatform(request.getPlatform());
-                    return deviceTokenRepository.save(token);
+                    DeviceToken created = new DeviceToken();
+                    created.setCustomerId(customer.getId());
+                    created.setFcmToken(request.getFcmToken());
+                    created.setPlatform(request.getPlatform());
+                    return deviceTokenRepository.save(created);
                 });
-        return ResponseEntity.ok(ApiSuccessResponses.ok("DEVICE_REGISTERED", "Device registered successfully."));
+        RegisterDeviceResponse data = new RegisterDeviceResponse(token.getId(), token.getPlatform());
+        return ResponseEntity.ok(ApiSuccessResponses.ok(
+                "DEVICE_REGISTERED", "Device registered successfully.", data));
     }
 
     /**

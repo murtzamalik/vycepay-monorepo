@@ -1,6 +1,7 @@
 package com.vycepay.callback.application.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vycepay.callback.application.push.CallbackPushPublisher;
 import com.vycepay.callback.domain.model.ChoiceBankCallback;
 import com.vycepay.callback.domain.port.NotificationHandler;
 import com.vycepay.callback.infrastructure.persistence.WalletRepository;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 /**
  * Handles 0021 - Account status change (e.g. dormant/active). Updates local wallet.status when accountId matches.
+ * Sends ACCOUNT_STATUS push after a successful update.
  */
 @Component
 public class AccountStatusChangeHandler implements NotificationHandler {
@@ -21,10 +23,14 @@ public class AccountStatusChangeHandler implements NotificationHandler {
 
     private final WalletRepository walletRepository;
     private final ObjectMapper objectMapper;
+    private final CallbackPushPublisher pushPublisher;
 
-    public AccountStatusChangeHandler(WalletRepository walletRepository, ObjectMapper objectMapper) {
+    public AccountStatusChangeHandler(WalletRepository walletRepository,
+                                      ObjectMapper objectMapper,
+                                      CallbackPushPublisher pushPublisher) {
         this.walletRepository = walletRepository;
         this.objectMapper = objectMapper;
+        this.pushPublisher = pushPublisher;
     }
 
     @Override
@@ -53,6 +59,7 @@ public class AccountStatusChangeHandler implements NotificationHandler {
                     w.setStatus(mapWalletStatus(finalStatus));
                     walletRepository.save(w);
                     log.info("Updated wallet status for accountId={} choiceStatus={}", accountId, finalStatus);
+                    pushPublisher.publishBestEffort(w.getCustomerId(), NOTIFICATION_TYPE, params);
                 },
                 () -> log.warn("Wallet not found for accountId={}", accountId)
         );

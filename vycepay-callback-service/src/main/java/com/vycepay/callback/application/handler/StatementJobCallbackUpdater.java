@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Updates local statement jobs from Choice Bank statement callbacks (0009 legacy, 0015 file job).
@@ -24,8 +25,10 @@ public class StatementJobCallbackUpdater {
 
     /**
      * Correlates callback params to a persisted job and merges download URL / status.
+     *
+     * @return updated job when found, empty otherwise
      */
-    public void updateFromParams(Map<String, Object> params, String fallbackCorrelationId) {
+    public Optional<AccountStatementJob> updateFromParams(Map<String, Object> params, String fallbackCorrelationId) {
         String jobId = firstNonBlank(
                 getString(params, "jobId"),
                 getString(params, "requestId"),
@@ -33,10 +36,15 @@ public class StatementJobCallbackUpdater {
                 fallbackCorrelationId);
         if (jobId == null || jobId.isBlank()) {
             log.warn("Statement callback missing job id");
-            return;
+            return Optional.empty();
         }
-        statementJobRepository.findByChoiceRequestId(jobId).ifPresentOrElse(job -> applyParams(job, params),
-                () -> log.warn("No local statement job for jobId={}", jobId));
+        return statementJobRepository.findByChoiceRequestId(jobId).map(job -> {
+            applyParams(job, params);
+            return job;
+        }).or(() -> {
+            log.warn("No local statement job for jobId={}", jobId);
+            return Optional.empty();
+        });
     }
 
     private void applyParams(AccountStatementJob job, Map<String, Object> params) {

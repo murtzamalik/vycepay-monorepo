@@ -20,6 +20,12 @@ server:
 vycepay:
   callback:
     verify-signature: ${CALLBACK_VERIFY_SIGNATURE:true}
+  firebase:
+    # Set true in environments with a Firebase service account (same project as Android com.vycepay).
+    enabled: ${FIREBASE_ENABLED:false}
+    # Prefer env JSON secret; alternatively set credentials-path to a mounted file.
+    credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+    credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
   choice-bank:
     base-url: ${CHOICE_BANK_BASE_URL:https://baas.choicedigitalbank.com}
     sender-id: ${CHOICE_BANK_SENDER_ID:}

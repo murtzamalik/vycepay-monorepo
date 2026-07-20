@@ -1,6 +1,7 @@
 package com.vycepay.callback.application.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vycepay.callback.application.push.CallbackPushPublisher;
 import com.vycepay.callback.domain.model.ChoiceBankCallback;
 import com.vycepay.callback.domain.port.NotificationHandler;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import java.util.Map;
 
 /**
  * Handles 0015 - File job complete (account statement download URL per Choice Bank docs).
+ * Sends STATEMENT_READY push when fileUrl is present.
  */
 @Component
 public class AccountStatementFileJobHandler implements NotificationHandler {
@@ -20,10 +22,14 @@ public class AccountStatementFileJobHandler implements NotificationHandler {
 
     private final StatementJobCallbackUpdater updater;
     private final ObjectMapper objectMapper;
+    private final CallbackPushPublisher pushPublisher;
 
-    public AccountStatementFileJobHandler(StatementJobCallbackUpdater updater, ObjectMapper objectMapper) {
+    public AccountStatementFileJobHandler(StatementJobCallbackUpdater updater,
+                                          ObjectMapper objectMapper,
+                                          CallbackPushPublisher pushPublisher) {
         this.updater = updater;
         this.objectMapper = objectMapper;
+        this.pushPublisher = pushPublisher;
     }
 
     @Override
@@ -37,7 +43,8 @@ public class AccountStatementFileJobHandler implements NotificationHandler {
         if (params == null) {
             return;
         }
-        updater.updateFromParams(params, callback.getChoiceRequestId());
+        updater.updateFromParams(params, callback.getChoiceRequestId()).ifPresent(job ->
+                pushPublisher.publishBestEffort(job.getCustomerId(), NOTIFICATION_TYPE, params));
     }
 
     @SuppressWarnings("unchecked")

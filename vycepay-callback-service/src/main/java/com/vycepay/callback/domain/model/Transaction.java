@@ -22,6 +22,9 @@ public class Transaction {
     @Column(name = "choice_request_id")
     private String choiceRequestId;
 
+    @Column(name = "customer_id")
+    private Long customerId;
+
     @Column(name = "status")
     private String status;
 
@@ -56,6 +59,14 @@ public class Transaction {
 
     public void setChoiceRequestId(String choiceRequestId) {
         this.choiceRequestId = choiceRequestId;
+    }
+
+    public Long getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Long customerId) {
+        this.customerId = customerId;
     }
 
     public String getStatus() {

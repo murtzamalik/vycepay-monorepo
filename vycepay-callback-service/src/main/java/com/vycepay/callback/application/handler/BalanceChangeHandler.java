@@ -16,6 +16,7 @@ import java.util.Map;
 /**
  * Handles 0003 - Balance Change Notification.
  * Updates wallet balance_cache and last_balance_update_at.
+ * Does not send FCM: live traffic pairs 0003 with 0002 for the same txId; 0002 is the primary money push.
  */
 @Component
 public class BalanceChangeHandler implements NotificationHandler {

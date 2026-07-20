@@ -1,6 +1,7 @@
 package com.vycepay.callback.application.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vycepay.callback.application.push.CallbackPushPublisher;
 import com.vycepay.callback.domain.model.ChoiceBankCallback;
 import com.vycepay.callback.domain.model.Transaction;
 import com.vycepay.callback.domain.port.NotificationHandler;
@@ -15,7 +16,8 @@ import java.util.Optional;
 
 /**
  * Handles 0002 - Transaction Result Notification.
- * Updates transaction status, error details, completion time.
+ * Updates transaction status, error details, completion time; sends TRANSACTION_RESULT push.
+ * Primary money push (0003 balance change intentionally does not push to avoid duplicates).
  */
 @Component
 public class TransactionResultHandler implements NotificationHandler {
@@ -25,10 +27,14 @@ public class TransactionResultHandler implements NotificationHandler {
 
     private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
+    private final CallbackPushPublisher pushPublisher;
 
-    public TransactionResultHandler(TransactionRepository transactionRepository, ObjectMapper objectMapper) {
+    public TransactionResultHandler(TransactionRepository transactionRepository,
+                                    ObjectMapper objectMapper,
+                                    CallbackPushPublisher pushPublisher) {
         this.transactionRepository = transactionRepository;
         this.objectMapper = objectMapper;
+        this.pushPublisher = pushPublisher;
     }
 
     @Override
@@ -65,6 +71,7 @@ public class TransactionResultHandler implements NotificationHandler {
                     tx.setCompletedAt(updateTime != null ? Instant.ofEpochMilli(updateTime) : Instant.now());
                     transactionRepository.save(tx);
                     log.info("Updated transaction choiceTxId={} status={}", txId, txStatus);
+                    pushPublisher.publishBestEffort(tx.getCustomerId(), NOTIFICATION_TYPE, params);
                 },
                 () -> log.warn("Transaction not found for txId={}", txId)
         );

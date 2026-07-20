@@ -204,6 +204,14 @@ Known success `code` values for action endpoints:
 }
 ```
 - **Response:** `200 OK` with success envelope (`code = DEVICE_REGISTERED`)
+- **Response `data`:**
+```json
+{
+  "deviceId": 12,
+  "platform": "ANDROID"
+}
+```
+Persist `deviceId` for `DELETE /api/v1/auth/devices/{deviceId}` on logout. See [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 
 ### 8) Unregister device for push
 

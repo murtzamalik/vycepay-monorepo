@@ -105,20 +105,24 @@ All calls go through the **same** client and signing logic; only `params` and pa
 
 ### 5.2 Notification types and handlers
 
-| notificationType | Handler | Action |
-|------------------|---------|--------|
-| **0001** | OnboardingResultHandler | Update `kyc_verification` (status, userId, accountId, rejection info). If status = 7 (account opened), create `wallet` for that customer. |
-| **0002** | TransactionResultHandler | Find transaction by choiceTxId or choiceRequestId; update status, errorCode, errorMsg, completedAt. |
-| **0003** | BalanceChangeHandler | Find wallet by accountId; update balance_cache and last_balance_update_at. |
-| **0009** | AccountStatementResultHandler | Find `account_statement_job` by `requestId` (or equivalent in `params`); set `download_url` / status when statement file is ready. Confirm field names with Choice. |
-| **0021** | AccountStatusChangeHandler | Find wallet by `accountId`; update `wallet.status` from Choice account status fields. |
-| Other | UnknownNotificationHandler | Log only. |
+| notificationType | Handler | Action | FCM push |
+|------------------|---------|--------|----------|
+| **0024** | ProfileCheckResultHandler | Resolve KYC by `onboardingRequestId`; log document check result. | `KYC_DOCUMENT_CHECK` (`resultDescription`) |
+| **0001** | OnboardingResultHandler | Update `kyc_verification` (status, userId, accountId, rejection info). If status = 7 (account opened), create `wallet` for that customer. | `KYC_ONBOARDING_RESULT` |
+| **0002** | TransactionResultHandler | Find transaction by choiceTxId or choiceRequestId; update status, errorCode, errorMsg, completedAt. | `TRANSACTION_RESULT` (primary money push) |
+| **0003** | BalanceChangeHandler | Find wallet by accountId; update balance_cache and last_balance_update_at. | **None** (dedupe with 0002) |
+| **0009** | AccountStatementResultHandler | Find `account_statement_job` by `requestId` (or equivalent in `params`); set `download_url` / status when statement file is ready. | `STATEMENT_READY` when `fileUrl` present |
+| **0015** | AccountStatementFileJobHandler | Same as 0009 for file-job complete (`jobId` + `fileUrl`). | `STATEMENT_READY` |
+| **0021** | AccountStatusChangeHandler | Find wallet by `accountId`; update `wallet.status` from Choice account status fields. | `ACCOUNT_STATUS` |
+| Other | UnknownNotificationHandler | Log only. | None |
+
+Push delivery: after the handler updates DB, `CallbackPushPublisher` sends best-effort FCM via Firebase Admin (`vycepay.firebase.enabled`). See [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 
 ### 5.3 Callback flow in code
 
 1. **CallbackService.receiveAndProcess:** Optionally verify signature (if enabled), then persist raw body in `choice_bank_callback` (idempotent by requestId + notificationType).
 2. Return 200 "ok" to Choice.
-3. **processAsync:** Load callback record, select handler by `notificationType`, run handler, set `processed=true`.
+3. **processAsync:** Load callback record, select handler by `notificationType`, run handler (DB update + async push), set `processed=true`.
 
 Duplicate callbacks (same requestId + notificationType) are stored once and processed once.
 
@@ -136,7 +140,7 @@ Choice Bank integration is **optional** per service: KYC, Transaction, and Walle
 
 Environment variables (often used in Docker) may be mapped to these (e.g. `CHOICE_BANK_BASE_URL`, `CHOICE_BANK_SENDER_ID`, `CHOICE_BANK_PRIVATE_KEY`). Check each service’s `application.yml` for `spring.config.import` or direct property names.
 
-**Callback service:** Optional `vycepay.callback.verify-signature` to verify incoming callback signatures (if Choice supports it).
+**Callback service:** Optional `vycepay.callback.verify-signature` to verify incoming callback signatures (if Choice supports it). Firebase push: `FIREBASE_ENABLED`, `FIREBASE_CREDENTIALS_JSON` or `FIREBASE_CREDENTIALS_PATH` (see [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md)).
 
 ### 6.1 Outbound request/response logging (BaaS client)
 

@@ -15,6 +15,7 @@ This folder contains all project documentation for the VycePay Digital Wallet Pl
 | [CHOICE_BANK_INTEGRATION.md](CHOICE_BANK_INTEGRATION.md) | How Choice Bank is integrated: signing, requestId, outbound APIs, callbacks, config, code |
 | [MOBILE_API_CONTRACT.md](MOBILE_API_CONTRACT.md) | Mobile-facing API: base URL, auth, headers, flows, error codes |
 | [MOBILE_API_CONTRACT_DETAILED.md](MOBILE_API_CONTRACT_DETAILED.md) | Full mobile contract: request/response shapes for every endpoint |
+| [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md) | FCM E2E: callback→push matrix, payload contract, mobile handoff checklist |
 
 ## Other Documentation
 

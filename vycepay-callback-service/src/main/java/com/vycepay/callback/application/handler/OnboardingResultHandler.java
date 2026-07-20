@@ -1,8 +1,8 @@
 package com.vycepay.callback.application.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vycepay.callback.application.push.CallbackPushPublisher;
 import com.vycepay.callback.domain.model.ChoiceBankCallback;
-import com.vycepay.callback.domain.model.KycVerification;
 import com.vycepay.common.security.port.SensitiveDataEncryptionPort;
 import com.vycepay.callback.domain.model.Wallet;
 import com.vycepay.callback.domain.port.NotificationHandler;
@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * Handles 0001 - Personal Onboarding Result Notification.
- * Updates kyc_verification; creates wallet when status=7 (account opened).
+ * Updates kyc_verification; creates wallet when status=7 (account opened); sends KYC push.
  */
 @Component
 public class OnboardingResultHandler implements NotificationHandler {
@@ -31,15 +31,18 @@ public class OnboardingResultHandler implements NotificationHandler {
     private final WalletRepository walletRepository;
     private final ObjectMapper objectMapper;
     private final SensitiveDataEncryptionPort encryptionPort;
+    private final CallbackPushPublisher pushPublisher;
 
     public OnboardingResultHandler(KycVerificationRepository kycRepository,
                                    WalletRepository walletRepository,
                                    ObjectMapper objectMapper,
-                                   @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort) {
+                                   @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort,
+                                   CallbackPushPublisher pushPublisher) {
         this.kycRepository = kycRepository;
         this.walletRepository = walletRepository;
         this.objectMapper = objectMapper;
         this.encryptionPort = encryptionPort;
+        this.pushPublisher = pushPublisher;
     }
 
     @Override
@@ -83,6 +86,7 @@ public class OnboardingResultHandler implements NotificationHandler {
                     if (status != null && status == STATUS_ACCOUNT_OPENED && accountId != null) {
                         createWalletIfNeeded(kyc.getCustomerId(), accountId, accountType);
                     }
+                    pushPublisher.publishBestEffort(kyc.getCustomerId(), NOTIFICATION_TYPE, params);
                 },
                 () -> log.warn("KYC not found for onboardingRequestId={}", onboardingRequestId)
         );

@@ -139,6 +139,22 @@
         },
         {
           "name": "7) Register device for push",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  var json = pm.response.json();",
+                  "  if (json && json.data && json.data.deviceId != null) {",
+                  "    pm.collectionVariables.set('deviceId', String(json.data.deviceId));",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -149,7 +165,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fcmToken\": \"{{fcmToken}}\",\n  \"platform\": \"{{platform}}\"\n}"
-            }
+            },
+            "description": "Registers FCM token. Response data includes deviceId — save it for unregister on logout."
           }
         },
         {

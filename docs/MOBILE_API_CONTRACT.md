@@ -98,7 +98,9 @@ All errors use this shape:
 **Push notifications (FCM):**
 
 - `POST /api/v1/auth/devices` — body: `{ "fcmToken": "...", "platform": "ANDROID" }`, success code: `DEVICE_REGISTERED`.
+  Response `data`: `{ "deviceId": <long>, "platform": "ANDROID" }`. Persist `deviceId` for logout unregister.
 - `DELETE /api/v1/auth/devices/{deviceId}` — success code: `DEVICE_UNREGISTERED`.
+- Push payload contract (backend → FCM): see [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 
 ### KYC (onboarding)
 
@@ -132,7 +134,7 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | GET | /api/v1/auth/me | Required | Current customer profile |
 | POST | /api/v1/auth/refresh-token | Required | Issue new token (no OTP needed) |
 | POST | /api/v1/auth/logout | Required | Acknowledge logout (`AUTH_LOGOUT_OK`) |
-| POST | /api/v1/auth/devices | Required | Register FCM token (`DEVICE_REGISTERED`) |
+| POST | /api/v1/auth/devices | Required | Register FCM token (`DEVICE_REGISTERED`); returns `deviceId` |
 | DELETE | /api/v1/auth/devices/{deviceId} | Required | Unregister FCM token (`DEVICE_UNREGISTERED`) |
 
 ### KYC
