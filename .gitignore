@@ -10,6 +10,13 @@ target/
 *.iws
 .env
 .env.local
+
+# Firebase / secrets — never commit service account keys
+*-firebase-adminsdk*.json
+*firebase-adminsdk*.json
+google-services.json
+**/google-services.json
+
 node_modules/
 .next/
 npm-debug.log*

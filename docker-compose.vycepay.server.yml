@@ -35,6 +35,13 @@ services:
       CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
       CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
       SPRING_JPA_DATABASE_PLATFORM: ${SPRING_JPA_DATABASE_PLATFORM:-org.hibernate.dialect.MySQLDialect}
+      # FCM push (callback-service). Mount host folder below; set path in .env.
+      FIREBASE_ENABLED: ${FIREBASE_ENABLED:-false}
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+    volumes:
+      # Host: /opt/vycepay_firebase/<adminsdk>.json  →  same path inside container
+      - /opt/vycepay_firebase:/opt/vycepay_firebase:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
