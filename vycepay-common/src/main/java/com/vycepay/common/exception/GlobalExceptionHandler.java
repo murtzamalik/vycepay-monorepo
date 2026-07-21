@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -69,6 +70,16 @@ public class GlobalExceptionHandler {
         log.warn("Access denied: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(
                 "FORBIDDEN", "Access denied", getRequestId(), null));
+    }
+
+    /**
+     * Unknown paths (often bots/load-balancer probes on public ports). Return 404 without ERROR noise.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(NoResourceFoundException e) {
+        log.debug("No resource for path: {}", e.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
+                "NOT_FOUND", "Resource not found", getRequestId(), null));
     }
 
     @ExceptionHandler(Exception.class)
