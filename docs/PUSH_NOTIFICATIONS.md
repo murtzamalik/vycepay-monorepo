@@ -1,17 +1,19 @@
 # VycePay Push Notifications (FCM)
 
-End-to-end push: Android registers FCM tokens via auth-service; Choice Bank callbacks in **callback-service** send typed pushes via Firebase Admin.
+End-to-end push: Android binds an FCM token on **verify-otp**; Choice Bank callbacks in **callback-service** send typed pushes via Firebase Admin.
 
 ## Architecture
 
 ```
-Android ──POST /api/v1/auth/devices──► auth-service ──► device_token (MySQL)
+Android ──POST /api/v1/auth/verify-otp (+ fcmToken)──► auth-service ──► device_token (MySQL)
 Choice Bank webhook ──► callback-service handlers ──► device_token lookup ──► FCM
 ```
 
-- **Registration owner:** `vycepay-auth-service`
+- **Registration owner:** `vycepay-auth-service` (via optional `fcmToken` on verify-otp)
 - **Sender:** `vycepay-callback-service` (`PushNotificationPort` / `FirebasePushAdapter`)
-- **0003 (balance change):** intentionally **no push** — live traffic pairs it with **0002**; pushing both doubles notifications.
+- **One device:** each verify with `fcmToken` replaces all prior tokens for that customer
+- **Logout:** `POST /logout` clears all `device_token` rows for the customer
+- **0003 (balance change):** intentionally **no push** — live traffic pairs it with **0002**
 
 ## Backend configuration
 
@@ -28,8 +30,10 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/api/v1/auth/devices` | Body `{ "fcmToken", "platform": "ANDROID" }` → `DEVICE_REGISTERED` + `data.deviceId` |
-| DELETE | `/api/v1/auth/devices/{deviceId}` | Unregister on logout |
+| POST | `/api/v1/auth/verify-otp` | **Primary (mobile):** optional `fcmToken`, `platform` — replaces token for customer |
+| POST | `/api/v1/auth/logout` | Clears all FCM tokens for customer |
+| POST | `/api/v1/auth/devices` | Optional / Postman / legacy |
+| DELETE | `/api/v1/auth/devices/{deviceId}` | Optional / Postman / legacy |
 
 ## Callback → push matrix
 
@@ -88,17 +92,25 @@ See [Mobile handoff](#mobile-team-handoff) below — share that section with And
    - Same Firebase project as the backend service account
    - Do not commit if policy forbids; supply via CI/secure channel
 
-2. **Register FCM token after login**
-   - After OTP success (JWT saved): fetch `FirebaseMessaging.getInstance().token` → `POST /api/v1/auth/devices` with `{ "fcmToken": "...", "platform": "ANDROID" }`
-   - Persist returned **`deviceId`** (EncryptedSharedPreferences)
-   - Also register on cold start if already authenticated and token missing/changed
-   - On `onNewToken`: re-register only if logged in
+2. **Send FCM token on verify-otp (not on login OTP send)**
+   - On `POST /api/v1/auth/verify-otp`, when available:
+     ```json
+     {
+       "mobileCountryCode": "254",
+       "mobile": "712345678",
+       "otpCode": "123456",
+       "fcmToken": "<firebase-token>",
+       "platform": "ANDROID"
+     }
+     ```
+   - Do **not** call `POST /auth/devices` or `DELETE /auth/devices/{deviceId}`
+   - If permission denied / token unavailable: omit `fcmToken` — login still works
 
-3. **Fix or replace `DeviceTokenSyncWorker`**
-   - Wire Hilt WorkManager (`@HiltWorker`, `hilt-work`, `HiltWorkerFactory` in `VycepayApp`), **or** register via coroutine from the auth flow (simpler)
+3. **Logout**
+   - Call `POST /api/v1/auth/logout` only — backend clears the push target
 
-4. **Unregister on logout**
-   - `DELETE /api/v1/auth/devices/{deviceId}` then clear local `deviceId` + token
+4. **FCM rotation while logged in**
+   - Handled by mobile (re-send on next verify or your chosen mechanism)
 
 5. **Runtime notification permission (Android 13+)**
    - Request `POST_NOTIFICATIONS` after login / first home
@@ -118,15 +130,17 @@ See [Mobile handoff](#mobile-team-handoff) below — share that section with And
 
 8. **QA**
    - [ ] Build with `google-services.json`
-   - [ ] Login → row in `device_token`
+   - [ ] verify-otp with `fcmToken` → one row in `device_token`
+   - [ ] Second login with new token → still one row, updated token
    - [ ] Firebase Console test message (foreground / background / killed)
    - [ ] Backend 0002 / 0015 push arrives with correct title/body
    - [ ] Tap opens correct screen
-   - [ ] Logout → device deleted; no further pushes
-   - [ ] Token refresh re-registers
+   - [ ] Logout → no `device_token` rows; no further pushes
 
 ### Mobile does **not** need to
 
+- Call `/auth/devices` register or unregister
+- Persist `deviceId`
 - Implement Firebase Admin / sending
 - Parse Choice Bank raw `notificationType` webhooks (backend maps to `pushType`)
 - Store Choice Bank S3 credentials

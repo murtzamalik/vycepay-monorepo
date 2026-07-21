@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Auth API: registration, OTP verification, login, profile, logout, token refresh.
+ * Mobile registers FCM via optional fields on verify-otp; logout clears push tokens.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -51,13 +52,16 @@ public class AuthController {
 
     /**
      * Verifies OTP and returns JWT. Creates customer if new.
+     * Optional {@code fcmToken}/{@code platform} bind the device for push (one token per customer).
      */
     @PostMapping("/verify-otp")
     public ResponseEntity<AuthResponse> verifyOtp(@RequestBody VerifyOtpRequest request) {
         String token = authFacade.verifyOtpAndGetToken(
                 request.getMobileCountryCode(),
                 request.getMobile(),
-                request.getOtpCode());
+                request.getOtpCode(),
+                request.getFcmToken(),
+                request.getPlatform());
         if (token == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -108,16 +112,18 @@ public class AuthController {
     }
 
     /**
-     * Logout. JWT is stateless; client must discard the token.
-     * Returns 200 to acknowledge the logout request.
+     * Logout: clears all FCM device tokens for the customer.
+     * JWT is stateless; client must discard the token.
      */
     @PostMapping("/logout")
     public ResponseEntity<ApiSuccessResponse<Void>> logout(@RequestHeader("X-Customer-Id") String externalId) {
+        authFacade.logout(externalId);
         return ResponseEntity.ok(ApiSuccessResponses.ok("AUTH_LOGOUT_OK", "Logout acknowledged."));
     }
 
     /**
-     * Registers an FCM device token for push notifications.
+     * Registers an FCM device token for push notifications (optional / Postman / legacy).
+     * Mobile apps should send fcmToken on verify-otp instead.
      * If the same token already exists for this customer, returns the existing deviceId
      * and refreshes updated_at (no duplicate row).
      */
@@ -147,7 +153,8 @@ public class AuthController {
     }
 
     /**
-     * Unregisters a device FCM token (e.g. on logout or device change).
+     * Unregisters a device FCM token (optional / Postman / legacy).
+     * Mobile apps should use POST /logout which clears all tokens.
      */
     @DeleteMapping("/devices/{deviceId}")
     public ResponseEntity<ApiSuccessResponse<Void>> unregisterDevice(

@@ -141,9 +141,14 @@ Known success `code` values for action endpoints:
 {
   "mobileCountryCode": "254",
   "mobile": "712345678",
-  "otpCode": "123456"
+  "otpCode": "123456",
+  "fcmToken": "<firebase-token>",
+  "platform": "ANDROID"
 }
 ```
+- `fcmToken` and `platform` are **optional**. When `fcmToken` is present, backend deletes any existing `device_token` rows for the customer and inserts this one (single-device push).
+- If `fcmToken` is omitted, login still succeeds; no push until a later verify includes a token.
+- Do **not** send `fcmToken` on `POST /login` (OTP send).
 - **Response (200, JSON):**
 ```json
 {
@@ -174,6 +179,7 @@ Known success `code` values for action endpoints:
 - **Request body:** none
 - **Response:** `200 OK` with success envelope (`code = AUTH_LOGOUT_OK`)
 - **Client behavior:** discard token
+- Backend clears all FCM `device_token` rows for the customer. No separate device unregister call needed.
 
 ### 6) Get profile
 
@@ -192,7 +198,9 @@ Known success `code` values for action endpoints:
 }
 ```
 
-### 7) Register device for push
+### 7) Register device for push (optional / Postman / legacy)
+
+Mobile should send `fcmToken` on **verify-otp** instead. This endpoint remains for tooling.
 
 - **POST** `/api/v1/auth/devices`
 - **Auth:** Required (Bearer)
@@ -211,9 +219,11 @@ Known success `code` values for action endpoints:
   "platform": "ANDROID"
 }
 ```
-Persist `deviceId` for `DELETE /api/v1/auth/devices/{deviceId}` on logout. See [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
+See [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 
-### 8) Unregister device for push
+### 8) Unregister device for push (optional / Postman / legacy)
+
+Prefer `POST /logout` which clears all tokens. This endpoint remains for tooling.
 
 - **DELETE** `/api/v1/auth/devices/{deviceId}`
 - **Auth:** Required (Bearer)

@@ -1,5 +1,6 @@
 package com.vycepay.auth.application.facade;
 
+import com.vycepay.auth.application.service.DeviceTokenService;
 import com.vycepay.auth.application.service.JwtService;
 import com.vycepay.auth.application.service.OtpService;
 import com.vycepay.auth.domain.model.Customer;
@@ -14,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Orchestrates registration, OTP verification, and login flows.
+ * Orchestrates registration, OTP verification, login, and FCM token binding.
  */
 @Service
 public class AuthFacade {
@@ -25,11 +26,14 @@ public class AuthFacade {
     private final CustomerRepository customerRepository;
     private final OtpService otpService;
     private final JwtService jwtService;
+    private final DeviceTokenService deviceTokenService;
 
-    public AuthFacade(CustomerRepository customerRepository, OtpService otpService, JwtService jwtService) {
+    public AuthFacade(CustomerRepository customerRepository, OtpService otpService, JwtService jwtService,
+                      DeviceTokenService deviceTokenService) {
         this.customerRepository = customerRepository;
         this.otpService = otpService;
         this.jwtService = jwtService;
+        this.deviceTokenService = deviceTokenService;
     }
 
     /**
@@ -45,15 +49,18 @@ public class AuthFacade {
 
     /**
      * Verifies OTP and completes registration or login.
-     * Creates customer if new; returns JWT.
+     * Creates customer if new; optionally binds FCM token (one device per customer); returns JWT.
      *
      * @param mobileCountryCode Country code
      * @param mobile            Mobile number
      * @param otpCode           OTP from user
+     * @param fcmToken          Optional FCM token from Firebase SDK
+     * @param platform          Optional ANDROID/IOS; defaults to ANDROID when fcmToken set
      * @return JWT if verification succeeds, null otherwise
      */
     @Transactional
-    public String verifyOtpAndGetToken(String mobileCountryCode, String mobile, String otpCode) {
+    public String verifyOtpAndGetToken(String mobileCountryCode, String mobile, String otpCode,
+                                       String fcmToken, String platform) {
         if (!otpService.verifyOtp(mobileCountryCode, mobile, otpCode)) {
             log.warn("Invalid OTP for {} {}", mobileCountryCode, mobile);
             return null;
@@ -67,6 +74,8 @@ public class AuthFacade {
             customerRepository.save(customer);
         }
 
+        deviceTokenService.replaceTokenForCustomer(customer.getId(), fcmToken, platform);
+
         return jwtService.createToken(customer.getId(), customer.getExternalId());
     }
 
@@ -79,6 +88,16 @@ public class AuthFacade {
             throw new BusinessException("CUSTOMER_NOT_REGISTERED", "Customer not registered", HttpStatus.NOT_FOUND);
         }
         otpService.sendOtp(mobileCountryCode, mobile);
+    }
+
+    /**
+     * Clears all FCM tokens for the customer on logout.
+     */
+    @Transactional
+    public void logout(String externalId) {
+        Customer customer = customerRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
+        deviceTokenService.clearTokensForCustomer(customer.getId());
     }
 
     private Customer createCustomer(String mobileCountryCode, String mobile) {

@@ -103,8 +103,9 @@
             "url": "{{baseUrl}}/api/v1/auth/verify-otp",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"mobileCountryCode\": \"{{mobileCountryCode}}\",\n  \"mobile\": \"{{mobile}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}"
-            }
+              "raw": "{\n  \"mobileCountryCode\": \"{{mobileCountryCode}}\",\n  \"mobile\": \"{{mobile}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"fcmToken\": \"{{fcmToken}}\",\n  \"platform\": \"{{platform}}\"\n}"
+            },
+            "description": "Verify OTP. Optional fcmToken/platform bind push (one device). Omit fcmToken if empty."
           }
         },
         {
@@ -124,7 +125,8 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/api/v1/auth/logout"
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Clears all FCM device tokens for the customer. Client must discard JWT."
           }
         },
         {
@@ -138,7 +140,7 @@
           }
         },
         {
-          "name": "7) Register device for push",
+          "name": "7) Register device for push (optional/legacy)",
           "event": [
             {
               "listen": "test",
@@ -166,17 +168,18 @@
               "mode": "raw",
               "raw": "{\n  \"fcmToken\": \"{{fcmToken}}\",\n  \"platform\": \"{{platform}}\"\n}"
             },
-            "description": "Registers FCM token. Response data includes deviceId — save it for unregister on logout."
+            "description": "Optional/legacy. Mobile should send fcmToken on verify-otp instead."
           }
         },
         {
-          "name": "8) Unregister device for push",
+          "name": "8) Unregister device for push (optional/legacy)",
           "request": {
             "method": "DELETE",
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/api/v1/auth/devices/{{deviceId}}"
+            "url": "{{baseUrl}}/api/v1/auth/devices/{{deviceId}}",
+            "description": "Optional/legacy. Prefer POST /logout which clears all tokens."
           }
         }
       ]

@@ -75,7 +75,7 @@ All errors use this shape:
 ### Registration and login
 
 1. `POST /api/v1/auth/register` — send OTP (success code: `AUTH_OTP_SENT`).
-2. `POST /api/v1/auth/verify-otp` — verify OTP (body: `mobileCountryCode`, `mobile`, `otpCode`). Response: `token`, `externalId`, `expiresIn` (seconds). Store token for all later requests.
+2. `POST /api/v1/auth/verify-otp` — verify OTP (body: `mobileCountryCode`, `mobile`, `otpCode`, optional `fcmToken`, `platform`). Response: `token`, `externalId`, `expiresIn` (seconds). Store token for all later requests. When `fcmToken` is sent, backend stores it as the customer's only push target.
 
 **Returning user:**
 
@@ -89,7 +89,7 @@ All errors use this shape:
 **Logout:**
 
 - `POST /api/v1/auth/logout` (no body) — success code: `AUTH_LOGOUT_OK`; client must discard the token.
-- Also call `DELETE /api/v1/auth/devices/{deviceId}` to unregister FCM token.
+- Backend clears all FCM device tokens for the customer (no separate unregister call needed).
 
 **Profile:**
 
@@ -97,9 +97,10 @@ All errors use this shape:
 
 **Push notifications (FCM):**
 
-- `POST /api/v1/auth/devices` — body: `{ "fcmToken": "...", "platform": "ANDROID" }`, success code: `DEVICE_REGISTERED`.
-  Response `data`: `{ "deviceId": <long>, "platform": "ANDROID" }`. Persist `deviceId` for logout unregister.
-- `DELETE /api/v1/auth/devices/{deviceId}` — success code: `DEVICE_UNREGISTERED`.
+- **Primary (mobile):** send optional `fcmToken` + `platform` (`ANDROID`) on `POST /api/v1/auth/verify-otp`. One token per customer; each successful verify with a token replaces the previous.
+- Omit `fcmToken` if unavailable — login still works; no push until a later verify includes a token.
+- Logout clears push targets via `POST /logout`.
+- **Optional / Postman:** `POST /api/v1/auth/devices` and `DELETE /api/v1/auth/devices/{deviceId}` remain for tooling; mobile should not use them.
 - Push payload contract (backend → FCM): see [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 
 ### KYC (onboarding)
@@ -130,12 +131,12 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 |--------|------|------|-------------|
 | POST | /api/v1/auth/register | Public | Send OTP for registration (`AUTH_OTP_SENT`) |
 | POST | /api/v1/auth/login | Public | Send OTP for login (`AUTH_LOGIN_OTP_SENT`) |
-| POST | /api/v1/auth/verify-otp | Public | Verify OTP → returns `token`, `externalId`, `expiresIn` |
+| POST | /api/v1/auth/verify-otp | Public | Verify OTP → JWT; optional `fcmToken`/`platform` for push |
 | GET | /api/v1/auth/me | Required | Current customer profile |
 | POST | /api/v1/auth/refresh-token | Required | Issue new token (no OTP needed) |
-| POST | /api/v1/auth/logout | Required | Acknowledge logout (`AUTH_LOGOUT_OK`) |
-| POST | /api/v1/auth/devices | Required | Register FCM token (`DEVICE_REGISTERED`); returns `deviceId` |
-| DELETE | /api/v1/auth/devices/{deviceId} | Required | Unregister FCM token (`DEVICE_UNREGISTERED`) |
+| POST | /api/v1/auth/logout | Required | Logout; clears FCM tokens (`AUTH_LOGOUT_OK`) |
+| POST | /api/v1/auth/devices | Required | Optional/legacy: register FCM token (`DEVICE_REGISTERED`) |
+| DELETE | /api/v1/auth/devices/{deviceId} | Required | Optional/legacy: unregister FCM token (`DEVICE_UNREGISTERED`) |
 
 ### KYC
 

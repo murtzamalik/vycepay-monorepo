@@ -16,4 +16,9 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> 
     Optional<DeviceToken> findByIdAndCustomerId(Long id, Long customerId);
 
     Optional<DeviceToken> findByCustomerIdAndFcmToken(Long customerId, String fcmToken);
+
+    /**
+     * Removes all FCM tokens for a customer (logout or single-device replace).
+     */
+    void deleteByCustomerId(Long customerId);
 }

@@ -6,14 +6,19 @@
 
 1. Client: `POST /api/v1/auth/register` with `{ "mobileCountryCode": "254", "mobile": "712345678" }`.
 2. **AuthFacade.sendOtp:** Generates OTP, stores in `otp_verification` (expiry e.g. 5 min), “sends” (default: logs; production would use SMS port).
-3. Client: `POST /api/v1/auth/verify-otp` with `{ "mobileCountryCode", "mobile", "otpCode" }`.
-4. **AuthFacade.verifyOtpAndGetToken:** Verifies OTP (latest for that mobile); if valid, finds or **creates** `customer` (externalId = UUID, status ACTIVE), then issues JWT with customer id and externalId. Returns token and externalId in response.
+3. Client: `POST /api/v1/auth/verify-otp` with `{ "mobileCountryCode", "mobile", "otpCode" }` and optional `{ "fcmToken", "platform" }`.
+4. **AuthFacade.verifyOtpAndGetToken:** Verifies OTP (latest for that mobile); if valid, finds or **creates** `customer` (externalId = UUID, status ACTIVE), optionally **replaces** `device_token` with the provided FCM token (one device per customer), then issues JWT with customer id and externalId. Returns token and externalId in response.
 
 ### Login (existing customer)
 
-1. Client: `POST /api/v1/auth/login` with same body as register.
+1. Client: `POST /api/v1/auth/login` with same body as register (no FCM token here).
 2. **AuthFacade.login:** Throws if customer not found; otherwise sends OTP (same as register).
-3. Client: Same verify-otp as above; gets new JWT.
+3. Client: Same verify-otp as above (optional `fcmToken`); gets new JWT and push binding.
+
+### Logout
+
+1. Client: `POST /api/v1/auth/logout` with Bearer JWT.
+2. **AuthFacade.logout:** Deletes all `device_token` rows for the customer. Client discards JWT.
 
 **Identity:** JWT payload includes customer’s `externalId`. This is what the BFF puts in `X-Customer-Id` and what backends use to resolve `customer` (e.g. `customerRepository.findByExternalId(externalId)`).
 
