@@ -18,6 +18,10 @@ public class VerifyOtpRequest {
     @Schema(description = "OTP code received via SMS", requiredMode = Schema.RequiredMode.REQUIRED)
     private String otpCode;
 
+    @Schema(description = "Device fingerprint (ANDROID_ID / IMEI). Required for signup device binding.",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+    private String imei;
+
     @Schema(description = "FCM device token from Firebase SDK. Optional; omit if unavailable. "
             + "When present, replaces any existing push token for this customer (one device).")
     private String fcmToken;
@@ -48,6 +52,14 @@ public class VerifyOtpRequest {
 
     public void setOtpCode(String otpCode) {
         this.otpCode = otpCode;
+    }
+
+    public String getImei() {
+        return imei;
+    }
+
+    public void setImei(String imei) {
+        this.imei = imei;
     }
 
     public String getFcmToken() {

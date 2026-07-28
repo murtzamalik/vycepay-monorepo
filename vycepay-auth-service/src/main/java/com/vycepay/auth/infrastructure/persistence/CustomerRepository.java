@@ -13,4 +13,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Optional<Customer> findByExternalId(String externalId);
 
     Optional<Customer> findByMobileCountryCodeAndMobile(String mobileCountryCode, String mobile);
+
+    Optional<Customer> findByUsernameNormalized(String usernameNormalized);
+
+    boolean existsByUsernameNormalized(String usernameNormalized);
 }

@@ -33,7 +33,15 @@ public class BffSecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/internal/choice-bank/**").permitAll()
-                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/verify-otp").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/verify-otp",
+                                "/api/v1/auth/verify-device-otp",
+                                "/api/v1/auth/verify-migrate-otp",
+                                "/api/v1/auth/forgot-pin/request",
+                                "/api/v1/auth/forgot-pin/confirm"
+                        ).permitAll()
                         .requestMatchers("/api/v1/**").authenticated())
                 .build();
     }

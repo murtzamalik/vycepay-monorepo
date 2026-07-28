@@ -21,3 +21,27 @@ vycepay:
   otp:
     length: ${OTP_LENGTH:6}
     expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
+    # Set only in local/dev (e.g. 123456). Leave empty in staging/prod for random OTPs.
+    dev-fixed-code: ${OTP_DEV_FIXED_CODE:123456}
+  auth:
+    pin:
+      max-attempts: ${AUTH_PIN_MAX_ATTEMPTS:5}
+      lockout-minutes: ${AUTH_PIN_LOCKOUT_MINUTES:15}
+    rate-limit:
+      policies:
+        login:
+          enabled: true
+          limit: 20
+          window-seconds: 60
+        otp_send:
+          enabled: true
+          limit: 5
+          window-seconds: 60
+        otp_verify:
+          enabled: true
+          limit: 10
+          window-seconds: 60
+        forgot_pin:
+          enabled: true
+          limit: 5
+          window-seconds: 300

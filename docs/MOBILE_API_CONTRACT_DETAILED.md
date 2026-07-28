@@ -29,8 +29,14 @@ The client must **not** send `X-Customer-Id`.
 ### Public endpoints (no Bearer token required)
 
 - `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
 - `POST /api/v1/auth/verify-otp`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/verify-device-otp`
+- `POST /api/v1/auth/verify-migrate-otp`
+- `POST /api/v1/auth/forgot-pin/request`
+- `POST /api/v1/auth/forgot-pin/confirm`
+
+Authenticated: `POST /api/v1/auth/credentials`, `POST /api/v1/auth/change-pin`.
 
 All other `/api/v1/**` endpoints require a valid Bearer token.
 Missing or invalid token returns `401 Unauthorized`.
@@ -119,20 +125,7 @@ Known success `code` values for action endpoints:
 ```
 - **Response:** `200 OK` with success envelope (`code = AUTH_OTP_SENT`)
 
-### 2) Login (send OTP)
-
-- **POST** `/api/v1/auth/login`
-- **Auth:** Public
-- **Request (JSON):** same as register
-```json
-{
-  "mobileCountryCode": "254",
-  "mobile": "712345678"
-}
-```
-- **Response:** `200 OK` with success envelope (`code = AUTH_LOGIN_OTP_SENT`)
-
-### 3) Verify OTP (get JWT)
+### 2) Verify signup OTP (get JWT + bind IMEI)
 
 - **POST** `/api/v1/auth/verify-otp`
 - **Auth:** Public
@@ -142,21 +135,32 @@ Known success `code` values for action endpoints:
   "mobileCountryCode": "254",
   "mobile": "712345678",
   "otpCode": "123456",
+  "imei": "<ANDROID_ID>",
   "fcmToken": "<firebase-token>",
   "platform": "ANDROID"
 }
 ```
-- `fcmToken` and `platform` are **optional**. When `fcmToken` is present, backend deletes any existing `device_token` rows for the customer and inserts this one (single-device push).
-- If `fcmToken` is omitted, login still succeeds; no push until a later verify includes a token.
-- Do **not** send `fcmToken` on `POST /login` (OTP send).
-- **Response (200, JSON):**
-```json
-{
-  "token": "<JWT>",
-  "externalId": "<UUID>",
-  "expiresIn": 600
-}
-```
+- `imei` is **required**. `fcmToken`/`platform` optional for push.
+- **Response:** success envelope with `data`: `{ "token", "externalId", "expiresIn" }`
+
+### 3) PIN login
+
+- **POST** `/api/v1/auth/login`
+- **Auth:** Public
+- **Request:** `username` **or** (`mobileCountryCode`+`mobile`), plus `pin`, `imei`, optional FCM
+- **Response `data`:** JWT on success; or `deviceOtpRequired` / `mustSetCredentials` flags (no token). Includes `mobile`/`mobileCountryCode` when OTP required.
+
+### 3b) Verify device OTP (no JWT — return to login)
+
+- **POST** `/api/v1/auth/verify-device-otp`
+- **Request:** `{ mobileCountryCode, mobile, otpCode, imei }`
+- **Response:** `AUTH_DEVICE_BOUND`
+
+### 3c) Credentials / forgot-PIN / migrate
+
+- **POST** `/api/v1/auth/credentials` (Bearer) — set username + PIN once
+- **POST** `/api/v1/auth/forgot-pin/request` | `/confirm`
+- **POST** `/api/v1/auth/verify-migrate-otp` — JWT for migrate → credentials
 
 ### 4) Refresh token
 

@@ -2,25 +2,35 @@
 
 ## 1. Authentication (Auth Service)
 
-### Registration
+### Registration (signup)
 
 1. Client: `POST /api/v1/auth/register` with `{ "mobileCountryCode": "254", "mobile": "712345678" }`.
-2. **AuthFacade.sendOtp:** Generates OTP, stores in `otp_verification` (expiry e.g. 5 min), “sends” (default: logs; production would use SMS port).
-3. Client: `POST /api/v1/auth/verify-otp` with `{ "mobileCountryCode", "mobile", "otpCode" }` and optional `{ "fcmToken", "platform" }`.
-4. **AuthFacade.verifyOtpAndGetToken:** Verifies OTP (latest for that mobile); if valid, finds or **creates** `customer` (externalId = UUID, status ACTIVE), optionally **replaces** `device_token` with the provided FCM token (one device per customer), then issues JWT with customer id and externalId. Returns token and externalId in response.
+2. **AuthFacade.sendSignupOtp:** Generates purpose=`SIGNUP` OTP, stores in `otp_verification`, logs/sends SMS.
+3. Client: `POST /api/v1/auth/verify-otp` with mobile, otpCode, **imei** (required), optional fcmToken/platform.
+4. **AuthFacade.verifySignupOtp:** Verifies SIGNUP OTP; creates `customer` if needed; **binds** single row in `customer_device`; optional FCM replace; returns JWT.
+5. After KYC profile steps: Client `POST /api/v1/auth/credentials` with username + 4-digit PIN (BCrypt hash stored). Then KYC submit as today.
 
-### Login (existing customer)
+### Login (PIN + single device)
 
-1. Client: `POST /api/v1/auth/login` with same body as register (no FCM token here).
-2. **AuthFacade.login:** Throws if customer not found; otherwise sends OTP (same as register).
-3. Client: Same verify-otp as above (optional `fcmToken`); gets new JWT and push binding.
+1. Client: `POST /api/v1/auth/login` with username **or** mobile, `pin`, `imei`, optional FCM.
+2. If `pin_hash` null → send `CREDENTIALS_MIGRATE` OTP; return `mustSetCredentials` (no JWT).
+3. Verify PIN (lockout after 5 fails / 15 min). If IMEI matches `customer_device` → JWT + FCM bind.
+4. If IMEI mismatch/absent → send `DEVICE_BIND` OTP; return `deviceOtpRequired` (no JWT).
+5. Client: `POST /api/v1/auth/verify-device-otp` → replace bound IMEI → **no JWT**; user returns to login and signs in again.
+
+### Forgot PIN
+
+1. `forgot-pin/request` → `PIN_RESET` OTP.
+2. `forgot-pin/confirm` → verify OTP, set new PIN hash.
 
 ### Logout
 
 1. Client: `POST /api/v1/auth/logout` with Bearer JWT.
 2. **AuthFacade.logout:** Deletes all `device_token` rows for the customer. Client discards JWT.
 
-**Identity:** JWT payload includes customer’s `externalId`. This is what the BFF puts in `X-Customer-Id` and what backends use to resolve `customer` (e.g. `customerRepository.findByExternalId(externalId)`).
+**Identity:** JWT payload includes customer’s `externalId`. This is what the BFF puts in `X-Customer-Id` and what backends use to resolve `customer`.
+
+**Monitoring:** Micrometer counters `auth.login.*`, `auth.pin.lockout`, `auth.device.bind`, `auth.pin.reset`, `auth.credentials.set`; rows in `auth_audit_event` (no secrets).
 
 ---
 

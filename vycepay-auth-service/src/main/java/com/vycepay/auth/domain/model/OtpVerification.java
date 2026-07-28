@@ -22,6 +22,9 @@ public class OtpVerification {
     @Column(name = "mobile", nullable = false)
     private String mobile;
 
+    @Column(name = "purpose", nullable = false, length = 32)
+    private String purpose = OtpPurpose.SIGNUP.name();
+
     @Column(name = "otp_code", nullable = false)
     private String otpCode;
 
@@ -61,6 +64,14 @@ public class OtpVerification {
 
     public void setMobile(String mobile) {
         this.mobile = mobile;
+    }
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
     }
 
     public String getOtpCode() {

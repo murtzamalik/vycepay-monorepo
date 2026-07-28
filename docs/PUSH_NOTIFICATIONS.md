@@ -1,17 +1,18 @@
 # VycePay Push Notifications (FCM)
 
-End-to-end push: Android binds an FCM token on **verify-otp**; Choice Bank callbacks in **callback-service** send typed pushes via Firebase Admin.
+End-to-end push: Android binds an FCM token on **signup verify-otp** or **successful PIN login**; Choice Bank callbacks in **callback-service** send typed pushes via Firebase Admin.
 
 ## Architecture
 
 ```
-Android ──POST /api/v1/auth/verify-otp (+ fcmToken)──► auth-service ──► device_token (MySQL)
+Android ──POST /api/v1/auth/verify-otp or /login (+ fcmToken)──► auth-service ──► device_token (MySQL)
 Choice Bank webhook ──► callback-service handlers ──► device_token lookup ──► FCM
 ```
 
-- **Registration owner:** `vycepay-auth-service` (via optional `fcmToken` on verify-otp)
+- **Registration owner:** `vycepay-auth-service` (optional `fcmToken` on signup verify-otp **or** PIN login success)
 - **Sender:** `vycepay-callback-service` (`PushNotificationPort` / `FirebasePushAdapter`)
-- **One device:** each verify with `fcmToken` replaces all prior tokens for that customer
+- **One FCM token:** each bind with `fcmToken` replaces all prior tokens for that customer
+- **IMEI binding:** separate table `customer_device` (login device trust) — not the same as FCM
 - **Logout:** `POST /logout` clears all `device_token` rows for the customer
 - **0003 (balance change):** intentionally **no push** — live traffic pairs it with **0002**
 
@@ -30,7 +31,8 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/api/v1/auth/verify-otp` | **Primary (mobile):** optional `fcmToken`, `platform` — replaces token for customer |
+| POST | `/api/v1/auth/verify-otp` | Signup: optional `fcmToken`, `platform` — replaces FCM token |
+| POST | `/api/v1/auth/login` | On JWT success: optional `fcmToken` replaces FCM token |
 | POST | `/api/v1/auth/logout` | Clears all FCM tokens for customer |
 | POST | `/api/v1/auth/devices` | Optional / Postman / legacy |
 | DELETE | `/api/v1/auth/devices/{deviceId}` | Optional / Postman / legacy |

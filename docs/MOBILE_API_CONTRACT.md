@@ -11,18 +11,24 @@ All paths below are relative to the base URL (e.g. `POST {baseUrl}/api/v1/auth/r
 
 ## Authentication
 
-After login or registration you receive a JWT in the verify-otp response. Use it on every subsequent request.
+After signup OTP verify or successful PIN login you receive a JWT. Use it on every subsequent request.
 
 - **Header:** `Authorization: Bearer <token>`
 - Do **not** send `X-Customer-Id` from the client; the BFF sets it from the token.
-- **Token TTL:** Configurable; default **10 minutes**. Use `expiresIn` (seconds) from the verify-otp response to schedule a refresh call.
-- **Token refresh:** `POST /api/v1/auth/refresh-token` — returns a new token without re-sending OTP (valid existing token required).
+- **Token TTL:** Configurable; default **10 minutes**. Use `expiresIn` (seconds) from auth responses to schedule a refresh call.
+- **Token refresh:** `POST /api/v1/auth/refresh-token` — returns a new token without re-login (valid existing token required).
 
 ### Public endpoints (no Bearer token)
 
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/verify-otp`
+- `POST /api/v1/auth/register` — signup OTP send
+- `POST /api/v1/auth/verify-otp` — signup OTP verify (binds IMEI + optional FCM)
+- `POST /api/v1/auth/login` — PIN login (username or mobile + PIN + IMEI)
+- `POST /api/v1/auth/verify-device-otp` — bind new device (no JWT; return to login)
+- `POST /api/v1/auth/verify-migrate-otp` — existing user without PIN
+- `POST /api/v1/auth/forgot-pin/request`
+- `POST /api/v1/auth/forgot-pin/confirm`
+
+Authenticated auth endpoints: `POST /api/v1/auth/credentials`, `POST /api/v1/auth/change-pin`.
 
 All other `/api/v1/**` endpoints require a valid Bearer token. Missing or invalid token returns **401 Unauthorized**.
 
@@ -30,7 +36,7 @@ All other `/api/v1/**` endpoints require a valid Bearer token. Missing or invali
 
 | Header | When | Required |
 |--------|------|----------|
-| `Authorization: Bearer <token>` | All requests except the three auth endpoints above | Yes (for protected endpoints) |
+| `Authorization: Bearer <token>` | All requests except public auth endpoints above | Yes (for protected endpoints) |
 | `Content-Type: application/json` | Request has a JSON body | Yes |
 | `Idempotency-Key` | `POST /api/v1/transactions/send` | Yes |
 | `Idempotency-Key` | `POST /api/v1/transactions/deposit/mpesa` | Optional; when provided, duplicate requests return the same deposit |
@@ -72,15 +78,25 @@ All errors use this shape:
 
 ## Flows (step order)
 
-### Registration and login
+### Registration (signup)
 
-1. `POST /api/v1/auth/register` — send OTP (success code: `AUTH_OTP_SENT`).
-2. `POST /api/v1/auth/verify-otp` — verify OTP (body: `mobileCountryCode`, `mobile`, `otpCode`, optional `fcmToken`, `platform`). Response: `token`, `externalId`, `expiresIn` (seconds). Store token for all later requests. When `fcmToken` is sent, backend stores it as the customer's only push target.
+1. `POST /api/v1/auth/register` — send SIGNUP OTP (`AUTH_OTP_SENT`).
+2. `POST /api/v1/auth/verify-otp` — body: `mobileCountryCode`, `mobile`, `otpCode`, **`imei` (required)**, optional `fcmToken`, `platform`. Creates customer, binds single device IMEI, optional FCM. Returns JWT in `data`.
+3. Complete KYC screens; before KYC submit: `POST /api/v1/auth/credentials` with `{ username, pin, imei? }` (`AUTH_CREDENTIALS_SET`).
+4. `POST /api/v1/kyc/submit` — unchanged KYC flow.
 
-**Returning user:**
+### Login (PIN + single device)
 
-1. `POST /api/v1/auth/login` — send OTP (success code: `AUTH_LOGIN_OTP_SENT`).
-2. `POST /api/v1/auth/verify-otp` — same as above; get new token.
+1. `POST /api/v1/auth/login` — body: `username` **or** (`mobileCountryCode`+`mobile`), `pin`, **`imei`**, optional `fcmToken`/`platform`.
+2. Outcomes in `data`:
+   - **JWT** (`AUTH_LOGIN_OK`) — PIN ok and IMEI matches bound device; FCM replaced if provided.
+   - **`deviceOtpRequired: true`** (`AUTH_DEVICE_OTP_REQUIRED`) — PIN ok, device new/unbound; OTP sent. **No token.** Client opens OTP screen → `POST /api/v1/auth/verify-device-otp` → **return to login** → login again.
+   - **`mustSetCredentials: true`** (`AUTH_MUST_SET_CREDENTIALS`) — existing customer without username/PIN; migrate OTP sent. Verify via `verify-migrate-otp`, then `POST /credentials`, then login.
+
+### Forgot PIN
+
+1. `POST /api/v1/auth/forgot-pin/request` — `{ mobileCountryCode, mobile }`
+2. `POST /api/v1/auth/forgot-pin/confirm` — `{ mobileCountryCode, mobile, otpCode, newPin, imei? }`
 
 **Token refresh (before expiry):**
 
@@ -97,7 +113,8 @@ All errors use this shape:
 
 **Push notifications (FCM):**
 
-- **Primary (mobile):** send optional `fcmToken` + `platform` (`ANDROID`) on `POST /api/v1/auth/verify-otp`. One token per customer; each successful verify with a token replaces the previous.
+- **Primary (mobile):** send optional `fcmToken` + `platform` (`ANDROID`) on signup `verify-otp` **or** successful PIN `login`. One FCM token per customer; each successful bind replaces the previous.
+- **IMEI binding** is separate (`customer_device`); one IMEI per customer; device re-bind via OTP replaces previous.
 - Omit `fcmToken` if unavailable — login still works; no push until a later verify includes a token.
 - Logout clears push targets via `POST /logout`.
 - **Optional / Postman:** `POST /api/v1/auth/devices` and `DELETE /api/v1/auth/devices/{deviceId}` remain for tooling; mobile should not use them.
@@ -129,14 +146,20 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | /api/v1/auth/register | Public | Send OTP for registration (`AUTH_OTP_SENT`) |
-| POST | /api/v1/auth/login | Public | Send OTP for login (`AUTH_LOGIN_OTP_SENT`) |
-| POST | /api/v1/auth/verify-otp | Public | Verify OTP → JWT; optional `fcmToken`/`platform` for push |
+| POST | /api/v1/auth/register | Public | Send SIGNUP OTP (`AUTH_OTP_SENT`) |
+| POST | /api/v1/auth/verify-otp | Public | Signup OTP verify → JWT + bind IMEI; optional FCM |
+| POST | /api/v1/auth/login | Public | PIN login; may return `deviceOtpRequired` / `mustSetCredentials` |
+| POST | /api/v1/auth/verify-device-otp | Public | Bind new device IMEI; **no JWT** — return to login |
+| POST | /api/v1/auth/verify-migrate-otp | Public | Migrate OTP → JWT for `/credentials` |
+| POST | /api/v1/auth/forgot-pin/request | Public | Send PIN_RESET OTP |
+| POST | /api/v1/auth/forgot-pin/confirm | Public | Confirm new PIN |
+| POST | /api/v1/auth/credentials | Required | Set username + PIN once |
+| POST | /api/v1/auth/change-pin | Required | Change PIN (old + new) |
 | GET | /api/v1/auth/me | Required | Current customer profile |
-| POST | /api/v1/auth/refresh-token | Required | Issue new token (no OTP needed) |
+| POST | /api/v1/auth/refresh-token | Required | Issue new token |
 | POST | /api/v1/auth/logout | Required | Logout; clears FCM tokens (`AUTH_LOGOUT_OK`) |
-| POST | /api/v1/auth/devices | Required | Optional/legacy: register FCM token (`DEVICE_REGISTERED`) |
-| DELETE | /api/v1/auth/devices/{deviceId} | Required | Optional/legacy: unregister FCM token (`DEVICE_UNREGISTERED`) |
+| POST | /api/v1/auth/devices | Required | Optional/legacy: register FCM token |
+| DELETE | /api/v1/auth/devices/{deviceId} | Required | Optional/legacy: unregister FCM token |
 
 ### KYC
 
@@ -192,8 +215,18 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | BAD_GATEWAY | 502 | Backend unreachable (BFF) |
 | INTERNAL_ERROR | 500 | Server error |
 | TRANSACTION_NOT_FOUND | 404 | Transaction not found or doesn't belong to customer |
-| CUSTOMER_NOT_REGISTERED | 404 | Login attempted for unregistered mobile |
+| CUSTOMER_NOT_REGISTERED | 404 | Login/forgot-PIN for unregistered mobile |
 | INVALID_OTP | 400 | OTP confirmation failed |
+| OTP_EXPIRED | 400 | OTP expired |
+| INVALID_CREDENTIALS | 401 | Wrong PIN or unknown username |
+| ACCOUNT_LOCKED | 423 | Too many failed PIN attempts |
+| USERNAME_TAKEN | 409 | Username already in use |
+| USERNAME_INVALID | 400 | Username format invalid |
+| CREDENTIALS_ALREADY_SET | 409 | Username/PIN already set |
+| CREDENTIALS_NOT_SET | 409 | Credentials required / use mobile to migrate |
+| CREDENTIALS_NOT_SET_USE_MOBILE | 409 | Migrate with mobile, not username |
+| IMEI_REQUIRED | 400 | Device IMEI missing |
+| RATE_LIMITED | 429 | Too many auth requests |
 
 Choice Bank–specific codes may appear in message or details when the backend returns them (e.g. 12004 Invalid signature); treat as server/configuration errors and show message to user.
 

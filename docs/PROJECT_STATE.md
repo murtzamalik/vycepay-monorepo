@@ -1,6 +1,6 @@
 # VycePay Project State – Memory for Continuation
 
-**Last updated:** March 2026
+**Last updated:** July 2026
 
 Use this document when continuing development. It captures what has been done and where things stand.
 
@@ -23,7 +23,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 
 | Service     | Port | Responsibility                                      |
 |------------|------|-----------------------------------------------------|
-| Auth       | 8082 | Registration, OTP, JWT, login                       |
+| Auth       | 8082 | Signup OTP, PIN login, device IMEI bind, JWT        |
 | Callback   | 8081 | Choice Bank webhook receiver, persist, route        |
 | KYC        | 8083 | Onboarding submit to Choice Bank, KYC status, OTP   |
 | Wallet     | 8084 | Account mapping, balance cache                      |
@@ -33,6 +33,23 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 ---
 
 ## Implemented Features
+
+### Auth (PIN + single-device binding) — July 2026
+
+- Flyway **V6**: customer username/PIN columns, `customer_device`, OTP `purpose`, `auth_audit_event`
+- Signup: phone OTP → JWT + IMEI bind → set username/PIN via `/credentials` → KYC
+- Login: username or mobile + 4-digit PIN + IMEI; new device → OTP then **back to login**
+- Forgot PIN via SMS OTP; existing users migrate via `mustSetCredentials`
+- Rate limit, PIN lockout (5/15m), Micrometer metrics, auth audit events
+- BFF public paths extended for device/migrate/forgot-PIN endpoints
+- Android: VyceAuth signup OTP, PinAndTerms username+PIN, PIN login + device/forgot/migrate screens
+
+### Rollout checklist
+
+1. Run Flyway V6 on all environments before app release
+2. Set `OTP_DEV_FIXED_CODE=` empty in staging/prod (random OTP); wire SMS port
+3. Alert on `auth.pin.lockout` / `auth.login.failure` spikes
+4. Confirm BFF public routes deployed with auth-service
 
 ### Core
 

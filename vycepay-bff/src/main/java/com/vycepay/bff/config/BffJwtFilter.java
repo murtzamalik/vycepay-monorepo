@@ -15,8 +15,8 @@ import java.util.Collections;
 import java.util.Set;
 
 /**
- * BFF JWT filter: for /api/v1/** only register, login, verify-otp are public.
- * All other paths require Authorization: Bearer &lt;token&gt;; extracts externalId and sets attribute for proxy.
+ * BFF JWT filter: public auth paths are signup OTP, PIN login, device/migrate OTP, forgot-PIN.
+ * All other /api/v1/** paths require Authorization: Bearer token; extracts externalId for proxy.
  */
 public class BffJwtFilter extends OncePerRequestFilter {
 
@@ -27,7 +27,11 @@ public class BffJwtFilter extends OncePerRequestFilter {
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "POST:/api/v1/auth/register",
             "POST:/api/v1/auth/login",
-            "POST:/api/v1/auth/verify-otp"
+            "POST:/api/v1/auth/verify-otp",
+            "POST:/api/v1/auth/verify-device-otp",
+            "POST:/api/v1/auth/verify-migrate-otp",
+            "POST:/api/v1/auth/forgot-pin/request",
+            "POST:/api/v1/auth/forgot-pin/confirm"
     );
 
     private final JwtValidator jwtValidator;

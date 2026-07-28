@@ -12,9 +12,10 @@ import java.util.Optional;
 public interface OtpVerificationRepository extends JpaRepository<OtpVerification, Long> {
 
     /**
-     * Finds latest valid OTP for mobile (unverified, not expired).
+     * Finds latest valid OTP for mobile and purpose (unverified, not expired).
      */
     @Query("SELECT o FROM OtpVerification o WHERE o.mobileCountryCode = :cc AND o.mobile = :mobile "
-            + "AND o.verified = false AND o.expiresAt > CURRENT_TIMESTAMP ORDER BY o.createdAt DESC LIMIT 1")
-    Optional<OtpVerification> findLatestValidOtp(String cc, String mobile);
+            + "AND o.purpose = :purpose AND o.verified = false AND o.expiresAt > CURRENT_TIMESTAMP "
+            + "ORDER BY o.createdAt DESC LIMIT 1")
+    Optional<OtpVerification> findLatestValidOtp(String cc, String mobile, String purpose);
 }

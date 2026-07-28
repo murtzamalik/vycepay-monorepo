@@ -6,7 +6,8 @@ import java.time.Instant;
 
 /**
  * Customer identity. Maps to customer table.
- * external_id is the public UUID for APIs; mobile is the auth factor.
+ * external_id is the public UUID for APIs; mobile is the primary contact factor.
+ * Username + PIN hash are VycePay-local credentials used after onboarding.
  */
 @Entity
 @Table(name = "customer")
@@ -24,6 +25,24 @@ public class Customer {
 
     @Column(name = "mobile", nullable = false)
     private String mobile;
+
+    @Column(name = "username", length = 20)
+    private String username;
+
+    @Column(name = "username_normalized", length = 20)
+    private String usernameNormalized;
+
+    @Column(name = "pin_hash", length = 100)
+    private String pinHash;
+
+    @Column(name = "pin_failed_attempts", nullable = false)
+    private int pinFailedAttempts = 0;
+
+    @Column(name = "pin_locked_until")
+    private Instant pinLockedUntil;
+
+    @Column(name = "credentials_set_at")
+    private Instant credentialsSetAt;
 
     @Column(name = "email")
     private String email;
@@ -52,6 +71,10 @@ public class Customer {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
+    }
+
+    public boolean hasCredentials() {
+        return pinHash != null && !pinHash.isBlank() && username != null && !username.isBlank();
     }
 
     public Long getId() {
@@ -84,6 +107,54 @@ public class Customer {
 
     public void setMobile(String mobile) {
         this.mobile = mobile;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getUsernameNormalized() {
+        return usernameNormalized;
+    }
+
+    public void setUsernameNormalized(String usernameNormalized) {
+        this.usernameNormalized = usernameNormalized;
+    }
+
+    public String getPinHash() {
+        return pinHash;
+    }
+
+    public void setPinHash(String pinHash) {
+        this.pinHash = pinHash;
+    }
+
+    public int getPinFailedAttempts() {
+        return pinFailedAttempts;
+    }
+
+    public void setPinFailedAttempts(int pinFailedAttempts) {
+        this.pinFailedAttempts = pinFailedAttempts;
+    }
+
+    public Instant getPinLockedUntil() {
+        return pinLockedUntil;
+    }
+
+    public void setPinLockedUntil(Instant pinLockedUntil) {
+        this.pinLockedUntil = pinLockedUntil;
+    }
+
+    public Instant getCredentialsSetAt() {
+        return credentialsSetAt;
+    }
+
+    public void setCredentialsSetAt(Instant credentialsSetAt) {
+        this.credentialsSetAt = credentialsSetAt;
     }
 
     public String getEmail() {
