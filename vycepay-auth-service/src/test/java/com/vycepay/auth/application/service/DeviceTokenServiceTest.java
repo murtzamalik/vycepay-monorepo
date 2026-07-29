@@ -14,8 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.vycepay.auth.domain.model.DeviceToken;
 import com.vycepay.auth.infrastructure.persistence.DeviceTokenRepository;
 
-import jakarta.persistence.EntityManager;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -32,14 +30,11 @@ class DeviceTokenServiceTest {
     @Mock
     private DeviceTokenRepository deviceTokenRepository;
 
-    @Mock
-    private EntityManager entityManager;
-
     private DeviceTokenService deviceTokenService;
 
     @BeforeEach
     void setUp() {
-        deviceTokenService = new DeviceTokenService(deviceTokenRepository, entityManager);
+        deviceTokenService = new DeviceTokenService(deviceTokenRepository);
     }
 
     @Test
@@ -50,7 +45,7 @@ class DeviceTokenServiceTest {
 
         deviceTokenService.replaceTokenForCustomer(42L, "fcm-abc", "ANDROID");
 
-        verify(entityManager).flush();
+        verify(deviceTokenRepository).flush();
         ArgumentCaptor<DeviceToken> captor = ArgumentCaptor.forClass(DeviceToken.class);
         verify(deviceTokenRepository).save(captor.capture());
         DeviceToken saved = captor.getValue();
@@ -72,7 +67,7 @@ class DeviceTokenServiceTest {
 
         deviceTokenService.replaceTokenForCustomer(42L, "fcm-abc", "ANDROID");
 
-        verify(entityManager).flush();
+        verify(deviceTokenRepository).flush();
         verify(deviceTokenRepository, never()).delete(any());
         ArgumentCaptor<DeviceToken> captor = ArgumentCaptor.forClass(DeviceToken.class);
         verify(deviceTokenRepository).save(captor.capture());
@@ -99,7 +94,6 @@ class DeviceTokenServiceTest {
         deviceTokenService.replaceTokenForCustomer(1L, null, "ANDROID");
 
         verifyNoInteractions(deviceTokenRepository);
-        verifyNoInteractions(entityManager);
     }
 
     @Test
@@ -113,7 +107,7 @@ class DeviceTokenServiceTest {
     void clearTokens_deletesByCustomerId() {
         deviceTokenService.clearTokensForCustomer(99L);
         verify(deviceTokenRepository).deleteByCustomerId(99L);
-        verify(entityManager).flush();
+        verify(deviceTokenRepository).flush();
     }
 
     @Test

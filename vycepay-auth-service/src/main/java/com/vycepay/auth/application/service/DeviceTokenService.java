@@ -12,8 +12,6 @@ import org.springframework.util.StringUtils;
 import com.vycepay.auth.domain.model.DeviceToken;
 import com.vycepay.auth.infrastructure.persistence.DeviceTokenRepository;
 
-import jakarta.persistence.EntityManager;
-
 /**
  * Manages FCM device tokens: one active push target per customer.
  * Mobile registers via verify-otp / login; logout clears all tokens.
@@ -25,11 +23,9 @@ public class DeviceTokenService {
     private static final String DEFAULT_PLATFORM = "ANDROID";
 
     private final DeviceTokenRepository deviceTokenRepository;
-    private final EntityManager entityManager;
 
-    public DeviceTokenService(DeviceTokenRepository deviceTokenRepository, EntityManager entityManager) {
+    public DeviceTokenService(DeviceTokenRepository deviceTokenRepository) {
         this.deviceTokenRepository = deviceTokenRepository;
-        this.entityManager = entityManager;
     }
 
     /**
@@ -59,7 +55,7 @@ public class DeviceTokenService {
             deviceTokenRepository.delete(row);
         }
         // Flush deletes before insert so uk_customer_token is not violated in the same txn
-        entityManager.flush();
+        deviceTokenRepository.flush();
 
         if (sameToken.isPresent()) {
             DeviceToken token = sameToken.get();
@@ -84,7 +80,7 @@ public class DeviceTokenService {
             return;
         }
         deviceTokenRepository.deleteByCustomerId(customerId);
-        entityManager.flush();
+        deviceTokenRepository.flush();
         log.info("Cleared FCM tokens for customerId={}", customerId);
     }
 }
