@@ -192,7 +192,9 @@ public class AuthController {
         Customer customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         String newToken = jwtService.createToken(customer.getId(), customer.getExternalId());
-        return ResponseEntity.ok(new AuthResponse(newToken, customer.getExternalId(), jwtService.getValiditySeconds()));
+        return ResponseEntity.ok(AuthResponse.token(newToken, customer.getExternalId(),
+                jwtService.getValiditySeconds(),
+                customer.getUsername(), customer.getMobileCountryCode(), customer.getMobile()));
     }
 
     @PostMapping("/logout")

@@ -17,6 +17,9 @@ public class AuthResponse {
     @Schema(description = "Token validity duration in seconds; 0 when no token")
     private long expiresIn;
 
+    @Schema(description = "App login username when credentials are set; null before credentials exist")
+    private String username;
+
     @Schema(description = "True when PIN ok but device not bound — client must verify device OTP then return to login")
     private boolean deviceOtpRequired;
 
@@ -32,10 +35,10 @@ public class AuthResponse {
     @Schema(description = "True after verify-device-otp successfully bound the device")
     private boolean deviceBound;
 
-    @Schema(description = "Mobile country code when OTP flow is required")
+    @Schema(description = "Mobile country code (e.g. 254)")
     private String mobileCountryCode;
 
-    @Schema(description = "Mobile number when OTP flow is required (for client verify calls)")
+    @Schema(description = "Mobile number without country code")
     private String mobile;
 
     public AuthResponse() {
@@ -47,8 +50,16 @@ public class AuthResponse {
         this.expiresIn = expiresIn;
     }
 
-    public static AuthResponse token(String token, String externalId, long expiresIn) {
-        return new AuthResponse(token, externalId, expiresIn);
+    /**
+     * Full login/signup success with identity fields for the client profile cache.
+     */
+    public static AuthResponse token(String token, String externalId, long expiresIn,
+                                     String username, String mobileCountryCode, String mobile) {
+        AuthResponse r = new AuthResponse(token, externalId, expiresIn);
+        r.username = username;
+        r.mobileCountryCode = mobileCountryCode;
+        r.mobile = mobile;
+        return r;
     }
 
     public static AuthResponse deviceOtpRequired(String externalId, String mobileCountryCode,
@@ -103,6 +114,14 @@ public class AuthResponse {
 
     public void setExpiresIn(long expiresIn) {
         this.expiresIn = expiresIn;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public boolean isDeviceOtpRequired() {

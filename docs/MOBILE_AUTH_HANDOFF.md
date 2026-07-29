@@ -241,6 +241,9 @@ Send **either** username **or** mobile fields (not both required).
   "token": "<JWT>",
   "externalId": "<UUID>",
   "expiresIn": 600,
+  "username": "jdoe",
+  "mobileCountryCode": "254",
+  "mobile": "712345678",
   "deviceOtpRequired": false,
   "mustSetCredentials": false
 }

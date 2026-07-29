@@ -92,7 +92,8 @@ public class AuthFacade {
 
         String token = jwtService.createToken(customer.getId(), customer.getExternalId());
         log.info("Signup OTP verified externalId={}", customer.getExternalId());
-        return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds());
+        return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds(),
+                customer.getUsername(), customer.getMobileCountryCode(), customer.getMobile());
     }
 
     /**
@@ -131,7 +132,8 @@ public class AuthFacade {
             authMetricsService.incrementLoginSuccess();
             authAuditService.record(customer.getId(), "LOGIN", "SUCCESS",
                     customer.getUsernameNormalized(), "device_matched");
-            return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds());
+            return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds(),
+                    customer.getUsername(), customer.getMobileCountryCode(), customer.getMobile());
         }
 
         rateLimitService.check("otp_send", customer.getMobileCountryCode() + customer.getMobile());
@@ -174,7 +176,8 @@ public class AuthFacade {
         }
         otpService.verifyOtpOrThrow(mobileCountryCode, mobile, otpCode, OtpPurpose.CREDENTIALS_MIGRATE);
         String token = jwtService.createToken(customer.getId(), customer.getExternalId());
-        return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds());
+        return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds(),
+                customer.getUsername(), customer.getMobileCountryCode(), customer.getMobile());
     }
 
     /**
