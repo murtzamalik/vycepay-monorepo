@@ -37,9 +37,9 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 ### Auth (PIN + single-device binding) — July 2026
 
 - Flyway **V7**: customer username/PIN columns, `customer_device`, OTP `purpose`, `auth_audit_event`
-- Signup: phone OTP → JWT + IMEI bind → set username/PIN via `/credentials` → KYC
+- Signup: phone OTP → JWT + IMEI bind → KYC submit includes username/PIN (credentials set in KYC txn)
 - Login: username or mobile + 4-digit PIN + IMEI; new device → OTP then **back to login**
-- Forgot PIN via SMS OTP; existing users migrate via `mustSetCredentials`
+- Forgot PIN via SMS OTP; existing users migrate via `mustSetCredentials` → `/auth/credentials`
 - Rate limit, PIN lockout (5/15m), Micrometer metrics, auth audit events
 - BFF public paths extended for device/migrate/forgot-PIN endpoints
 - Android: VyceAuth signup OTP, PinAndTerms username+PIN, PIN login + device/forgot/migrate screens
@@ -50,6 +50,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 2. Set `OTP_DEV_FIXED_CODE=` empty in staging/prod (random OTP); wire SMS port
 3. Alert on `auth.pin.lockout` / `auth.login.failure` spikes
 4. Confirm BFF public routes deployed with auth-service
+5. Mobile must send `username` + `pin` on `POST /kyc/submit`; stop calling `/auth/credentials` during signup
 
 ### Core
 
@@ -64,7 +65,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 
 ### KYC & Onboarding
 
-- POST /kyc/submit → Choice Bank `submitEasyOnboardingRequest`
+- POST /kyc/submit → sets app username/PIN + Choice Bank `submitEasyOnboardingRequest`
 - GET /kyc/status
 - POST /kyc/send-otp, POST /kyc/confirm-otp
 - Result via callback 0001; OnboardingResultHandler updates kyc_verification, creates wallet when approved

@@ -82,8 +82,8 @@ All errors use this shape:
 
 1. `POST /api/v1/auth/register` — send SIGNUP OTP (`AUTH_OTP_SENT`).
 2. `POST /api/v1/auth/verify-otp` — body: `mobileCountryCode`, `mobile`, `otpCode`, **`imei` (required)**, optional `fcmToken`, `platform`. Creates customer, binds single device IMEI, optional FCM. Returns JWT in `data`.
-3. Complete KYC screens; before KYC submit: `POST /api/v1/auth/credentials` with `{ username, pin, imei? }` (`AUTH_CREDENTIALS_SET`).
-4. `POST /api/v1/kyc/submit` — unchanged KYC flow.
+3. Complete KYC screens; collect username + PIN on UI (**do not** call `/auth/credentials` on signup).
+4. `POST /api/v1/kyc/submit` — include KYC fields **plus required** `username` and `pin` (app login). Backend sets credentials in the same transaction as Choice submit.
 
 ### Login (PIN + single device)
 
@@ -123,7 +123,7 @@ All errors use this shape:
 ### KYC (onboarding)
 
 1. `GET /api/v1/kyc/status` — check `displayStatus` field: `NOT_STARTED | PENDING | APPROVED | REJECTED`.
-2. `POST /api/v1/kyc/submit` — body: `firstName`, `middleName`, `lastName`, `birthday` (YYYY-MM-DD), `gender` (0=Female/1=Male), `countryCode` (default "254"), `mobile`, `idType` (101=NationalID/102=Alien/103=Passport), `idNumber`, `frontSidePhoto` (Base64 JPEG), `selfiePhoto` (Base64 JPEG). Optional: `address`, `kraPin`, `email`. Returns `choiceOnboardingRequestId`.
+2. `POST /api/v1/kyc/submit` — body: `firstName`, `middleName`, `lastName`, `birthday` (YYYY-MM-DD), `gender` (0=Female/1=Male), `countryCode` (default "254"), `mobile`, `idType` (101=NationalID/102=Alien/103=Passport), `idNumber`, `frontSidePhoto` (Base64 JPEG), `selfiePhoto` (Base64 JPEG), **`username`** (app login), **`pin`** (4-digit app login PIN). Optional: `address`, `kraPin`, `email`. Returns `choiceOnboardingRequestId`. Username/PIN are stored by VycePay only (not sent to Choice).
 3. `POST /api/v1/kyc/send-otp?onboardingRequestId=<id from submit>` (success code: `KYC_OTP_SENT`).
 4. `POST /api/v1/kyc/confirm-otp?onboardingRequestId=<id>&otpCode=<code>` (success code: `KYC_OTP_CONFIRMED`; invalid OTP returns error envelope with `INVALID_OTP`).
 
@@ -154,7 +154,7 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | POST | /api/v1/auth/verify-migrate-otp | Public | Migrate OTP → JWT for `/credentials` |
 | POST | /api/v1/auth/forgot-pin/request | Public | Send PIN_RESET OTP |
 | POST | /api/v1/auth/forgot-pin/confirm | Public | Confirm new PIN |
-| POST | /api/v1/auth/credentials | Required | Set username + PIN once |
+| POST | /api/v1/auth/credentials | Required | Set username + PIN once (**migrate only**; signup uses KYC submit) |
 | POST | /api/v1/auth/change-pin | Required | Change PIN (old + new) |
 | GET | /api/v1/auth/me | Required | Current customer profile |
 | POST | /api/v1/auth/refresh-token | Required | Issue new token |
@@ -167,7 +167,7 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/v1/kyc/status | KYC status — use `displayStatus` (NOT_STARTED/PENDING/APPROVED/REJECTED) |
-| POST | /api/v1/kyc/submit | Submit KYC data to Choice Bank — returns `choiceOnboardingRequestId` |
+| POST | /api/v1/kyc/submit | Submit KYC + app username/PIN — returns `choiceOnboardingRequestId` |
 | POST | /api/v1/kyc/send-otp?onboardingRequestId= | Send OTP for KYC confirmation (`KYC_OTP_SENT`) |
 | POST | /api/v1/kyc/resend-otp?onboardingRequestId=&otpType=SMS | Resend OTP (`KYC_OTP_RESENT`) |
 | POST | /api/v1/kyc/confirm-otp?onboardingRequestId=&otpCode= | Confirm KYC OTP (`KYC_OTP_CONFIRMED`) |

@@ -66,7 +66,8 @@ public class KycController {
     }
 
     /**
-     * Submits KYC to Choice Bank. Triggers async flow; OTP must be confirmed separately.
+     * Submits KYC to Choice Bank and sets app username/PIN in the same request.
+     * Triggers async flow; OTP must be confirmed separately.
      */
     @PostMapping("/submit")
     public ResponseEntity<KycStatusResponse> submit(
@@ -89,7 +90,9 @@ public class KycController {
                 request.getAddress(),
                 request.getKraPin(),
                 request.getEmail());
-        String onboardingRequestId = kycFacade.submitOnboarding(customer.getId(), externalId, params, profile);
+        String onboardingRequestId = kycFacade.submitOnboarding(
+                customer.getId(), externalId, params, profile,
+                request.getUsername(), request.getPin());
         return ResponseEntity.ok(new KycStatusResponse("1", onboardingRequestId, null));
     }
 

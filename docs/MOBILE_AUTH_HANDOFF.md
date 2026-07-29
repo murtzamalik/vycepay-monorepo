@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | Login | **Username OR mobile** + **4-digit PIN** |
-| Signup | Keep existing onboarding steps; collect **username + PIN** before KYC submit |
+| Signup | Keep existing onboarding steps; collect **username + PIN** on UI and send them **only** on `POST /kyc/submit` |
 | Signup identity | Still phone OTP (`register` → `verify-otp`) to create account + JWT |
 | Old OTP login | **Removed** — do not send PIN as OTP |
 | Device policy | **One device only**; new device needs OTP; re-bind **replaces** old device |
@@ -58,7 +58,7 @@ Also send `platform`: `"ANDROID"` or `"IOS"` where noted.
 
 **Needs Bearer:**
 
-- `POST /api/v1/auth/credentials`
+- `POST /api/v1/auth/credentials` (migrate / existing users only — not signup)
 - `POST /api/v1/auth/change-pin`
 - `POST /api/v1/auth/refresh-token`
 - `POST /api/v1/auth/logout`
@@ -154,10 +154,10 @@ Unchanged entry: user chooses Signup or Login.
 }
 ```
 
-- Store `token` securely; use for all later APIs (KYC, credentials, etc.)
+- Store `token` securely; use for all later APIs (KYC, etc.)
 - This call also binds the device as the customer’s **first** device
 
-#### B3. Username + PIN (before KYC submit)
+#### B3. Username + PIN (collect on UI — no separate credentials API)
 
 On your Pin / Terms screen, collect:
 
@@ -165,26 +165,33 @@ On your Pin / Terms screen, collect:
 - **PIN** (exactly 4 digits) + confirm PIN
 - Terms checkbox
 
-Then call (Bearer required):
+**Do not** call `POST /api/v1/auth/credentials` during signup. Hold username + PIN in memory / local form state until KYC submit.
 
-`POST /api/v1/auth/credentials`
+#### B4. KYC submit (sets credentials + starts Choice onboarding)
+
+`POST /api/v1/kyc/submit` (Bearer required) — include all existing KYC fields **plus**:
 
 ```json
 {
   "username": "jdoe",
   "pin": "1234",
-  "imei": "<device-id>",
-  "platform": "ANDROID"
+  "firstName": "...",
+  "lastName": "...",
+  "birthday": "1990-01-15",
+  "gender": 1,
+  "countryCode": "254",
+  "mobile": "712345678",
+  "idType": "101",
+  "idNumber": "...",
+  "frontSidePhoto": "<Base64 JPEG>",
+  "selfiePhoto": "<Base64 JPEG>"
 }
 ```
 
-- Success code: `AUTH_CREDENTIALS_SET`
-- Call this **once** before `POST /api/v1/kyc/submit`
-- Do **not** send app PIN in the KYC payload
-
-#### B4. KYC submit
-
-Existing `POST /api/v1/kyc/submit` — unchanged.
+- Backend sets username/PIN **in the same transaction** as Choice submit (rolls back if Choice fails)
+- `username` / `pin` are **never** forwarded to Choice Bank
+- Same username on retry is safe (idempotent); different username after credentials already set → `CREDENTIALS_ALREADY_SET`
+- Back-nav before submit is safe: credentials are not stored until this call succeeds
 
 ---
 
@@ -380,7 +387,7 @@ Default JWT TTL ≈ **10 minutes** — refresh before expiry.
 
 - Exactly **4 digits**
 - Never log PIN or OTP
-- Never put PIN in KYC/Choice payloads
+- Send app PIN only on `POST /kyc/submit` (signup) or `/auth/credentials` (migrate) / forgot-pin — **never** to Choice Bank
 
 ---
 
@@ -396,7 +403,8 @@ Default JWT TTL ≈ **10 minutes** — refresh before expiry.
 | `IMEI_REQUIRED` | 400 | Missing `imei` |
 | `USERNAME_TAKEN` | 409 | Username already used |
 | `USERNAME_INVALID` | 400 | Bad username format |
-| `CREDENTIALS_ALREADY_SET` | 409 | Credentials already set |
+| `CREDENTIALS_REQUIRED` | 400 | KYC submit missing username/PIN |
+| `CREDENTIALS_ALREADY_SET` | 409 | Credentials already set (different username) |
 | `CREDENTIALS_NOT_SET` | 409 | Credentials missing |
 | `CREDENTIALS_NOT_SET_USE_MOBILE` | 409 | Migrate via mobile, not username |
 | `RATE_LIMITED` | 429 | Too many requests — show retry later |
@@ -431,19 +439,20 @@ Default JWT TTL ≈ **10 minutes** — refresh before expiry.
 - [ ] Handle `mustSetCredentials` → migrate OTP → set credentials → login
 - [ ] Forgot PIN screens wired to request/confirm
 - [ ] Signup: `register` → `verify-otp` (with `imei`) → store JWT
-- [ ] Signup Pin step: username + PIN → `/credentials` → then KYC submit
+- [ ] Signup Pin step: collect username + PIN locally → include on `POST /kyc/submit` (do **not** call `/auth/credentials` on signup)
 - [ ] Secure token storage + refresh before expiry
 - [ ] Optional FCM on signup verify-otp and on successful login
-- [ ] Never log PIN/OTP; never send PIN to Choice/KYC body
+- [ ] Never log PIN/OTP; never send app PIN to Choice Bank (KYC submit is OK — backend strips it)
 - [ ] Map error codes above to user-friendly UI
 
 ---
 
 ## 10. What did **not** change
 
-- KYC screens and Choice Bank KYC OTP APIs
+- KYC screens / Choice Bank KYC OTP APIs (only submit body gained `username` + `pin`)
 - Wallet / send money / deposit / statement APIs
 - Still call **BFF only**
+- Existing-user migrate still uses `POST /auth/credentials` after `verify-migrate-otp`
 
 ---
 

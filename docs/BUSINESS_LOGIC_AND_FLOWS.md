@@ -8,7 +8,7 @@
 2. **AuthFacade.sendSignupOtp:** Generates purpose=`SIGNUP` OTP, stores in `otp_verification`, logs/sends SMS.
 3. Client: `POST /api/v1/auth/verify-otp` with mobile, otpCode, **imei** (required), optional fcmToken/platform.
 4. **AuthFacade.verifySignupOtp:** Verifies SIGNUP OTP; creates `customer` if needed; **binds** single row in `customer_device`; optional FCM replace; returns JWT.
-5. After KYC profile steps: Client `POST /api/v1/auth/credentials` with username + 4-digit PIN (BCrypt hash stored). Then KYC submit as today.
+5. After KYC profile steps: Client `POST /api/v1/kyc/submit` with KYC fields **plus** `username` + 4-digit `pin`. KYC service sets credentials (BCrypt) in the same transaction before Choice Bank submit.
 
 ### Login (PIN + single device)
 
@@ -44,7 +44,7 @@
    Returns status for customer (e.g. NOT_STARTED, or status from `kyc_verification` and optional onboardingRequestId).
 
 2. **POST /api/v1/kyc/submit**  
-   Builds Choice params from request (e.g. name, id type, id number, phone); calls Choice Bank `onboarding/v3/submitEasyOnboardingRequest`. On success, creates/updates `kyc_verification` with `choice_onboarding_request_id`, status "1". Returns onboardingRequestId to client.
+   Requires `username` + `pin` (app login). Ensures credentials on shared `customer` row (idempotent if same username already set), then builds Choice params from request (never includes app PIN); calls Choice Bank `onboarding/v3/submitEasyOnboardingRequest`. On success, creates/updates `kyc_verification` with `choice_onboarding_request_id`, status "1". Returns onboardingRequestId to client. Choice failure rolls back credentials.
 
 3. **POST /api/v1/kyc/send-otp?onboardingRequestId=...**  
    Calls Choice `common/sendOtp` with businessId = onboardingRequestId, otpType = SMS.

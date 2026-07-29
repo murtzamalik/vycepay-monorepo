@@ -17,6 +17,7 @@ import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.security.port.SensitiveDataEncryptionPort;
 import com.vycepay.kyc.application.dto.KycProfileCommand;
+import com.vycepay.kyc.application.service.OnboardingCredentialsService;
 import com.vycepay.kyc.domain.model.Customer;
 import com.vycepay.kyc.domain.model.KycVerification;
 import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
@@ -24,8 +25,8 @@ import com.vycepay.kyc.infrastructure.persistence.KycVerificationRepository;
 
 /**
  * Orchestrates Choice Bank easy onboarding: submit, send OTP, confirm OTP.
- * Persists customer and KYC profile locally before forwarding to Choice Bank.
- * Result arrives via callback 0001; status can be polled via getOnboardingStatus.
+ * Sets username/PIN on the shared customer row before Choice so credentials
+ * roll back if Choice fails (same transaction).
  */
 @Service
 @ConditionalOnBean(BankingProviderPort.class)
@@ -43,33 +44,43 @@ public class KycOnboardingFacade {
     private final ChoiceBankResponseAssessor choiceAssessor;
     private final CustomerRepository customerRepository;
     private final KycVerificationRepository kycRepository;
+    private final OnboardingCredentialsService onboardingCredentialsService;
     private final SensitiveDataEncryptionPort encryptionPort;
 
     public KycOnboardingFacade(BankingProviderPort bankingProvider,
                                ChoiceBankResponseAssessor choiceAssessor,
                                CustomerRepository customerRepository,
                                KycVerificationRepository kycRepository,
+                               OnboardingCredentialsService onboardingCredentialsService,
                                @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort) {
         this.bankingProvider = bankingProvider;
         this.choiceAssessor = choiceAssessor;
         this.customerRepository = customerRepository;
         this.kycRepository = kycRepository;
+        this.onboardingCredentialsService = onboardingCredentialsService;
         this.encryptionPort = encryptionPort;
     }
 
     /**
-     * Submits easy onboarding request to Choice Bank and persists profile locally.
+     * Ensures credentials, submits easy onboarding to Choice Bank, persists KYC locally.
      *
      * @param customerId Our customer ID
      * @param userId     External ID (Choice userId)
-     * @param params     Onboarding params per Choice API
+     * @param params     Onboarding params per Choice API (must not include app PIN)
      * @param profile    Captured KYC profile for admin display and audit
+     * @param username   App login username
+     * @param pin        App login 4-digit PIN
      * @return Choice onboardingRequestId if success
      */
     @Transactional
-    public String submitOnboarding(Long customerId, String userId, Map<String, Object> params, KycProfileCommand profile) {
+    public String submitOnboarding(Long customerId, String userId, Map<String, Object> params,
+                                   KycProfileCommand profile, String username, String pin) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
+        onboardingCredentialsService.ensureCredentials(customer, username, pin);
+
         if (profile != null) {
-            syncCustomerProfile(customerId, profile);
+            syncCustomerProfile(customer, profile);
         }
 
         ChoiceBankResponse response = bankingProvider.post(PATH_SUBMIT_EASY_ONBOARDING, params);
@@ -91,9 +102,7 @@ public class KycOnboardingFacade {
         return onboardingRequestId;
     }
 
-    private void syncCustomerProfile(Long customerId, KycProfileCommand profile) {
-        Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
+    private void syncCustomerProfile(Customer customer, KycProfileCommand profile) {
         if (hasText(profile.firstName())) {
             customer.setFirstName(profile.firstName().trim());
         }

@@ -178,7 +178,9 @@ public class AuthFacade {
     }
 
     /**
-     * Sets username + PIN once (authenticated). Optionally binds IMEI if provided and unbound.
+     * Sets username + PIN once for migrate gate. Same username when already set is a no-op.
+     * Onboarding credentials are set via KYC submit.
+     * Optionally binds IMEI if provided and unbound.
      */
     @Transactional
     public void setCredentials(String externalId, String username, String pin, String imei, String platform) {

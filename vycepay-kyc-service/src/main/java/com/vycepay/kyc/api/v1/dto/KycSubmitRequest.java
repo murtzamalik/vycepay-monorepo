@@ -30,10 +30,14 @@ public class KycSubmitRequest {
     private String idNumber;
     @Schema(description = "Address (optional for easy onboarding)")
     private String address;
-    @Schema(description = "KRA PIN (optional)")
+    @Schema(description = "KRA PIN / tax PIN (optional) — not the app login PIN")
     private String kraPin;
     @Schema(description = "Email (optional)")
     private String email;
+    @Schema(description = "App login username (required). 3–20 chars, starts with letter. Not sent to Choice Bank.", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String username;
+    @Schema(description = "App login 4-digit PIN (required). Never sent to Choice Bank.", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String pin;
     @Schema(description = "Base64 front side of ID")
     private String frontSidePhoto;
     @Schema(description = "Base64 back side of ID")
@@ -194,5 +198,21 @@ public class KycSubmitRequest {
 
     public void setSelfiePhoto(String selfiePhoto) {
         this.selfiePhoto = selfiePhoto;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPin() {
+        return pin;
+    }
+
+    public void setPin(String pin) {
+        this.pin = pin;
     }
 }

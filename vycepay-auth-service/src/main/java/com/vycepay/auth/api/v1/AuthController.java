@@ -124,7 +124,8 @@ public class AuthController {
     }
 
     /**
-     * Sets username + PIN once (onboarding PinAndTerms or migrate gate).
+     * Sets username + PIN once for existing-user migrate (after verify-migrate-otp).
+     * New onboarding must pass username/PIN on {@code POST /kyc/submit} instead.
      */
     @PostMapping("/credentials")
     public ResponseEntity<ApiSuccessResponse<Void>> setCredentials(

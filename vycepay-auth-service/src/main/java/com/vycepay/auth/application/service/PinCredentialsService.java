@@ -63,15 +63,19 @@ public class PinCredentialsService {
     }
 
     /**
-     * Sets username and PIN once (onboarding or migrate). Fails if already set.
+     * Sets username and PIN once (migrate gate). Same username when already set is a no-op.
+     * Onboarding must set credentials via KYC submit, not this method.
      */
     public void setCredentials(Customer customer, String username, String pin) {
-        if (customer.hasCredentials()) {
-            throw new BusinessException("CREDENTIALS_ALREADY_SET", "Credentials already set", HttpStatus.CONFLICT);
-        }
         validateUsernameFormat(username);
         validatePinFormat(pin);
         String normalized = username.toLowerCase();
+        if (customer.hasCredentials()) {
+            if (normalized.equals(customer.getUsernameNormalized())) {
+                return;
+            }
+            throw new BusinessException("CREDENTIALS_ALREADY_SET", "Credentials already set", HttpStatus.CONFLICT);
+        }
         if (customerRepository.existsByUsernameNormalized(normalized)) {
             throw new BusinessException("USERNAME_TAKEN", "Username is already taken", HttpStatus.CONFLICT);
         }

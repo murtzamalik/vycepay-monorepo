@@ -158,7 +158,7 @@ Known success `code` values for action endpoints:
 
 ### 3c) Credentials / forgot-PIN / migrate
 
-- **POST** `/api/v1/auth/credentials` (Bearer) — set username + PIN once
+- **POST** `/api/v1/auth/credentials` (Bearer) — set username + PIN once (**existing-user migrate only**; signup uses KYC submit)
 - **POST** `/api/v1/auth/forgot-pin/request` | `/confirm`
 - **POST** `/api/v1/auth/verify-migrate-otp` — JWT for migrate → credentials
 
@@ -278,6 +278,8 @@ Prefer `POST /logout` which clears all tokens. This endpoint remains for tooling
 - **Request (JSON):**
 ```json
 {
+  "username": "jdoe",
+  "pin": "1234",
   "firstName": "Test",
   "middleName": "User",
   "lastName": "Sandbox",
@@ -295,6 +297,7 @@ Prefer `POST /logout` which clears all tokens. This endpoint remains for tooling
   "email": null
 }
 ```
+- **Required:** `username` (app login), `pin` (4-digit app login PIN). Not forwarded to Choice Bank.
 - **Response (200, JSON):**
 ```json
 {
