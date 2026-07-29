@@ -36,7 +36,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 
 ### Auth (PIN + single-device binding) — July 2026
 
-- Flyway **V6**: customer username/PIN columns, `customer_device`, OTP `purpose`, `auth_audit_event`
+- Flyway **V7**: customer username/PIN columns, `customer_device`, OTP `purpose`, `auth_audit_event`
 - Signup: phone OTP → JWT + IMEI bind → set username/PIN via `/credentials` → KYC
 - Login: username or mobile + 4-digit PIN + IMEI; new device → OTP then **back to login**
 - Forgot PIN via SMS OTP; existing users migrate via `mustSetCredentials`
@@ -46,7 +46,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 
 ### Rollout checklist
 
-1. Run Flyway V6 on all environments before app release
+1. Run Flyway V7 on all environments before app release
 2. Set `OTP_DEV_FIXED_CODE=` empty in staging/prod (random OTP); wire SMS port
 3. Alert on `auth.pin.lockout` / `auth.login.failure` spikes
 4. Confirm BFF public routes deployed with auth-service

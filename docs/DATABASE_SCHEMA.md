@@ -13,7 +13,8 @@ Flyway migrations: `vycepay-database/src/main/resources/db/migration/`
 - `V3__account_statement_job.sql` — Statement jobs
 - `V4__admin_tables.sql` — Admin users/roles
 - `V5__kyc_profile_columns.sql` — KYC profile columns
-- `V6__customer_credentials_and_device.sql` — Username/PIN, `customer_device`, OTP purpose, `auth_audit_event`
+- `V6__fix_kyc_gender_column_type.sql` — KYC gender column fix (if present in env)
+- `V7__customer_credentials_and_device.sql` — Username/PIN, `customer_device`, OTP purpose, `auth_audit_event`
 
 ## Table Summary
 
