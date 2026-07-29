@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.vycepay.transaction.api.v1.dto.SendMoneyRequest;
 import com.vycepay.transaction.api.v1.dto.TransactionResponse;
+import com.vycepay.transaction.api.v1.dto.ValidateAccountRequest;
+import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
 import com.vycepay.transaction.application.facade.TransactionFacade;
+import io.swagger.v3.oas.annotations.Operation;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.domain.model.TransactionDisplayStatus;
 import com.vycepay.transaction.infrastructure.persistence.CustomerRepository;
@@ -61,7 +64,27 @@ public class TransactionController {
     }
 
     /**
+     * Validates recipient account via Choice Hakikisha (title fetch) before transfer.
+     * Does not require a wallet; customer must be authenticated.
+     */
+    @Operation(summary = "Validate account / fetch title (Hakikisha)")
+    @PostMapping("/validate-account")
+    public ResponseEntity<ValidateAccountResponse> validateAccount(
+            @RequestHeader("X-Customer-Id") String externalId,
+            @RequestBody ValidateAccountRequest request) {
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
+        customerRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
+        var result = transactionFacade.validateAccount(
+                request.getAccountId(), request.getAccountType(), request.getBankCode());
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * Initiates transfer. Idempotency-Key header required.
+     * Re-validates payee via Hakikisha and stores Choice-returned accountName.
      */
     @PostMapping("/send")
     public ResponseEntity<TransactionResponse> send(
@@ -75,7 +98,7 @@ public class TransactionController {
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Wallet not found", HttpStatus.NOT_FOUND));
         var tx = transactionFacade.applyTransfer(
                 customer.getId(), wallet.getId(), wallet.getChoiceAccountId(),
-                request.getPayeeBankCode(), request.getPayeeAccountId(), request.getPayeeAccountName(),
+                request.getPayeeBankCode(), request.getPayeeAccountId(), request.getAccountType(),
                 request.getAmount(), request.getRemark(), idempotencyKey);
         return ResponseEntity.ok(toResponse(tx));
     }

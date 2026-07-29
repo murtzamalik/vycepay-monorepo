@@ -71,7 +71,8 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 
 ### Transaction
 
-- POST /transactions/send (Idempotency-Key required)
+- POST /transactions/validate-account (Hakikisha title fetch; re-validated again on send)
+- POST /transactions/send (Idempotency-Key required; accountType required)
 - POST /transactions/deposit/mpesa (STK Push)
 - POST /transactions/send-otp, POST /transactions/confirm-otp
 - GET /transactions/{id}/status (Choice Bank getTransResult)

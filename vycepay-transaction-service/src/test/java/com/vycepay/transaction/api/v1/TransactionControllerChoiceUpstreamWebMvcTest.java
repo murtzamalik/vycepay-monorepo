@@ -83,6 +83,7 @@ class TransactionControllerChoiceUpstreamWebMvcTest {
         SendMoneyRequest body = new SendMoneyRequest();
         body.setPayeeBankCode("MPESA");
         body.setPayeeAccountId("254700000000");
+        body.setAccountType(3);
         body.setAmount(new BigDecimal("25.00"));
 
         mockMvc.perform(post("/api/v1/transactions/send")

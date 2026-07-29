@@ -18,6 +18,7 @@
 | POST /onboarding/v3/submitEasyOnboardingRequest | Wallet onboarding (ID + selfie) |
 | POST /common/sendOtp | Send OTP |
 | POST /common/confirmOperation | Confirm OTP |
+| POST /account/validateAccount | Hakikisha — validate account / title fetch |
 | POST /trans/v2/applyForTransfer | Initiate transfer |
 | POST /trans/depositFromMpesa | STK Push deposit |
 | POST /query/getTransResult | Query transaction status |

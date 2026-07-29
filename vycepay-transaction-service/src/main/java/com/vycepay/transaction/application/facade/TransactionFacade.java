@@ -5,6 +5,7 @@ import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.choicebank.RequestIdGenerator;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
@@ -22,6 +23,7 @@ import java.util.UUID;
 
 /**
  * Orchestrates transfers and deposits. Idempotent via idempotencyKey.
+ * Re-validates payee via Choice Hakikisha ({@code account/validateAccount}) before every transfer.
  */
 @Service
 @ConditionalOnBean(BankingProviderPort.class)
@@ -31,6 +33,12 @@ public class TransactionFacade {
     private static final String STATUS_PENDING = "1";
     private static final String TYPE_TRANSFER = "TRANSFER";
     private static final String TYPE_DEPOSIT = "DEPOSIT";
+    /** Choice Hakikisha accountType for PesaLink; bankCode is mandatory. */
+    private static final int ACCOUNT_TYPE_PESALINK = 4;
+    private static final int ACCOUNT_TYPE_MIN = 0;
+    private static final int ACCOUNT_TYPE_MAX = 5;
+    private static final int FREEZE_FROZEN = 1;
+    private static final int RESTRICT_IN = 1;
 
     private final BankingProviderPort bankingProvider;
     private final TransactionRepository transactionRepository;
@@ -48,37 +56,59 @@ public class TransactionFacade {
     }
 
     /**
-     * Initiates transfer. Idempotent - returns existing tx if key matches.
+     * Validates a recipient account via Choice Bank Hakikisha (title fetch).
+     * Blocks frozen accounts and accounts with restrict-in status.
      *
-     * @param customerId     Our customer ID
-     * @param walletId       Wallet ID
+     * @param accountId   Account, mobile, paybill, or till to validate
+     * @param accountType Choice counterparty type (0–5)
+     * @param bankCode    Mandatory when accountType is 4 (PesaLink)
+     * @return Validated account details including accountName
+     * @throws BusinessException if params invalid, account frozen, or restrict-in
+     */
+    public ValidateAccountResponse validateAccount(String accountId, Integer accountType, String bankCode) {
+        return doValidateAccount(accountId, accountType, bankCode);
+    }
+
+    /**
+     * Initiates transfer. Idempotent - returns existing tx if key matches.
+     * Always re-validates the payee via Hakikisha and overwrites payeeAccountName from Choice.
+     *
+     * @param customerId      Our customer ID
+     * @param walletId        Wallet ID
      * @param choiceAccountId Choice account ID (payer)
-     * @param payeeBankCode  Choice bank code (e.g. M-PESA)
-     * @param payeeAccountId Recipient (M-PESA number or account)
-     * @param amount         Amount
-     * @param remark         Optional message to beneficiary (max 100 chars)
-     * @param idempotencyKey Client-provided key
+     * @param payeeBankCode   Choice bank code (e.g. M-PESA); used as bankCode for PesaLink validate
+     * @param payeeAccountId  Recipient (M-PESA number or account)
+     * @param accountType     Choice Hakikisha account type (0–5)
+     * @param amount          Amount
+     * @param remark          Optional message to beneficiary (max 100 chars)
+     * @param idempotencyKey  Client-provided key
      * @return Transaction (existing or new)
      */
     @Transactional
     public Transaction applyTransfer(Long customerId, Long walletId, String choiceAccountId,
-                                     String payeeBankCode, String payeeAccountId, String payeeAccountName,
+                                     String payeeBankCode, String payeeAccountId, Integer accountType,
                                      BigDecimal amount, String remark, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeTransfer(customerId, walletId, choiceAccountId,
-                        payeeBankCode, payeeAccountId, payeeAccountName, amount, remark, idempotencyKey));
+                        payeeBankCode, payeeAccountId, accountType, amount, remark, idempotencyKey));
     }
 
     private Transaction executeTransfer(Long customerId, Long walletId, String choiceAccountId,
-                                        String payeeBankCode, String payeeAccountId, String payeeAccountName,
+                                        String payeeBankCode, String payeeAccountId, Integer accountType,
                                         BigDecimal amount, String remark, String idempotencyKey) {
+        String bankCodeForValidate = (accountType != null && accountType == ACCOUNT_TYPE_PESALINK)
+                ? payeeBankCode
+                : null;
+        ValidateAccountResponse validated = doValidateAccount(payeeAccountId, accountType, bankCodeForValidate);
+        String payeeAccountName = validated.getAccountName();
+
         var params = new java.util.HashMap<String, Object>();
         params.put("payerAccountId", choiceAccountId);
         params.put("payeeBankCode", payeeBankCode);
         params.put("payeeAccountId", payeeAccountId);
         params.put("currency", "KES");
         params.put("amount", amount);
-        if (payeeAccountName != null) params.put("payeeAccountName", payeeAccountName);
+        params.put("payeeAccountName", payeeAccountName);
         if (remark != null && !remark.isBlank()) {
             params.put("remark", remark.length() > 100 ? remark.substring(0, 100) : remark);
         }
@@ -109,6 +139,95 @@ public class TransactionFacade {
         tx.setRemark(remark);
         tx.setIdempotencyKey(idempotencyKey);
         return transactionRepository.save(tx);
+    }
+
+    /**
+     * Calls Choice {@code account/validateAccount}, maps response, and enforces freeze / restrict-in rules.
+     */
+    private ValidateAccountResponse doValidateAccount(String accountId, Integer accountType, String bankCode) {
+        if (accountId == null || accountId.isBlank()) {
+            throw new BusinessException("INVALID_ACCOUNT_ID", "accountId is required", HttpStatus.BAD_REQUEST);
+        }
+        if (accountType == null || accountType < ACCOUNT_TYPE_MIN || accountType > ACCOUNT_TYPE_MAX) {
+            throw new BusinessException(
+                    "INVALID_ACCOUNT_TYPE",
+                    "accountType must be an integer between 0 and 5",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (accountType == ACCOUNT_TYPE_PESALINK && (bankCode == null || bankCode.isBlank())) {
+            throw new BusinessException(
+                    "BANK_CODE_REQUIRED",
+                    "bankCode is required when accountType is 4 (PesaLink)",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        var params = new java.util.HashMap<String, Object>();
+        params.put("accountId", accountId.trim());
+        params.put("accountType", accountType);
+        if (accountType == ACCOUNT_TYPE_PESALINK) {
+            params.put("bankCode", bankCode.trim());
+        }
+
+        ChoiceBankResponse response = bankingProvider.post("account/validateAccount", Map.copyOf(params));
+        choiceAssessor.requireSuccess(response, "account/validateAccount");
+        Map<String, Object> data = requireMapData(response.getData(), "account/validateAccount");
+
+        String accountName = stringVal(data.get("accountName"));
+        if (accountName == null || accountName.isBlank()) {
+            throw new BusinessException(
+                    "CHOICE_INVALID_RESPONSE",
+                    "Choice Bank did not return accountName for validateAccount",
+                    HttpStatus.BAD_GATEWAY);
+        }
+
+        Integer freezeStatus = intVal(data.get("freezeStatus"));
+        Integer restrictStatus = intVal(data.get("restrictStatus"));
+        Integer responseAccountType = intVal(data.get("accountType"));
+        String responseAccountId = stringVal(data.get("accountId"));
+        if (responseAccountId == null || responseAccountId.isBlank()) {
+            responseAccountId = accountId.trim();
+        }
+
+        if (freezeStatus != null && freezeStatus == FREEZE_FROZEN) {
+            throw new BusinessException(
+                    "ACCOUNT_FROZEN",
+                    "Recipient account is frozen and cannot receive funds",
+                    HttpStatus.CONFLICT);
+        }
+        if (restrictStatus != null && restrictStatus == RESTRICT_IN) {
+            throw new BusinessException(
+                    "ACCOUNT_RESTRICT_IN",
+                    "Recipient account is restricted from receiving funds",
+                    HttpStatus.CONFLICT);
+        }
+
+        ValidateAccountResponse result = new ValidateAccountResponse();
+        result.setAccountId(responseAccountId);
+        result.setAccountType(responseAccountType != null ? responseAccountType : accountType);
+        result.setAccountName(accountName.trim());
+        result.setFreezeStatus(freezeStatus != null ? freezeStatus : 0);
+        result.setRestrictStatus(restrictStatus != null ? restrictStatus : 0);
+        result.setValid(true);
+        log.info("Account validated: accountId={}, accountType={}", result.getAccountId(), result.getAccountType());
+        return result;
+    }
+
+    private static String stringVal(Object value) {
+        return value != null ? value.toString() : null;
+    }
+
+    private static Integer intVal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number n) {
+            return n.intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

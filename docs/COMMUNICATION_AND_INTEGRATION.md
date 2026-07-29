@@ -29,7 +29,7 @@
 
 ## 3. Backend Services ↔ Choice Bank (BaaS)
 
-- **Who calls:** KYC service (onboarding, sendOtp, resendOtp, confirmOperation, getOnboardingStatus); Transaction service (applyForTransfer, depositFromMpesa, getBankCodes, sendOtp, resendOtp, confirmOperation, history).
+- **Who calls:** KYC service (onboarding, sendOtp, resendOtp, confirmOperation, getOnboardingStatus); Transaction service (validateAccount, applyForTransfer, depositFromMpesa, getBankCodes, sendOtp, resendOtp, confirmOperation, history).
 - **How:** Shared **Choice Bank client** in `vycepay-common`: `ChoiceBankClient`, `ChoiceBankRequestFactory`, `ChoiceBankSignatureUtil` (BaaS signing). Services use `BankingProviderPort` implemented by `ChoiceBankApiAdapter` which uses `ChoiceBankClient`.
 - **Request format:**  
   - Base URL configurable (e.g. `https://baas-pilot.choicebankapi.com`).  

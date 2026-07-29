@@ -387,7 +387,34 @@ All routes require **Bearer** auth. Responses use the **success envelope**; Choi
 
 ## Transaction APIs
 
-### 15) Send money (transfer)
+### 15) Validate account / title fetch (Hakikisha)
+
+- **POST** `/api/v1/transactions/validate-account`
+- **Auth:** Required (Bearer)
+- **Request (JSON):**
+```json
+{
+  "accountId": "0123456789",
+  "accountType": 4,
+  "bankCode": "01"
+}
+```
+- `bankCode` is **required** when `accountType` is `4` (PesaLink); omit for other types.
+- **Response:** `200 OK`
+```json
+{
+  "accountId": "0123456789",
+  "accountType": 4,
+  "accountName": "JOHN DOE",
+  "freezeStatus": 0,
+  "restrictStatus": 0,
+  "valid": true
+}
+```
+- Errors include `ACCOUNT_FROZEN`, `ACCOUNT_RESTRICT_IN`, `BANK_CODE_REQUIRED`, `INVALID_ACCOUNT_TYPE`, plus Choice upstream codes.
+- Full mobile guide: [MOBILE_VALIDATE_ACCOUNT_HANDOFF.md](MOBILE_VALIDATE_ACCOUNT_HANDOFF.md).
+
+### 16) Send money (transfer)
 
 - **POST** `/api/v1/transactions/send`
 - **Auth:** Required (Bearer)
@@ -396,20 +423,23 @@ All routes require **Bearer** auth. Responses use the **success envelope**; Choi
 - **Request (JSON):**
 ```json
 {
-  "payeeBankCode": "M-PESA",
-  "payeeAccountId": "712345678",
-  "payeeAccountName": "Recipient Name",
+  "payeeBankCode": "01",
+  "payeeAccountId": "0123456789",
+  "accountType": 4,
   "amount": 100.50,
   "remark": "Reference (optional)"
 }
 ```
+- **`accountType` is required** (same value used in validate-account). For PesaLink (`4`), `payeeBankCode` is used as Choice `bankCode` on re-validation.
+- `payeeAccountName` is optional and **overwritten** by the server from Choice Hakikisha; do not rely on a client-typed name.
+- Server always re-validates before `applyForTransfer` (frozen / restrict-in blocked).
 - **Response:** `200 OK` with `TransactionResponse` JSON (fields below)
 
 If OTP is required by Choice Bank:
 - `POST /api/v1/transactions/send-otp?transactionId=<externalId>&otpType=SMS`
 - `POST /api/v1/transactions/confirm-otp?transactionId=<externalId>&otpCode=<code>`
 
-### 16) Deposit via M-PESA STK push
+### 17) Deposit via M-PESA STK push
 
 - **POST** `/api/v1/transactions/deposit/mpesa?mobile=<number>&amount=<kes>`
 - **Auth:** Required (Bearer)
@@ -418,7 +448,7 @@ If OTP is required by Choice Bank:
 - **Body:** none
 - **Response:** `200 OK` with `TransactionResponse` JSON
 
-### 17) Transaction OTP endpoints
+### 18) Transaction OTP endpoints
 
 - **POST** `/api/v1/transactions/send-otp?transactionId=<externalId>&otpType=SMS`
 - **POST** `/api/v1/transactions/resend-otp?transactionId=<externalId>&otpType=SMS`
@@ -428,32 +458,32 @@ Confirm OTP:
 - `200 OK` with success envelope (`code = TXN_OTP_CONFIRMED`) on success
 - `400` with error envelope (`code = INVALID_OTP`) on failure
 
-### 18) Full transaction detail
+### 19) Full transaction detail
 
 - **GET** `/api/v1/transactions/{transactionId}`
 - **Auth:** Required (Bearer)
 - `transactionId` is the **externalId (UUID)** returned by `POST /api/v1/transactions/send`
 - **Response (200, JSON):** `TransactionResponse`
 
-### 19) Transaction status (Choice query)
+### 20) Transaction status (Choice query)
 
 - **GET** `/api/v1/transactions/{transactionId}/status`
 - **Auth:** Required (Bearer)
 - **Response (200, JSON):** a Choice status payload mapped as a `Map<String,Object>`
 
-### 20) Bank codes (for UI selection)
+### 21) Bank codes (for UI selection)
 
 - **GET** `/api/v1/transactions/bank-codes`
 - **Auth:** Required (Bearer)
 - **Response:** `200 OK` with a JSON object (`Map<String,Object>`) from Choice
 
-### 21) Choice transaction history
+### 22) Choice transaction history
 
 - **GET** `/api/v1/transactions/choice-history?startTime=<ms>&endTime=<ms>&page=<1-based>&size=<pageSize>`
 - **Auth:** Required (Bearer)
 - **Response:** `200 OK` with JSON object (`Map<String,Object>`) from Choice
 
-### 22) Local transaction list (paginated)
+### 23) Local transaction list (paginated)
 
 - **GET** `/api/v1/transactions?page=0&size=20&status=&type=`
 - **Auth:** Required (Bearer)
@@ -462,7 +492,7 @@ Confirm OTP:
   - `type`
 - **Response (200, JSON):** Spring `Page<TransactionResponse>` serialized as a page object
 
-### 23) Utility payments (Choice)
+### 24) Utility payments (Choice)
 
 Base path: `/api/v1/transactions/utilities`. All require **Bearer** auth.
 
@@ -508,7 +538,7 @@ Debit operations create local transactions with types `UTILITY_AIRTIME`, `UTILIT
 
 ## Activity APIs
 
-### 24) Log an activity
+### 25) Log an activity
 
 - **POST** `/api/v1/activity/log`
 - **Auth:** Required (Bearer)
@@ -525,7 +555,7 @@ Debit operations create local transactions with types `UTILITY_AIRTIME`, `UTILIT
 ```
 - **Response:** `200 OK` with success envelope (`code = ACTIVITY_LOGGED`)
 
-### 25) List activity
+### 26) List activity
 
 - **GET** `/api/v1/activity?page=0&size=20`
 - **Auth:** Required (Bearer)

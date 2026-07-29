@@ -43,7 +43,8 @@
 
 ## Transaction Endpoints
 
-- POST /transactions/send (Idempotency-Key header)
+- POST /transactions/validate-account (Hakikisha title fetch; body: accountId, accountType, optional bankCode)
+- POST /transactions/send (Idempotency-Key header; body requires accountType; re-validates payee before transfer)
 - POST /transactions/deposit/mpesa (optional header: Idempotency-Key for idempotent deposit)
 - POST /transactions/send-otp?transactionId=&otpType=SMS
 - POST /transactions/resend-otp?transactionId=&otpType=SMS

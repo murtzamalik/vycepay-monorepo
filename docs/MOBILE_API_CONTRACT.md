@@ -133,10 +133,11 @@ After step 4, wait for backend processing; wallet is created via webhook. Poll `
 
 1. `GET /api/v1/wallets/me` — get wallet (balance, choiceAccountId). Returns 404 until wallet exists after KYC.
 2. `GET /api/v1/transactions/bank-codes` — list bank codes for “send money” UI.
-3. **Send money:** `POST /api/v1/transactions/send` with header `Idempotency-Key` (unique per attempt) and body (payeeBankCode, payeeAccountId, amount, etc.). If Choice Bank requires OTP:
+3. **Validate account (Hakikisha):** `POST /api/v1/transactions/validate-account` with `accountId`, `accountType`, and `bankCode` when type is 4 (PesaLink). Show returned `accountName`; do not continue if error / not valid. Full guide: [MOBILE_VALIDATE_ACCOUNT_HANDOFF.md](MOBILE_VALIDATE_ACCOUNT_HANDOFF.md).
+4. **Send money:** `POST /api/v1/transactions/send` with header `Idempotency-Key` (unique per attempt) and body (`payeeBankCode`, `payeeAccountId`, **`accountType` required**, `amount`, etc.). Server re-validates and overwrites payee name. If Choice Bank requires OTP:
    - `POST /api/v1/transactions/send-otp?transactionId=<externalId from send response>&otpType=SMS` (success code: `TXN_OTP_SENT`)
    - `POST /api/v1/transactions/confirm-otp?transactionId=<id>&otpCode=<code>` (success code: `TXN_OTP_CONFIRMED`; invalid OTP returns `INVALID_OTP`)
-4. **Deposit (M-PESA):** `POST /api/v1/transactions/deposit/mpesa?mobile=<number>&amount=<kes>`. Optional header `Idempotency-Key` for idempotent deposit.
+5. **Deposit (M-PESA):** `POST /api/v1/transactions/deposit/mpesa?mobile=<number>&amount=<kes>`. Optional header `Idempotency-Key` for idempotent deposit.
 
 ## Endpoints (BFF proxy)
 
@@ -181,7 +182,8 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | /api/v1/transactions/send | Header: `Idempotency-Key` (required). Response includes `displayStatus`. |
+| POST | /api/v1/transactions/validate-account | Hakikisha title fetch before send. See [MOBILE_VALIDATE_ACCOUNT_HANDOFF.md](MOBILE_VALIDATE_ACCOUNT_HANDOFF.md). |
+| POST | /api/v1/transactions/send | Header: `Idempotency-Key` (required). Body requires `accountType`. Response includes `displayStatus`. |
 | POST | /api/v1/transactions/deposit/mpesa?mobile=&amount= | Optional header: `Idempotency-Key` |
 | POST | /api/v1/transactions/send-otp?transactionId=&otpType=SMS | Success code `TXN_OTP_SENT` |
 | POST | /api/v1/transactions/resend-otp?transactionId=&otpType=SMS | Success code `TXN_OTP_RESENT` |

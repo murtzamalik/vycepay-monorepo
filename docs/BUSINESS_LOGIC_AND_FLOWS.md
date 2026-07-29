@@ -72,9 +72,13 @@
 
 ### Flow
 
+0. **POST /api/v1/transactions/validate-account** (title fetch / Hakikisha)  
+   Body: `accountId`, `accountType` (0–5), optional `bankCode` (required when `accountType` is 4 / PesaLink).  
+   Calls Choice `account/validateAccount`. Returns `accountName`, `freezeStatus`, `restrictStatus`, `valid`. Frozen (`freezeStatus=1`) or restrict-in (`restrictStatus=1`) → error; do not proceed to send. Mobile shows title for user confirmation.
+
 1. **POST /api/v1/transactions/send**  
-   **Header:** `Idempotency-Key` (required). Body: payeeBankCode, payeeAccountId, payeeAccountName, amount, remark.  
-   **TransactionFacade.applyTransfer:** If transaction with same idempotencyKey exists, returns it. Otherwise calls Choice `trans/v2/applyForTransfer` with payerAccountId = wallet’s choiceAccountId, then creates local `transaction` (externalId = new UUID, status PENDING, type TRANSFER) and saves. Response returns this transaction’s **externalId** (this is the “transactionId” used in subsequent OTP and status calls).
+   **Header:** `Idempotency-Key` (required). Body: `payeeBankCode`, `payeeAccountId`, **`accountType` (required)**, `amount`, `remark`; `payeeAccountName` is optional and **ignored** — server re-validates via Hakikisha and overwrites name from Choice.  
+   **TransactionFacade.applyTransfer:** If transaction with same idempotencyKey exists, returns it. Otherwise re-calls `account/validateAccount` (for PesaLink uses `payeeBankCode` as `bankCode`), then `trans/v2/applyForTransfer` with payerAccountId = wallet’s choiceAccountId and Choice `accountName`, then creates local `transaction` (externalId = new UUID, status PENDING, type TRANSFER) and saves. Response returns this transaction’s **externalId** (this is the “transactionId” used in subsequent OTP and status calls).
 
 2. **If Choice requires OTP:**  
    - **POST /api/v1/transactions/send-otp?transactionId=<externalId>&otpType=SMS** → Choice `common/sendOtp` with businessId = transaction’s Choice-side id (or as configured).  
@@ -107,6 +111,9 @@
 
 - **GET /api/v1/transactions/bank-codes**  
   Returns bank codes from Choice for “send money” UI.
+
+- **POST /api/v1/transactions/validate-account**  
+  Hakikisha title fetch before send (see flow step 0 above).
 
 ---
 
