@@ -1,20 +1,24 @@
 # VycePay Push Notifications (FCM)
 
-End-to-end push: Android binds an FCM token on **signup verify-otp** or **successful PIN login**; Choice Bank callbacks in **callback-service** send typed pushes via Firebase Admin.
+End-to-end push: Android binds an FCM token on **signup verify-otp** or **successful PIN login**; Choice Bank callbacks (and admin compose) in **callback-service** persist an inbox row, send FCM via Firebase Admin, and log each delivery attempt.
 
 ## Architecture
 
 ```
 Android ──POST /api/v1/auth/verify-otp or /login (+ fcmToken)──► auth-service ──► device_token (MySQL)
-Choice Bank webhook ──► callback-service handlers ──► device_token lookup ──► FCM
+Choice Bank webhook ──► handlers ──► NotificationOrchestrator ──► customer_notification + FCM + push_delivery_log
+Admin compose/resend ──► admin-service ──► callback internal API ──► same orchestrator
+Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 ```
 
 - **Registration owner:** `vycepay-auth-service` (optional `fcmToken` on signup verify-otp **or** PIN login success)
-- **Sender:** `vycepay-callback-service` (`PushNotificationPort` / `FirebasePushAdapter`)
+- **Sender / inbox hub:** `vycepay-callback-service` (`NotificationOrchestrator`, `PushNotificationPort` / `FirebasePushAdapter`)
 - **One FCM token:** each bind with `fcmToken` replaces all prior tokens for that customer
 - **IMEI binding:** separate table `customer_device` (login device trust) — not the same as FCM
 - **Logout:** `POST /logout` clears all `device_token` rows for the customer
 - **0003 (balance change):** intentionally **no push** — live traffic pairs it with **0002**
+- **Inbox:** `customer_notification` is source of truth; FCM is best-effort delivery
+- **Admin:** list/detail/summary via JDBC; compose (1–100 customers) and resend via internal API (`INTERNAL_API_KEY`)
 
 ## Backend configuration
 
@@ -23,9 +27,12 @@ Choice Bank webhook ──► callback-service handlers ──► device_token l
 | `vycepay.firebase.enabled` / `FIREBASE_ENABLED` | `true` to send; default `false` (local/dev safe) |
 | `FIREBASE_CREDENTIALS_JSON` | Service account JSON string (preferred secret) |
 | `FIREBASE_CREDENTIALS_PATH` | Path to mounted service account file |
+| `INTERNAL_API_KEY` | Shared secret for admin → callback compose/resend |
+| `vycepay.bff.callback-url` / `BFF_CALLBACK_URL` | BFF routes `/api/v1/notifications/**` to callback-service |
 | (fallback) | Google Application Default Credentials |
 
 Use the **same Firebase project** as the Android app (`com.vycepay`). Never commit the service account JSON.
+
 
 ## Device registration API
 

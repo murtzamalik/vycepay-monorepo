@@ -61,6 +61,10 @@ services:
       VYCEPAY_CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
       VYCEPAY_CHOICE_BANK_SENDER_ID: ${CHOICE_BANK_SENDER_ID:-}
       VYCEPAY_CHOICE_BANK_PRIVATE_KEY: ${CHOICE_BANK_PRIVATE_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-only-internal-api-key-change-me}
+      FIREBASE_ENABLED: ${FIREBASE_ENABLED:-false}
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -167,12 +171,14 @@ services:
       vycepay.bff.wallets-url: "http://wallet:8084"
       vycepay.bff.transactions-url: "http://transaction:8085"
       vycepay.bff.activity-url: "http://activity:8086"
+      vycepay.bff.callback-url: "http://callback:8081"
     depends_on:
       - auth
       - kyc
       - wallet
       - transaction
       - activity
+      - callback
     ports:
       - "9080:8080"
     restart: unless-stopped
@@ -202,9 +208,13 @@ services:
       ADMIN_HEALTH_WALLET_URL: "http://wallet:8084/actuator/health"
       ADMIN_HEALTH_TRANSACTION_URL: "http://transaction:8085/actuator/health"
       ADMIN_HEALTH_ACTIVITY_URL: "http://activity:8086/actuator/health"
+      ADMIN_CALLBACK_BASE_URL: "http://callback:8081"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-only-internal-api-key-change-me}
     depends_on:
       mysql:
         condition: service_healthy
+      callback:
+        condition: service_started
     ports:
       - "8090:8090"
     restart: unless-stopped

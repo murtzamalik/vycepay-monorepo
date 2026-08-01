@@ -1,6 +1,7 @@
 package com.vycepay.callback.domain.port;
 
 import com.vycepay.callback.domain.model.PushMessage;
+import com.vycepay.callback.domain.model.PushSendResult;
 
 /**
  * Outbound port for sending FCM push notifications to a customer's devices.
@@ -13,6 +14,7 @@ public interface PushNotificationPort {
      *
      * @param customerId VycePay internal customer id
      * @param message    title, body, and string data map
+     * @return delivery outcome for logging (never null)
      */
-    void sendToCustomer(Long customerId, PushMessage message);
+    PushSendResult sendToCustomer(Long customerId, PushMessage message);
 }

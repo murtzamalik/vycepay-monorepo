@@ -21,6 +21,8 @@ function ListPageInner<T extends Record<string, unknown>>({
   filterSlot,
   showDateRange,
   hideHeader,
+  hideSearch,
+  headerActions,
 }: {
   title: string
   description: string
@@ -31,6 +33,8 @@ function ListPageInner<T extends Record<string, unknown>>({
   filterSlot?: (ctx: { filters: ListFilters; setFilters: (patch: Partial<ListFilters>) => void }) => React.ReactNode
   showDateRange?: boolean
   hideHeader?: boolean
+  hideSearch?: boolean
+  headerActions?: React.ReactNode
 }) {
   const { data, isLoading, error, filters: f, setFilters } = useListQuery<T>(endpoint)
 
@@ -42,10 +46,18 @@ function ListPageInner<T extends Record<string, unknown>>({
         <PageHeader
           title={title}
           description={description}
-          actions={exportHref ? <a className="btn secondary" href={exportHref}>Export CSV</a> : undefined}
+          actions={
+            <>
+              {headerActions}
+              {exportHref ? <a className="btn secondary" href={exportHref}>Export CSV</a> : null}
+            </>
+          }
         />
       ) : null}
-      <FilterBar search={f.search} onSearch={(search) => setFilters({ search })}>
+      <FilterBar
+        search={hideSearch ? undefined : f.search}
+        onSearch={hideSearch ? undefined : (search) => setFilters({ search })}
+      >
         {filters}
         {filterSlot ? filterSlot({ filters: f, setFilters }) : null}
         {showDateRange ? (

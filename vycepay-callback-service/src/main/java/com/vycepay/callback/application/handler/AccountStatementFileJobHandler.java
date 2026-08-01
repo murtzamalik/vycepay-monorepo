@@ -44,7 +44,7 @@ public class AccountStatementFileJobHandler implements NotificationHandler {
             return;
         }
         updater.updateFromParams(params, callback.getChoiceRequestId()).ifPresent(job ->
-                pushPublisher.publishBestEffort(job.getCustomerId(), NOTIFICATION_TYPE, params));
+                pushPublisher.publishBestEffort(job.getCustomerId(), NOTIFICATION_TYPE, params, callback.getId()));
     }
 
     @SuppressWarnings("unchecked")

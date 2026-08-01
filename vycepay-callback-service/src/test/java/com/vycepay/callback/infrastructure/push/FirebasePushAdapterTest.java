@@ -1,12 +1,14 @@
 package com.vycepay.callback.infrastructure.push;
 
 import com.vycepay.callback.domain.model.PushMessage;
+import com.vycepay.callback.domain.model.PushSendResult;
 import com.vycepay.callback.infrastructure.persistence.DeviceTokenRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,8 +32,10 @@ class FirebasePushAdapterTest {
                 .notificationType("0002")
                 .build();
 
-        adapter.sendToCustomer(42L, message);
+        PushSendResult result = adapter.sendToCustomer(42L, message);
 
+        assertEquals(PushSendResult.STATUS_SKIPPED, result.getStatus());
+        assertEquals(PushSendResult.SKIP_FIREBASE_DISABLED, result.getSkipReason());
         verify(deviceTokenRepository, never()).findByCustomerId(any());
     }
 }

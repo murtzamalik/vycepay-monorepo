@@ -26,6 +26,8 @@ vycepay:
     # Prefer env JSON secret; alternatively set credentials-path to a mounted file.
     credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
     credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  internal:
+    api-key: ${INTERNAL_API_KEY:dev-only-internal-api-key-change-me}
   choice-bank:
     base-url: ${CHOICE_BANK_BASE_URL:https://baas.choicedigitalbank.com}
     sender-id: ${CHOICE_BANK_SENDER_ID:}

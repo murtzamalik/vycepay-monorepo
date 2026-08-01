@@ -59,7 +59,7 @@ public class AccountStatusChangeHandler implements NotificationHandler {
                     w.setStatus(mapWalletStatus(finalStatus));
                     walletRepository.save(w);
                     log.info("Updated wallet status for accountId={} choiceStatus={}", accountId, finalStatus);
-                    pushPublisher.publishBestEffort(w.getCustomerId(), NOTIFICATION_TYPE, params);
+                    pushPublisher.publishBestEffort(w.getCustomerId(), NOTIFICATION_TYPE, params, callback.getId());
                 },
                 () -> log.warn("Wallet not found for accountId={}", accountId)
         );

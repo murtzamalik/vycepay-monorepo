@@ -15,6 +15,7 @@ public class BffBackendProperties {
     private String walletsUrl = "http://127.0.0.1:9093";
     private String transactionsUrl = "http://127.0.0.1:9094";
     private String activityUrl = "http://127.0.0.1:9095";
+    private String callbackUrl = "http://127.0.0.1:8081";
 
     public String getAuthUrl() { return authUrl; }
     public void setAuthUrl(String authUrl) { this.authUrl = authUrl; }
@@ -26,17 +27,24 @@ public class BffBackendProperties {
     public void setTransactionsUrl(String transactionsUrl) { this.transactionsUrl = transactionsUrl; }
     public String getActivityUrl() { return activityUrl; }
     public void setActivityUrl(String activityUrl) { this.activityUrl = activityUrl; }
+    public String getCallbackUrl() { return callbackUrl; }
+    public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
 
     /**
      * First path segment under /api/v1/ -> backend base URL (no trailing slash).
      */
     public Map<String, String> pathPrefixToBaseUrl() {
         Map<String, String> m = new HashMap<>();
-        m.put("auth", authUrl.endsWith("/") ? authUrl.substring(0, authUrl.length() - 1) : authUrl);
-        m.put("kyc", kycUrl.endsWith("/") ? kycUrl.substring(0, kycUrl.length() - 1) : kycUrl);
-        m.put("wallets", walletsUrl.endsWith("/") ? walletsUrl.substring(0, walletsUrl.length() - 1) : walletsUrl);
-        m.put("transactions", transactionsUrl.endsWith("/") ? transactionsUrl.substring(0, transactionsUrl.length() - 1) : transactionsUrl);
-        m.put("activity", activityUrl.endsWith("/") ? activityUrl.substring(0, activityUrl.length() - 1) : activityUrl);
+        m.put("auth", trim(authUrl));
+        m.put("kyc", trim(kycUrl));
+        m.put("wallets", trim(walletsUrl));
+        m.put("transactions", trim(transactionsUrl));
+        m.put("activity", trim(activityUrl));
+        m.put("notifications", trim(callbackUrl));
         return m;
+    }
+
+    private static String trim(String url) {
+        return url != null && url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

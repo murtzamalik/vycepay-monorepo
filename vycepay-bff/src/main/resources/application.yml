@@ -17,3 +17,4 @@ vycepay:
     wallets-url: ${BFF_WALLETS_URL:http://127.0.0.1:9093}
     transactions-url: ${BFF_TRANSACTIONS_URL:http://127.0.0.1:9094}
     activity-url: ${BFF_ACTIVITY_URL:http://127.0.0.1:9095}
+    callback-url: ${BFF_CALLBACK_URL:http://127.0.0.1:8081}

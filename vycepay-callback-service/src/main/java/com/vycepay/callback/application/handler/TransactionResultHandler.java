@@ -71,7 +71,7 @@ public class TransactionResultHandler implements NotificationHandler {
                     tx.setCompletedAt(updateTime != null ? Instant.ofEpochMilli(updateTime) : Instant.now());
                     transactionRepository.save(tx);
                     log.info("Updated transaction choiceTxId={} status={}", txId, txStatus);
-                    pushPublisher.publishBestEffort(tx.getCustomerId(), NOTIFICATION_TYPE, params);
+                    pushPublisher.publishBestEffort(tx.getCustomerId(), NOTIFICATION_TYPE, params, callback.getId());
                 },
                 () -> log.warn("Transaction not found for txId={}", txId)
         );

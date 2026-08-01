@@ -9,6 +9,7 @@ import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.SendResponse;
 import com.vycepay.callback.domain.model.DeviceToken;
 import com.vycepay.callback.domain.model.PushMessage;
+import com.vycepay.callback.domain.model.PushSendResult;
 import com.vycepay.callback.domain.port.PushNotificationPort;
 import com.vycepay.callback.infrastructure.persistence.DeviceTokenRepository;
 import org.slf4j.Logger;
@@ -22,7 +23,7 @@ import java.util.List;
 
 /**
  * Firebase Admin adapter: multicasts push to all device tokens for a customer.
- * When Firebase is disabled or unavailable, logs and no-ops.
+ * When Firebase is disabled or unavailable, returns SKIPPED and no-ops.
  * Removes tokens that FCM reports as unregistered/invalid.
  */
 @Component
@@ -44,19 +45,19 @@ public class FirebasePushAdapter implements PushNotificationPort {
     }
 
     @Override
-    public void sendToCustomer(Long customerId, PushMessage message) {
+    public PushSendResult sendToCustomer(Long customerId, PushMessage message) {
         if (customerId == null || message == null) {
-            return;
+            return PushSendResult.skipped(PushSendResult.SKIP_NO_CUSTOMER);
         }
         if (!enabled || firebaseMessaging == null) {
             log.debug("Push skipped (firebase disabled): customerId={} pushType={}",
                     customerId, message.getPushType());
-            return;
+            return PushSendResult.skipped(PushSendResult.SKIP_FIREBASE_DISABLED);
         }
         List<DeviceToken> devices = deviceTokenRepository.findByCustomerId(customerId);
         if (devices.isEmpty()) {
             log.debug("No device tokens for customerId={} pushType={}", customerId, message.getPushType());
-            return;
+            return PushSendResult.skipped(PushSendResult.SKIP_NO_TOKENS);
         }
         List<String> tokens = devices.stream()
                 .map(DeviceToken::getFcmToken)
@@ -64,20 +65,28 @@ public class FirebasePushAdapter implements PushNotificationPort {
                 .distinct()
                 .toList();
         if (tokens.isEmpty()) {
-            return;
+            return PushSendResult.skipped(PushSendResult.SKIP_NO_TOKENS);
         }
         try {
+            int success = 0;
+            int failure = 0;
             for (int i = 0; i < tokens.size(); i += MAX_TOKENS_PER_BATCH) {
                 List<String> batch = tokens.subList(i, Math.min(i + MAX_TOKENS_PER_BATCH, tokens.size()));
-                sendBatch(customerId, message, batch);
+                BatchResponse response = sendBatch(customerId, message, batch);
+                success += response.getSuccessCount();
+                failure += response.getFailureCount();
             }
+            log.info("FCM sent customerId={} pushType={} success={} failure={}",
+                    customerId, message.getPushType(), success, failure);
+            return PushSendResult.sent(tokens.size(), success, failure);
         } catch (Exception e) {
             log.error("FCM send failed customerId={} pushType={}: {}",
                     customerId, message.getPushType(), e.getMessage());
+            return PushSendResult.failed(e.getMessage());
         }
     }
 
-    private void sendBatch(Long customerId, PushMessage message, List<String> tokens)
+    private BatchResponse sendBatch(Long customerId, PushMessage message, List<String> tokens)
             throws FirebaseMessagingException {
         MulticastMessage multicast = MulticastMessage.builder()
                 .setNotification(Notification.builder()
@@ -88,9 +97,8 @@ public class FirebasePushAdapter implements PushNotificationPort {
                 .addAllTokens(tokens)
                 .build();
         BatchResponse response = firebaseMessaging.sendEachForMulticast(multicast);
-        log.info("FCM sent customerId={} pushType={} success={} failure={}",
-                customerId, message.getPushType(), response.getSuccessCount(), response.getFailureCount());
         pruneInvalidTokens(tokens, response.getResponses());
+        return response;
     }
 
     private void pruneInvalidTokens(List<String> tokens, List<SendResponse> responses) {

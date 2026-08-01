@@ -14,6 +14,8 @@ export const navSections = [
       { label: 'All Transactions', href: '/transactions' },
       { label: 'Failed', href: '/transactions/failed', sub: true },
       { label: 'Callbacks', href: '/callbacks' },
+      { label: 'Notifications', href: '/notifications' },
+      { label: 'Notification summary', href: '/notifications/summary', sub: true },
     ],
   },
   {

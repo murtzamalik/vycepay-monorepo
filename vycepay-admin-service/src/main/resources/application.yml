@@ -69,3 +69,5 @@ vycepay:
         - name: Activity
           url: ${ADMIN_HEALTH_ACTIVITY_URL:http://localhost:8086/actuator/health}
       choice-bank-url: ${CHOICE_BANK_BASE_URL:https://baas-pilot.choicebankapi.com}
+    callback-base-url: ${ADMIN_CALLBACK_BASE_URL:http://127.0.0.1:8081}
+    internal-api-key: ${INTERNAL_API_KEY:dev-only-internal-api-key-change-me}

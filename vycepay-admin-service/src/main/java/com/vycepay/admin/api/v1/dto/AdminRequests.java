@@ -1,6 +1,7 @@
 package com.vycepay.admin.api.v1.dto;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import jakarta.validation.constraints.AssertTrue;
@@ -58,6 +59,17 @@ public final class AdminRequests {
     }
 
     public record CallbackRetryRequest(@NotBlank @Size(min = 10, max = 512) String reason) {
+    }
+
+    public record NotificationResendRequest(@NotBlank @Size(min = 10, max = 512) String reason) {
+    }
+
+    public record NotificationComposeRequest(
+            @NotEmpty @Size(max = 100) List<@NotNull Long> customerIds,
+            @NotBlank @Size(max = 128) String title,
+            @NotBlank @Size(max = 512) String body,
+            Map<String, String> data,
+            @NotBlank @Size(min = 10, max = 512) String reason) {
     }
 
     public record MenuRequest(

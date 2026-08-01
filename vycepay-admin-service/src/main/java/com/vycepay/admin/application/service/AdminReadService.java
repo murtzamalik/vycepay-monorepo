@@ -45,6 +45,9 @@ public class AdminReadService {
         m.put("kycApprovalRate", jdbcTemplate.queryForObject("SELECT COALESCE(ROUND(100 * SUM(status='APPROVED') / NULLIF(COUNT(*),0), 2), 0) FROM kyc_verification", BigDecimal.class));
         m.put("pendingCallbacks", count("choice_bank_callback", "processed=FALSE"));
         m.put("stuckTxOver1h", count("`transaction`", "status='PENDING' AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)"));
+        m.put("notificationsSentToday", jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM push_delivery_log WHERE status IN ('SENT','PARTIAL') AND DATE(created_at)=CURRENT_DATE",
+                Long.class));
         return m;
     }
 
@@ -292,6 +295,49 @@ public class AdminReadService {
         Map<String, Object> row = rows.get(0);
         if (!securityContext.hasPermission("callback:view")) { row.remove("raw_payload"); }
         return row;
+    }
+
+    public Map<String, Object> notifications(Integer pageReq, Integer sizeReq, String customerId, String pushType,
+                                             String source, String batchId, String fromDate, String toDate) {
+        StringBuilder where = new StringBuilder("n.deleted_at IS NULL");
+        List<Object> p = new ArrayList<>();
+        if (customerId != null && !customerId.isBlank()) {
+            where.append(" AND (n.customer_id=? OR c.external_id=?)");
+            p.add(numericId(customerId));
+            p.add(customerId);
+        }
+        if (pushType != null && !pushType.isBlank()) { where.append(" AND n.push_type=?"); p.add(pushType); }
+        if (source != null && !source.isBlank()) { where.append(" AND n.source=?"); p.add(source); }
+        if (batchId != null && !batchId.isBlank()) { where.append(" AND n.batch_id=?"); p.add(batchId); }
+        DateRangeQuery.of(fromDate, toDate).apply("n.created_at", where, p);
+        return page(
+                "SELECT n.id, n.public_id publicId, n.customer_id customerId, c.external_id customerExternalId, n.source, n.push_type pushType, n.notification_type notificationType, n.title, n.body, n.batch_id batchId, n.read_at readAt, n.created_at createdAt FROM customer_notification n LEFT JOIN customer c ON c.id=n.customer_id WHERE " + where,
+                "SELECT COUNT(*) FROM customer_notification n LEFT JOIN customer c ON c.id=n.customer_id WHERE " + where,
+                pageReq, sizeReq, p.toArray());
+    }
+
+    public Map<String, Object> notificationDetail(Long id) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT n.*, c.external_id customerExternalId FROM customer_notification n LEFT JOIN customer c ON c.id=n.customer_id WHERE n.id=?", id);
+        if (rows.isEmpty()) throw notFound("NOTIFICATION_NOT_FOUND");
+        Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
+        row.put("attempts", jdbcTemplate.queryForList(
+                "SELECT id, status, skip_reason skipReason, token_count tokenCount, success_count successCount, failure_count failureCount, error_message errorMessage, trigger_source triggerSource, created_by_admin_id createdByAdminId, created_at createdAt FROM push_delivery_log WHERE notification_id=? ORDER BY created_at DESC",
+                id));
+        return row;
+    }
+
+    public Map<String, Object> notificationSummary() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("allTime", jdbcTemplate.queryForList(
+                "SELECT status, COUNT(*) count FROM push_delivery_log GROUP BY status"));
+        m.put("today", jdbcTemplate.queryForList(
+                "SELECT status, COUNT(*) count FROM push_delivery_log WHERE DATE(created_at)=CURRENT_DATE GROUP BY status"));
+        m.put("inboxTotal", count("customer_notification", "deleted_at IS NULL"));
+        m.put("sentToday", jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM push_delivery_log WHERE status IN ('SENT','PARTIAL') AND DATE(created_at)=CURRENT_DATE",
+                Long.class));
+        return m;
     }
 
     public List<Map<String, Object>> reportVolume(String groupBy, String fromDate, String toDate) {

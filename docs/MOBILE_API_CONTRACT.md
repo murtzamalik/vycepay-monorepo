@@ -121,6 +121,17 @@ All errors use this shape:
 - **Optional / Postman:** `POST /api/v1/auth/devices` and `DELETE /api/v1/auth/devices/{deviceId}` remain for tooling; mobile should not use them.
 - Push payload contract (backend → FCM): see [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 
+**In-app notification inbox (via BFF):**
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/v1/notifications` | Paginated inbox (`page`, `size`); excludes soft-deleted |
+| GET | `/api/v1/notifications/unread-count` | `{ unreadCount }` |
+| PATCH | `/api/v1/notifications/{publicId}/read` | Mark read |
+| DELETE | `/api/v1/notifications/{publicId}` | Soft-delete (hide from inbox) |
+
+Android inbox UI may consume these later; tray FCM still works independently.
+
 ### KYC (onboarding)
 
 1. `GET /api/v1/kyc/status` — check `displayStatus` field: `NOT_STARTED | PENDING | APPROVED | REJECTED`.

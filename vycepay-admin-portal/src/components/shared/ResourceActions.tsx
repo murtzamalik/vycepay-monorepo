@@ -73,6 +73,23 @@ export function CallbackActions({ id, processed }: { id: string; processed?: boo
   )
 }
 
+export function NotificationResendActions({ id }: { id: string }) {
+  const refresh = useMutationRefresh([['notification', id], ['notifications']])
+  return (
+    <PermissionGuard permission="notification:resend">
+      <ConfirmDialog
+        title="Resend notification"
+        description="Sends the same inbox message again via FCM (max 5 resends per hour). Records an audit reason."
+        actionLabel="Resend notification"
+        onConfirm={async (reason) => {
+          await apiFetch(`/notifications/${id}/resend`, { method: 'POST', body: JSON.stringify({ reason }) })
+          await refresh()
+        }}
+      />
+    </PermissionGuard>
+  )
+}
+
 export function AdminPasswordResetAction({ id }: { id: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()

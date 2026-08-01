@@ -53,7 +53,7 @@ public class ProfileCheckResultHandler implements NotificationHandler {
                 kyc -> {
                     log.info("Profile check result for onboardingRequestId={} resultCode={}",
                             onboardingRequestId, getString(params, "resultCode"));
-                    pushPublisher.publishBestEffort(kyc.getCustomerId(), NOTIFICATION_TYPE, params);
+                    pushPublisher.publishBestEffort(kyc.getCustomerId(), NOTIFICATION_TYPE, params, callback.getId());
                 },
                 () -> log.warn("KYC not found for onboardingRequestId={}", onboardingRequestId)
         );

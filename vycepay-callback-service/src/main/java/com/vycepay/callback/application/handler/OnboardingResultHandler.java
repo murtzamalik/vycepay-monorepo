@@ -86,7 +86,7 @@ public class OnboardingResultHandler implements NotificationHandler {
                     if (status != null && status == STATUS_ACCOUNT_OPENED && accountId != null) {
                         createWalletIfNeeded(kyc.getCustomerId(), accountId, accountType);
                     }
-                    pushPublisher.publishBestEffort(kyc.getCustomerId(), NOTIFICATION_TYPE, params);
+                    pushPublisher.publishBestEffort(kyc.getCustomerId(), NOTIFICATION_TYPE, params, callback.getId());
                 },
                 () -> log.warn("KYC not found for onboardingRequestId={}", onboardingRequestId)
         );
