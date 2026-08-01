@@ -1,5 +1,8 @@
 package com.vycepay.bff.config;
 
+import com.vycepay.common.exception.VyceErrorCatalog;
+import com.vycepay.common.security.JsonAccessDeniedHandler;
+import com.vycepay.common.security.JsonAuthenticationEntryPoint;
 import com.vycepay.common.security.JwtValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -20,14 +23,20 @@ public class BffSecurityConfig {
     }
 
     @Bean
-    public BffJwtFilter bffJwtFilter(JwtValidator jwtValidator) {
-        return new BffJwtFilter(jwtValidator);
+    public BffJwtFilter bffJwtFilter(JwtValidator jwtValidator, VyceErrorCatalog catalog) {
+        return new BffJwtFilter(jwtValidator, catalog);
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, BffJwtFilter bffJwtFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           BffJwtFilter bffJwtFilter,
+                                           JsonAuthenticationEntryPoint authenticationEntryPoint,
+                                           JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http.csrf(cs -> cs.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .addFilterBefore(bffJwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()

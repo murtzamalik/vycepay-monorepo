@@ -1,10 +1,13 @@
 package com.vycepay.bff.config;
 
+import com.vycepay.common.exception.JsonErrorWriter;
+import com.vycepay.common.exception.VyceErrorCatalog;
 import com.vycepay.common.security.JwtValidator;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,9 +38,11 @@ public class BffJwtFilter extends OncePerRequestFilter {
     );
 
     private final JwtValidator jwtValidator;
+    private final VyceErrorCatalog catalog;
 
-    public BffJwtFilter(JwtValidator jwtValidator) {
+    public BffJwtFilter(JwtValidator jwtValidator, VyceErrorCatalog catalog) {
         this.jwtValidator = jwtValidator;
+        this.catalog = catalog;
     }
 
     @Override
@@ -56,17 +61,15 @@ public class BffJwtFilter extends OncePerRequestFilter {
         }
         String authHeader = request.getHeader(HEADER_AUTH);
         if (authHeader == null || !authHeader.startsWith(PREFIX_BEARER)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"code\":\"UNAUTHORIZED\",\"message\":\"Missing or invalid Authorization header\"}");
+            JsonErrorWriter.write(response, HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED",
+                    catalog.userMessage("UNAUTHORIZED"));
             return;
         }
         String token = authHeader.substring(PREFIX_BEARER.length()).trim();
         String externalId = jwtValidator.validateAndGetExternalId(token);
         if (externalId == null) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"code\":\"UNAUTHORIZED\",\"message\":\"Invalid or expired token\"}");
+            JsonErrorWriter.write(response, HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED",
+                    catalog.userMessage("UNAUTHORIZED"));
             return;
         }
         request.setAttribute(ATTR_CUSTOMER_ID, externalId);

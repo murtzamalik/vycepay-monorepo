@@ -3,7 +3,7 @@
 import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch, buildQuery, defaultDateRange } from '@/lib/api'
+import {apiFetch, buildQuery, defaultDateRange, errorMessage} from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DateRangeFilter } from '@/components/layout/DateRangeFilter'
 import { DataTable } from '@/components/ui/DataTable'
@@ -42,7 +42,7 @@ function DashboardInner() {
   return (
     <div className="grid">
       <PageHeader title="Dashboard" description="Operational overview, alerts, and recent transaction activity." actions={<DateRangeFilter fromDate={fromDate} toDate={toDate} onChange={setDates} />} />
-      {summary.error ? <ErrorState message="Unable to load dashboard." /> : null}
+      {summary.error ? <ErrorState message={errorMessage(summary.error, "Unable to load dashboard.")} /> : null}
       <div className="kpi-grid">
         {summary.data ? Object.entries(summary.data).map(([key, value]) => (
           <KpiCard key={key} label={key.replace(/([A-Z])/g, ' $1')} value={String(value).match(/^\d/) ? formatKes(value) : String(value)} />

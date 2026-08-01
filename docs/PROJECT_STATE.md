@@ -78,6 +78,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 - POST /transactions/send-otp, POST /transactions/confirm-otp
 - GET /transactions/{id}/status (Choice Bank getTransResult)
 - GET /transactions?status=&type= (JPA Specification filters)
+- **Beneficiaries (Flyway V8):** GET/POST/PATCH/DELETE `/transactions/beneficiaries` — opt-in save after transfer; select still re-validates. Mobile: [MOBILE_BENEFICIARIES_HANDOFF.md](MOBILE_BENEFICIARIES_HANDOFF.md)
 
 ### Resilience & Security
 

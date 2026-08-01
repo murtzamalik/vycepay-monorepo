@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import { errorMessage } from '@/lib/api'
 
 export function ConfirmDialog({
   title,
@@ -33,7 +34,7 @@ export function ConfirmDialog({
       setOpen(false)
       setReason('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Action failed')
+      setError(errorMessage(err, 'Action failed'))
     } finally {
       setLoading(false)
     }

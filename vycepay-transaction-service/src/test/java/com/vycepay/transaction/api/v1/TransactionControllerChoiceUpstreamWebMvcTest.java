@@ -11,6 +11,7 @@ import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
 import com.vycepay.common.exception.ChoiceBankUpstreamException;
 import com.vycepay.common.exception.GlobalExceptionHandler;
+import com.vycepay.common.exception.VyceErrorCatalog;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Verifies {@link GlobalExceptionHandler} maps {@link ChoiceBankUpstreamException} to HTTP status and body fields.
  */
 @WebMvcTest(controllers = TransactionController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, VyceErrorCatalog.class})
 @AutoConfigureMockMvc(addFilters = false)
 class TransactionControllerChoiceUpstreamWebMvcTest {
 
@@ -93,6 +94,7 @@ class TransactionControllerChoiceUpstreamWebMvcTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("CHOICE_ACCOUNT_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("We couldn't find that bank account. Please check the details."))
                 .andExpect(jsonPath("$.choiceCode").value("13000"))
                 .andExpect(jsonPath("$.choicePath").value("trans/v2/applyForTransfer"))
                 .andExpect(jsonPath("$.choiceRequestId").value("cb-req-99"))

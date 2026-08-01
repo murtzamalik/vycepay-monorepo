@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import {apiFetch, errorMessage} from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { DetailLayout } from '@/components/detail/DetailLayout'
 import { KeyValueGrid } from '@/components/detail/KeyValueGrid'
@@ -14,7 +14,7 @@ export function KycDetail() {
   const params = useParams<{ id: string }>()
   const { data, isLoading, error } = useQuery({ queryKey: ['kyc', params.id], queryFn: () => apiFetch<Record<string, unknown>>(`/kyc/${params.id}`) })
   if (isLoading) return <SkeletonTable />
-  if (error || !data) return <ErrorState message="Unable to load KYC record." />
+  if (error || !data) return <ErrorState message={errorMessage(error, "Unable to load KYC record.")} />
   const name = `${data.firstName ?? data.first_name ?? ''} ${data.lastName ?? data.last_name ?? ''}`.trim()
   return (
     <DetailLayout header={<div><h2>KYC — {name || `#${params.id}`}</h2><StatusBadge status={data.status} /></div>}>

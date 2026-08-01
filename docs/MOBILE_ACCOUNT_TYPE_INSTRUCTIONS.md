@@ -19,7 +19,7 @@ INVALID_ACCOUNT_TYPE — accountType must be an integer between 0 and 5
 | M-Pesa **Paybill** | `1` | Not required on validate |
 | M-Pesa **Till** | `2` | Not required on validate |
 | M-Pesa **mobile number** | `3` | On **send**, still send M-Pesa rail code from bank-codes (e.g. `M-PESA`) as `payeeBankCode` |
-| **Other bank** (PesaLink) | `4` | **Required** — code from `GET /bank-codes` (e.g. `"01"`, `"46"`, `"68"`) |
+| **Other bank** (PesaLink) | `4` | **Required** — PesaLink bank code from list (e.g. `"01"`, `"68"`). **Not** `"46"` (Choice) — see [MOBILE_CHOICE_VS_PESALINK.md](MOBILE_CHOICE_VS_PESALINK.md) |
 | IMT | `5` | Per product / Choice |
 
 **Important**
@@ -40,9 +40,11 @@ INVALID_ACCOUNT_TYPE — accountType must be an integer between 0 and 5
 {
   "accountId": "<account / mobile / paybill / till>",
   "accountType": 4,
-  "bankCode": "46"
+  "bankCode": "68"
 }
 ```
+
+> Choice / Vyce accounts use `accountType: 0` **without** treating `"46"` as PesaLink. Full detail: [MOBILE_CHOICE_VS_PESALINK.md](MOBILE_CHOICE_VS_PESALINK.md)
 
 | Field | When |
 |-------|------|
@@ -82,22 +84,23 @@ Validate aur send pe **same** `accountType` + same account/bank values use karo.
 
 ### 3.1 Other bank / PesaLink (`accountType = 4`)
 
-Banks list: `GET /api/v1/transactions/bank-codes` → pick `bankCode` (e.g. `"46"` = Choice Microfinance Bank).
+Banks list: `GET /api/v1/transactions/bank-codes` → pick an **external** bank code (e.g. `"68"` Equity).  
+**Do not** use `"46"` (Choice Microfinance) with type `4` — that is Choice internal → use type `0` (see [MOBILE_CHOICE_VS_PESALINK.md](MOBILE_CHOICE_VS_PESALINK.md)).
 
 **Validate**
 ```json
 {
-  "accountId": "46012001327585",
+  "accountId": "0123456789",
   "accountType": 4,
-  "bankCode": "46"
+  "bankCode": "68"
 }
 ```
 
 **Send**
 ```json
 {
-  "payeeAccountId": "46012001327585",
-  "payeeBankCode": "46",
+  "payeeAccountId": "0123456789",
+  "payeeBankCode": "68",
   "accountType": 4,
   "amount": 10.0,
   "remark": "Bank transfer"
@@ -169,7 +172,7 @@ Banks list: `GET /api/v1/transactions/bank-codes` → pick `bankCode` (e.g. `"46
 **Validate**
 ```json
 {
-  "accountId": "<choiceAccountId>",
+  "accountId": "46012001327585",
   "accountType": 0
 }
 ```
@@ -177,19 +180,20 @@ Banks list: `GET /api/v1/transactions/bank-codes` → pick `bankCode` (e.g. `"46
 **Send**
 ```json
 {
-  "payeeAccountId": "<choiceAccountId>",
+  "payeeAccountId": "46012001327585",
   "payeeBankCode": "46",
   "accountType": 0,
   "amount": 100.0
 }
 ```
-*(Exact `payeeBankCode` for internal — product ke mutabiq; `accountType` must still be `0`.)*
+
+> This is the correct mapping for Choice Microfinance accounts (bank list code `"46"`). Never use `accountType: 4` for these.
 
 ---
 
 ## 4. Bug we saw in production (fix this)
 
-**Request that failed (400):**
+**Request that failed (400) — missing accountType (older):**
 
 ```json
 {
@@ -201,9 +205,10 @@ Banks list: `GET /api/v1/transactions/bank-codes` → pick `bankCode` (e.g. `"46
 }
 ```
 
-**Problem:** `accountType` missing.
+**Fix:** add `"accountType"` — for this Choice account use **`0`**, not `4`.
 
-**Fix:** add `"accountType": 4` (kyunki yeh bank transfer / PesaLink hai).
+**Second bug (400 from Choice):** `accountType: 4` + `bankCode: "46"` → `CHOICE_BANK_CODE_NOT_FOUND` / `14012`.  
+See [MOBILE_CHOICE_VS_PESALINK.md](MOBILE_CHOICE_VS_PESALINK.md).
 
 ---
 
@@ -211,11 +216,11 @@ Banks list: `GET /api/v1/transactions/bank-codes` → pick `bankCode` (e.g. `"46
 
 | Screen / rail selected | Set `accountType` |
 |------------------------|-------------------|
-| “Send to bank” / bank picker | `4` + selected bank’s `bankCode` |
+| “Send to bank” / bank picker (external) | `4` + selected bank’s `bankCode` (not Choice `"46"`) |
+| “Choice / Vyce account” | `0` |
 | “Send to M-Pesa number” | `3` |
 | “Paybill” | `1` |
 | “Till / Buy goods” | `2` |
-| “Choice account” | `0` |
 
 Bank picker se jo code aaye (`"01"`, `"46"`, …) → sirf `bankCode` / `payeeBankCode` mein daalo — **`accountType` mein mat daalo**.
 

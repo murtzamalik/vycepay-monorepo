@@ -3,6 +3,8 @@ package com.vycepay.admin.config;
 import java.util.Arrays;
 
 import com.vycepay.admin.security.AdminJwtFilter;
+import com.vycepay.common.security.JsonAccessDeniedHandler;
+import com.vycepay.common.security.JsonAuthenticationEntryPoint;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,10 +28,17 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableConfigurationProperties(AdminProperties.class)
 public class AdminSecurityConfig {
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, AdminJwtFilter adminJwtFilter, CorsConfigurationSource corsConfigurationSource) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           AdminJwtFilter adminJwtFilter,
+                                           CorsConfigurationSource corsConfigurationSource,
+                                           JsonAuthenticationEntryPoint authenticationEntryPoint,
+                                           JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'"))
                         .frameOptions(frame -> frame.deny())

@@ -8,6 +8,39 @@ export type PaginatedResponse<T> = {
   totalPages: number
 }
 
+/** Thrown on non-OK API responses; preserves code/message/requestId for UI and support. */
+export class ApiClientError extends Error {
+  readonly code?: string
+  readonly requestId?: string
+  readonly status: number
+
+  constructor(opts: { message: string; code?: string; requestId?: string; status: number }) {
+    super(opts.message)
+    this.name = 'ApiClientError'
+    this.code = opts.code
+    this.requestId = opts.requestId
+    this.status = opts.status
+  }
+
+  displayMessage(): string {
+    if (this.requestId) {
+      return `${this.message} (Request ID: ${this.requestId})`
+    }
+    return this.message
+  }
+}
+
+/** Resolves a customer-facing message from a thrown API or generic error. */
+export function errorMessage(err: unknown, fallback = 'Request failed'): string {
+  if (err instanceof ApiClientError) {
+    return err.displayMessage()
+  }
+  if (err instanceof Error && err.message) {
+    return err.message
+  }
+  return fallback
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path.startsWith('/api/') ? path : `/api/admin${path}`, {
     ...init,
@@ -17,13 +50,17 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (!response.ok) {
     const text = await response.text()
     let message = text || 'Request failed'
+    let code: string | undefined
+    let requestId: string | undefined
     try {
-      const json = JSON.parse(text)
+      const json = JSON.parse(text) as { message?: string; code?: string; requestId?: string }
       message = json.message || json.code || message
+      code = json.code
+      requestId = json.requestId
     } catch {
       message = text || message
     }
-    throw new Error(message)
+    throw new ApiClientError({ message, code, requestId, status: response.status })
   }
   const json = (await response.json()) as ApiEnvelope<T>
   return json.data

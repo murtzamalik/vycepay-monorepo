@@ -11,29 +11,39 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Global exception handler. Returns consistent error envelope.
+ * Global exception handler. Returns consistent customer-safe error envelope from the catalog.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private final VyceErrorCatalog catalog;
+
+    public GlobalExceptionHandler(VyceErrorCatalog catalog) {
+        this.catalog = catalog;
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException e) {
         log.warn("Business exception: {} - {}", e.getCode(), e.getMessage());
+        String message = catalog.userMessage(e.getCode(), e.getMessage());
         return ResponseEntity.status(e.getHttpStatus()).body(new ErrorResponse(
-                e.getCode(), e.getMessage(), getRequestId(), null));
+                e.getCode(), message, getRequestId(), null));
     }
 
     @ExceptionHandler(ChoiceBankUpstreamException.class)
     public ResponseEntity<ErrorResponse> handleChoiceUpstream(ChoiceBankUpstreamException e) {
-        log.warn("Choice Bank upstream error: clientCode={} choiceCode={} path={} - {}",
-                e.getCode(), e.getChoiceCode(), e.getChoicePath(), e.getMessage());
+        log.warn("Choice Bank upstream error: clientCode={} choiceCode={} path={} choiceMsg={} - {}",
+                e.getCode(), e.getChoiceCode(), e.getChoicePath(), e.getChoiceMessage(), e.getMessage());
+        // Prefer catalog userMessage for clientCode; never expose raw Choice text as primary message.
+        String message = catalog.userMessage(e.getCode());
         ErrorResponse body = new ErrorResponse(
-                e.getCode(), e.getMessage(), getRequestId(), null);
+                e.getCode(), message, getRequestId(), null);
         body.setChoiceCode(e.getChoiceCode());
         body.setChoiceRequestId(e.getChoiceRequestId());
         body.setChoicePath(e.getChoicePath());
@@ -45,14 +55,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException e) {
         log.warn("Bad request: {}", e.getMessage());
         return ResponseEntity.badRequest().body(new ErrorResponse(
-                "INVALID_REQUEST", e.getMessage(), getRequestId(), null));
+                "INVALID_REQUEST", catalog.userMessage("INVALID_REQUEST"), getRequestId(), null));
     }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleConflict(IllegalStateException e) {
         log.warn("Conflict: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
-                "CONFLICT", e.getMessage(), getRequestId(), null));
+                "CONFLICT", catalog.userMessage("CONFLICT"), getRequestId(), null));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -62,14 +72,14 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         log.warn("Validation failed: {}", details);
         return ResponseEntity.badRequest().body(new ErrorResponse(
-                "VALIDATION_ERROR", "Validation failed", getRequestId(), details));
+                "VALIDATION_ERROR", catalog.userMessage("VALIDATION_ERROR"), getRequestId(), details));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(AccessDeniedException e) {
         log.warn("Access denied: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(
-                "FORBIDDEN", "Access denied", getRequestId(), null));
+                "FORBIDDEN", catalog.userMessage("FORBIDDEN"), getRequestId(), null));
     }
 
     /**
@@ -79,17 +89,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNotFound(NoResourceFoundException e) {
         log.debug("No resource for path: {}", e.getResourcePath());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(
-                "NOT_FOUND", "Resource not found", getRequestId(), null));
+                "NOT_FOUND", catalog.userMessage("NOT_FOUND"), getRequestId(), null));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception e) {
-        log.error("Unexpected error", e);
+        log.error("Unexpected error requestId={}", getRequestId(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse(
-                "INTERNAL_ERROR", "An unexpected error occurred", getRequestId(), null));
+                "INTERNAL_ERROR", catalog.userMessage("INTERNAL_ERROR"), getRequestId(), null));
     }
 
     private String getRequestId() {
-        return MDC.get("requestId");
+        String id = MDC.get("requestId");
+        if (id == null || id.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return id;
     }
 }

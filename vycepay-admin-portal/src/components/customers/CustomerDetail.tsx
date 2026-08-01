@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, errorMessage } from '@/lib/api'
 import {
   formatDate,
   formatDateTime,
@@ -57,7 +57,7 @@ export function CustomerDetail() {
   const activity = useQuery({ queryKey: ['customer-activity', id], queryFn: () => apiFetch<unknown>(`/customers/${id}/activity?page=0&size=20`), enabled: tab === 'activity' })
 
   if (detail.isLoading) return <SkeletonTable />
-  if (detail.error || !detail.data) return <ErrorState message="Unable to load customer." />
+  if (detail.error || !detail.data) return <ErrorState message={errorMessage(detail.error, "Unable to load customer.")} />
 
   const c = detail.data
   const k = { ...c, ...(kyc.data ?? {}) }

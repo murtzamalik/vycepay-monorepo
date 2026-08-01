@@ -9,12 +9,19 @@ public final class ChoiceBankErrorMapping {
     private final int httpStatus;
     private final boolean retryable;
     private final String category;
+    private final String userMessage;
 
     public ChoiceBankErrorMapping(String clientCode, int httpStatus, boolean retryable, String category) {
+        this(clientCode, httpStatus, retryable, category, null);
+    }
+
+    public ChoiceBankErrorMapping(String clientCode, int httpStatus, boolean retryable, String category,
+                                  String userMessage) {
         this.clientCode = clientCode;
         this.httpStatus = httpStatus;
         this.retryable = retryable;
         this.category = category;
+        this.userMessage = userMessage;
     }
 
     public String getClientCode() {
@@ -31,5 +38,9 @@ public final class ChoiceBankErrorMapping {
 
     public String getCategory() {
         return category;
+    }
+
+    public String getUserMessage() {
+        return userMessage;
     }
 }

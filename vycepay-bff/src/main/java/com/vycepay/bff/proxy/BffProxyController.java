@@ -1,9 +1,13 @@
 package com.vycepay.bff.proxy;
 
 import com.vycepay.bff.config.BffBackendProperties;
+import com.vycepay.common.exception.JsonErrorWriter;
+import com.vycepay.common.exception.VyceErrorCatalog;
+import com.vycepay.common.web.RequestIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -17,12 +21,13 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Proxies /api/v1/** to backend services by path prefix. Injects X-Customer-Id from JWT when present.
+ * Always returns a customer-safe error envelope when upstream body is missing.
  */
 @RestController
 @RequestMapping
@@ -33,10 +38,12 @@ public class BffProxyController {
     private static final Logger log = LoggerFactory.getLogger(BffProxyController.class);
 
     private final BffBackendProperties backend;
+    private final VyceErrorCatalog catalog;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public BffProxyController(BffBackendProperties backend) {
+    public BffProxyController(BffBackendProperties backend, VyceErrorCatalog catalog) {
         this.backend = backend;
+        this.catalog = catalog;
     }
 
     @RequestMapping("/api/v1/**")
@@ -46,7 +53,7 @@ public class BffProxyController {
         String query = request.getQueryString();
         String pathUnderApi = path.startsWith(API_PREFIX) ? path.substring(API_PREFIX.length()) : path;
         if (pathUnderApi.isEmpty()) {
-            return ResponseEntity.badRequest().body(errorBody("INVALID_PATH", "Path must be under /api/v1/"));
+            return errorResponse(HttpStatus.BAD_REQUEST, "INVALID_PATH");
         }
         String[] segments = pathUnderApi.split("/");
         String firstSegment = segments[0];
@@ -54,7 +61,7 @@ public class BffProxyController {
         String baseUrl = map.get(firstSegment);
         if (baseUrl == null) {
             log.warn("BFF unknown path prefix: {}", firstSegment);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("NOT_FOUND", "Unknown API path prefix: " + firstSegment));
+            return errorResponse(HttpStatus.NOT_FOUND, "NOT_FOUND");
         }
         String targetUrl = baseUrl + API_PREFIX + pathUnderApi + (query != null && !query.isEmpty() ? "?" + query : "");
 
@@ -75,6 +82,7 @@ public class BffProxyController {
         if (customerIdAttr != null) {
             headers.set(HEADER_CUSTOMER_ID, customerIdAttr.toString());
         }
+        ensureRequestIdHeader(headers);
 
         HttpMethod method = HttpMethod.valueOf(request.getMethod());
         HttpEntity<byte[]> requestEntity = new HttpEntity<>(body != null ? body : new byte[0], headers);
@@ -89,29 +97,52 @@ public class BffProxyController {
             responseHeaders.setContentType(backendResponse.getHeaders().getContentType() != null
                     ? backendResponse.getHeaders().getContentType()
                     : MediaType.APPLICATION_JSON);
+            String requestId = currentRequestId();
+            responseHeaders.set(RequestIdFilter.HEADER, requestId);
             return ResponseEntity.status(backendResponse.getStatusCode())
                     .headers(responseHeaders)
                     .body(backendResponse.getBody() != null ? backendResponse.getBody() : new byte[0]);
         } catch (HttpStatusCodeException e) {
             byte[] responseBody = e.getResponseBodyAsByteArray();
-            return ResponseEntity.status(e.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(responseBody != null && responseBody.length > 0 ? responseBody : errorBody("BACKEND_ERROR", e.getStatusText()));
+            if (responseBody != null && responseBody.length > 0) {
+                return ResponseEntity.status(e.getStatusCode())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(RequestIdFilter.HEADER, currentRequestId())
+                        .body(responseBody);
+            }
+            log.warn("BFF upstream empty error body: method={} url={} status={}",
+                    request.getMethod(), targetUrl, e.getStatusCode());
+            HttpStatus status = HttpStatus.resolve(e.getStatusCode().value());
+            if (status == null) {
+                status = HttpStatus.BAD_GATEWAY;
+            }
+            return errorResponse(status, "UPSTREAM_ERROR");
         } catch (Exception e) {
             log.error("BFF proxy error: {} {}", request.getMethod(), targetUrl, e);
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(errorBody("BAD_GATEWAY", "Backend unreachable: " + e.getMessage()));
+            return errorResponse(HttpStatus.BAD_GATEWAY, "BAD_GATEWAY");
         }
     }
 
-    private static byte[] errorBody(String code, String message) {
-        String json = "{\"code\":\"" + escape(code) + "\",\"message\":\"" + escape(message) + "\"}";
-        return json.getBytes(StandardCharsets.UTF_8);
+    private ResponseEntity<byte[]> errorResponse(HttpStatus status, String code) {
+        String message = catalog.userMessage(code);
+        String requestId = currentRequestId();
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(RequestIdFilter.HEADER, requestId)
+                .body(JsonErrorWriter.toBytes(code, message, requestId));
     }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
+    private static void ensureRequestIdHeader(HttpHeaders headers) {
+        if (!headers.containsKey(RequestIdFilter.HEADER)) {
+            headers.set(RequestIdFilter.HEADER, currentRequestId());
+        }
+    }
+
+    private static String currentRequestId() {
+        String id = MDC.get(RequestIdFilter.MDC_KEY);
+        if (id == null || id.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return id;
     }
 }

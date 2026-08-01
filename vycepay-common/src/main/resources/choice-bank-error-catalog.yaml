@@ -1,52 +1,64 @@
 # Choice Bank BaaS API error mapping (top-level response.code).
 # Exact entries override prefix fallbacks. Prefixes are matched longest-first.
+# userMessage is customer-facing; raw Choice msg is kept for logs only.
 
 default:
   clientCode: CHOICE_BANK_ERROR
   httpStatus: 502
   retryable: false
+  userMessage: "We couldn't complete this banking request. Please try again."
 
 prefixFallbacks:
   - prefix: "132"
     clientCode: CHOICE_ONBOARDING_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't complete account verification. Please check your details and try again."
   - prefix: "133"
     clientCode: CHOICE_ACCOUNT_APPLICATION_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't process the account application. Please try again."
   - prefix: "131"
     clientCode: CHOICE_AGREEMENT_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't process the agreement. Please try again."
   - prefix: "13"
     clientCode: CHOICE_ACCOUNT_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't complete this account action. Please try again."
   - prefix: "14"
     clientCode: CHOICE_TRANSACTION_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't complete this transfer. Please try again."
   - prefix: "12"
     clientCode: CHOICE_VALIDATION_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "Some details were rejected by the bank. Please check and try again."
   - prefix: "11"
     clientCode: CHOICE_PERMISSION_ERROR
     httpStatus: 403
     retryable: false
+    userMessage: "You don't have permission to complete this banking action."
   - prefix: "15"
     clientCode: CHOICE_QUERY_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't look up that information. Please try again."
   - prefix: "18"
     clientCode: CHOICE_FILE_ERROR
     httpStatus: 400
     retryable: false
+    userMessage: "We couldn't process that file. Please try again."
   - prefix: "10"
     clientCode: CHOICE_SYSTEM_ERROR
     httpStatus: 503
     retryable: true
+    userMessage: "The banking service is temporarily unavailable. Please try again shortly."
 
 entries:
   "10000":
@@ -54,94 +66,117 @@ entries:
     httpStatus: 502
     retryable: false
     category: SYSTEM
+    userMessage: "The banking service is temporarily unavailable. Please try again shortly."
   "10001":
     clientCode: CHOICE_SYSTEM_BUSY
     httpStatus: 503
     retryable: true
     category: SYSTEM
+    userMessage: "The banking service is busy. Please try again shortly."
   "10002":
     clientCode: CHOICE_REQUEST_TIMEOUT
     httpStatus: 504
     retryable: true
     category: SYSTEM
+    userMessage: "The banking request timed out. Please try again."
   "11000":
     clientCode: CHOICE_NO_PERMISSION
     httpStatus: 403
     category: PERMISSION
+    userMessage: "You don't have permission to complete this banking action."
   "11200":
     clientCode: CHOICE_SMS_LIMIT_EXCEEDED
     httpStatus: 400
     category: VALIDATION
+    userMessage: "SMS limit exceeded. Please try again later."
   "11201":
     clientCode: CHOICE_SMS_VERIFY_TOO_FREQUENT
     httpStatus: 429
     retryable: true
     category: VALIDATION
+    userMessage: "Please wait before requesting another SMS code."
   "11202":
     clientCode: CHOICE_SMS_CODE_LOCKED
     httpStatus: 400
     category: VALIDATION
+    userMessage: "SMS verification is locked. Please try again later."
   "11203":
     clientCode: CHOICE_WRONG_SMS_CODE
     httpStatus: 400
     category: VALIDATION
+    userMessage: "That SMS code is incorrect. Please try again."
   "13000":
     clientCode: CHOICE_ACCOUNT_NOT_FOUND
     httpStatus: 400
     category: ACCOUNT
+    userMessage: "We couldn't find that bank account. Please check the details."
   "13001":
     clientCode: CHOICE_ACCOUNT_LOCKED
     httpStatus: 403
     category: ACCOUNT
+    userMessage: "This bank account is locked. Please contact support."
   "13002":
     clientCode: CHOICE_ACCOUNT_CLOSED
     httpStatus: 400
     category: ACCOUNT
+    userMessage: "This bank account is closed."
   "13003":
     clientCode: CHOICE_ACCOUNT_ABNORMAL
     httpStatus: 400
     category: ACCOUNT
+    userMessage: "This bank account can't be used right now."
   "13004":
     clientCode: CHOICE_ACCOUNT_ALREADY_EXISTS
     httpStatus: 409
     category: ACCOUNT
+    userMessage: "This bank account already exists."
   "13005":
     clientCode: CHOICE_USER_NOT_FOUND
     httpStatus: 404
     category: ACCOUNT
+    userMessage: "We couldn't find the banking user profile."
   "14001":
     clientCode: CHOICE_TX_NOT_FOUND
     httpStatus: 404
     category: TRANSACTION
+    userMessage: "We couldn't find that banking transaction."
   "14006":
     clientCode: CHOICE_TX_DAILY_LIMIT
     httpStatus: 400
     category: TRANSACTION
+    userMessage: "You've reached the daily transaction limit."
   "14007":
     clientCode: CHOICE_TX_AMOUNT_DAILY_LIMIT
     httpStatus: 400
     category: TRANSACTION
+    userMessage: "You've reached the daily amount limit."
   "14008":
     clientCode: CHOICE_TX_SAME_ACCOUNT
     httpStatus: 400
     category: TRANSACTION
+    userMessage: "You can't transfer to the same account."
   "14009":
     clientCode: CHOICE_INSUFFICIENT_BALANCE
     httpStatus: 400
     category: TRANSACTION
+    userMessage: "You don't have enough balance for this transfer."
   "14012":
     clientCode: CHOICE_BANK_CODE_NOT_FOUND
     httpStatus: 400
     category: TRANSACTION
+    userMessage: "That bank code is not supported. Please choose another bank."
   "14021":
     clientCode: CHOICE_TRANSACTION_LIMITATION
     httpStatus: 400
     category: TRANSACTION
+    userMessage: "This transaction isn't allowed right now."
   "14029":
     clientCode: CHOICE_TX_ALREADY_PROCESSED
     httpStatus: 409
     category: TRANSACTION
+    userMessage: "This transaction was already processed."
   "14031":
     clientCode: CHOICE_TX_ALREADY_CONFIRMED
     httpStatus: 409
     category: TRANSACTION
+    userMessage: "This transaction was already confirmed."

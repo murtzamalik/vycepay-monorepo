@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import {apiFetch, errorMessage} from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { DetailLayout } from '@/components/detail/DetailLayout'
 import { KeyValueGrid } from '@/components/detail/KeyValueGrid'
@@ -15,7 +15,7 @@ export function CallbackDetail() {
   const params = useParams<{ id: string }>()
   const { data, isLoading, error } = useQuery({ queryKey: ['callback', params.id], queryFn: () => apiFetch<Record<string, unknown>>(`/callbacks/${params.id}`) })
   if (isLoading) return <SkeletonTable />
-  if (error || !data) return <ErrorState message="Unable to load callback." />
+  if (error || !data) return <ErrorState message={errorMessage(error, "Unable to load callback.")} />
   const redacted = !data.raw_payload
   let payload: unknown = data.raw_payload
   if (payload && typeof payload === 'string') {

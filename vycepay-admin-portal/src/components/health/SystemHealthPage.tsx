@@ -1,14 +1,14 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import {apiFetch, errorMessage} from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ErrorState, SkeletonTable } from '@/components/ui/States'
 
 export function SystemHealthPage() {
   const { data, isLoading, error } = useQuery({ queryKey: ['system-health'], queryFn: () => apiFetch<Record<string, unknown>>('/system-health') })
   if (isLoading) return <SkeletonTable />
-  if (error || !data) return <ErrorState message="Unable to load system health." />
+  if (error || !data) return <ErrorState message={errorMessage(error, "Unable to load system health.")} />
   const services = (data.services as Record<string, unknown>[]) ?? []
   const choiceBank = data.choiceBank as Record<string, unknown> | undefined
   return (

@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import {apiFetch, errorMessage} from '@/lib/api'
 import { formatDateTime, formatKes } from '@/lib/format'
 import { DetailLayout } from '@/components/detail/DetailLayout'
 import { KeyValueGrid } from '@/components/detail/KeyValueGrid'
@@ -14,7 +14,7 @@ export function TransactionDetail() {
   const params = useParams<{ id: string }>()
   const { data, isLoading, error } = useQuery({ queryKey: ['tx', params.id], queryFn: () => apiFetch<Record<string, unknown>>(`/transactions/${params.id}`) })
   if (isLoading) return <SkeletonTable />
-  if (error || !data) return <ErrorState message="Unable to load transaction." />
+  if (error || !data) return <ErrorState message={errorMessage(error, "Unable to load transaction.")} />
   return (
     <DetailLayout header={<div><h2 className="mono">{String(data.external_id ?? data.externalId)}</h2><StatusBadge status={data.status} /></div>}>
       <div className="card">

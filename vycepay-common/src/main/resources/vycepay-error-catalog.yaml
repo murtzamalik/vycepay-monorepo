@@ -1,0 +1,276 @@
+# VycePay customer-facing error catalog. Source of truth for API error.message.
+default:
+  code: INTERNAL_ERROR
+  httpStatus: 500
+  userMessage: "We couldn't complete this right now. Please try again. If it continues, contact support with your request ID."
+  retryable: false
+
+entries:
+  # Generic / handler
+  UNAUTHORIZED:
+    httpStatus: 401
+    userMessage: "Please sign in again to continue."
+  FORBIDDEN:
+    httpStatus: 403
+    userMessage: "You don't have permission to perform this action."
+  NOT_FOUND:
+    httpStatus: 404
+    userMessage: "The requested resource was not found."
+  CONFLICT:
+    httpStatus: 409
+    userMessage: "This action conflicts with the current state. Please refresh and try again."
+  INVALID_REQUEST:
+    httpStatus: 400
+    userMessage: "The request could not be processed. Please check your details and try again."
+  VALIDATION_ERROR:
+    httpStatus: 400
+    userMessage: "Please check the highlighted fields and try again."
+  INTERNAL_ERROR:
+    httpStatus: 500
+    userMessage: "We couldn't complete this right now. Please try again. If it continues, contact support with your request ID."
+  SERVICE_UNAVAILABLE:
+    httpStatus: 503
+    userMessage: "This service is temporarily unavailable. Please try again shortly."
+  UPSTREAM_ERROR:
+    httpStatus: 502
+    userMessage: "We couldn't complete this right now. Please try again. If it continues, contact support with your request ID."
+  BAD_GATEWAY:
+    httpStatus: 502
+    userMessage: "We couldn't reach the service. Please try again shortly."
+  INVALID_PATH:
+    httpStatus: 400
+    userMessage: "The requested API path is invalid."
+
+  # Auth / credentials
+  CUSTOMER_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find your account."
+  CUSTOMER_NOT_REGISTERED:
+    httpStatus: 404
+    userMessage: "This mobile number is not registered. Please sign up first."
+  INVALID_CREDENTIALS:
+    httpStatus: 401
+    userMessage: "Incorrect username or PIN. Please try again."
+  INVALID_OTP:
+    httpStatus: 400
+    userMessage: "That OTP is incorrect or has expired. Please try again."
+  OTP_EXPIRED:
+    httpStatus: 400
+    userMessage: "That OTP has expired. Please request a new one."
+  ACCOUNT_LOCKED:
+    httpStatus: 423
+    userMessage: "Too many attempts. Your account is temporarily locked. Please try again later."
+  RATE_LIMITED:
+    httpStatus: 429
+    userMessage: "Too many requests. Please wait a moment and try again."
+  IMEI_REQUIRED:
+    httpStatus: 400
+    userMessage: "Device information is required to continue."
+  CREDENTIALS_ALREADY_SET:
+    httpStatus: 409
+    userMessage: "Login credentials are already set for this account."
+  CREDENTIALS_NOT_SET:
+    httpStatus: 400
+    userMessage: "Please set your username and PIN before continuing."
+  CREDENTIALS_NOT_SET_USE_MOBILE:
+    httpStatus: 400
+    userMessage: "Please log in with your mobile number to finish setting up your PIN."
+  CREDENTIALS_REQUIRED:
+    httpStatus: 400
+    userMessage: "Username and PIN are required."
+  USERNAME_INVALID:
+    httpStatus: 400
+    userMessage: "That username is not allowed. Please choose another."
+  USERNAME_TAKEN:
+    httpStatus: 409
+    userMessage: "That username is already taken. Please choose another."
+
+  # KYC
+  KYC_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find your verification request."
+  INVALID_RESPONSE:
+    httpStatus: 502
+    userMessage: "We received an unexpected response while verifying your account. Please try again."
+
+  # Wallet / statements
+  WALLET_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find your wallet."
+  STATEMENT_JOB_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find that statement request."
+  INVALID_FILE_TYPE:
+    httpStatus: 400
+    userMessage: "That file type is not supported."
+  CHOICE_USER_ID_MISSING:
+    httpStatus: 409
+    userMessage: "Please complete account verification before continuing."
+  SHORT_CODE_MISMATCH:
+    httpStatus: 400
+    userMessage: "The short code does not match. Please check and try again."
+  CHOICE_BANK_ERROR:
+    httpStatus: 502
+    userMessage: "We couldn't complete this banking request. Please try again."
+  CHOICE_NULL_RESPONSE:
+    httpStatus: 502
+    userMessage: "We couldn't complete this banking request. Please try again."
+  INVALID_RESPONSE_SIGNATURE:
+    httpStatus: 502
+    userMessage: "We couldn't verify the banking response. Please try again."
+
+  # Transactions
+  TRANSACTION_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find that transaction."
+  TX_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find that transaction."
+  INVALID_TRANSACTION:
+    httpStatus: 409
+    userMessage: "This transaction can't be completed in its current state."
+  INVALID_ACCOUNT_ID:
+    httpStatus: 400
+    userMessage: "Please enter a valid account number."
+  CALLBACK_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find that callback record."
+
+  # Admin
+  ADMIN_BAD_CREDENTIALS:
+    httpStatus: 401
+    userMessage: "Invalid username or password."
+  ADMIN_DISABLED:
+    httpStatus: 403
+    userMessage: "This admin account is not active."
+  ADMIN_LOCKED:
+    httpStatus: 423
+    userMessage: "This admin account is temporarily locked. Please try again later."
+  ADMIN_SESSION_NOT_FOUND:
+    httpStatus: 401
+    userMessage: "Your session has expired. Please sign in again."
+  ADMIN_MFA_INVALID:
+    httpStatus: 401
+    userMessage: "Invalid verification code. Please try again."
+  ADMIN_RESET_INVALID:
+    httpStatus: 400
+    userMessage: "That password reset link is invalid or has expired."
+  ADMIN_RATE_LIMITED:
+    httpStatus: 429
+    userMessage: "Too many requests. Please wait a moment and try again."
+  ADMIN_MFA_SECRET_INVALID:
+    httpStatus: 500
+    userMessage: "We couldn't verify MFA for this account. Please contact support."
+  ADMIN_UNAUTHENTICATED:
+    httpStatus: 401
+    userMessage: "Please sign in again to continue."
+  MENU_ASSIGNED:
+    httpStatus: 409
+    userMessage: "Cannot delete a menu that is assigned to roles."
+  ROLE_ASSIGNED:
+    httpStatus: 409
+    userMessage: "Cannot delete a role that is assigned to users."
+  INVALID_DATE_RANGE:
+    httpStatus: 400
+    userMessage: "Please select a valid date range and try again."
+
+  # Choice Bank client codes (also in choice-bank-error-catalog; mirrored for Vyce lookups)
+  CHOICE_SYSTEM_ERROR:
+    httpStatus: 502
+    userMessage: "The banking service is temporarily unavailable. Please try again shortly."
+  CHOICE_SYSTEM_BUSY:
+    httpStatus: 503
+    userMessage: "The banking service is busy. Please try again shortly."
+    retryable: true
+  CHOICE_REQUEST_TIMEOUT:
+    httpStatus: 504
+    userMessage: "The banking request timed out. Please try again."
+    retryable: true
+  CHOICE_NO_PERMISSION:
+    httpStatus: 403
+    userMessage: "You don't have permission to complete this banking action."
+  CHOICE_SMS_LIMIT_EXCEEDED:
+    httpStatus: 400
+    userMessage: "SMS limit exceeded. Please try again later."
+  CHOICE_SMS_VERIFY_TOO_FREQUENT:
+    httpStatus: 429
+    userMessage: "Please wait before requesting another SMS code."
+    retryable: true
+  CHOICE_SMS_CODE_LOCKED:
+    httpStatus: 400
+    userMessage: "SMS verification is locked. Please try again later."
+  CHOICE_WRONG_SMS_CODE:
+    httpStatus: 400
+    userMessage: "That SMS code is incorrect. Please try again."
+  CHOICE_ACCOUNT_NOT_FOUND:
+    httpStatus: 400
+    userMessage: "We couldn't find that bank account. Please check the details."
+  CHOICE_ACCOUNT_LOCKED:
+    httpStatus: 403
+    userMessage: "This bank account is locked. Please contact support."
+  CHOICE_ACCOUNT_CLOSED:
+    httpStatus: 400
+    userMessage: "This bank account is closed."
+  CHOICE_ACCOUNT_ABNORMAL:
+    httpStatus: 400
+    userMessage: "This bank account can't be used right now."
+  CHOICE_ACCOUNT_ALREADY_EXISTS:
+    httpStatus: 409
+    userMessage: "This bank account already exists."
+  CHOICE_USER_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find the banking user profile."
+  CHOICE_TX_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find that banking transaction."
+  CHOICE_TX_DAILY_LIMIT:
+    httpStatus: 400
+    userMessage: "You've reached the daily transaction limit."
+  CHOICE_TX_AMOUNT_DAILY_LIMIT:
+    httpStatus: 400
+    userMessage: "You've reached the daily amount limit."
+  CHOICE_TX_SAME_ACCOUNT:
+    httpStatus: 400
+    userMessage: "You can't transfer to the same account."
+  CHOICE_INSUFFICIENT_BALANCE:
+    httpStatus: 400
+    userMessage: "You don't have enough balance for this transfer."
+  CHOICE_BANK_CODE_NOT_FOUND:
+    httpStatus: 400
+    userMessage: "That bank code is not supported. Please choose another bank."
+  CHOICE_TRANSACTION_LIMITATION:
+    httpStatus: 400
+    userMessage: "This transaction isn't allowed right now."
+  CHOICE_TX_ALREADY_PROCESSED:
+    httpStatus: 409
+    userMessage: "This transaction was already processed."
+  CHOICE_TX_ALREADY_CONFIRMED:
+    httpStatus: 409
+    userMessage: "This transaction was already confirmed."
+  CHOICE_ONBOARDING_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't complete account verification. Please check your details and try again."
+  CHOICE_ACCOUNT_APPLICATION_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't process the account application. Please try again."
+  CHOICE_AGREEMENT_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't process the agreement. Please try again."
+  CHOICE_ACCOUNT_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't complete this account action. Please try again."
+  CHOICE_TRANSACTION_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't complete this transfer. Please try again."
+  CHOICE_VALIDATION_ERROR:
+    httpStatus: 400
+    userMessage: "Some details were rejected by the bank. Please check and try again."
+  CHOICE_PERMISSION_ERROR:
+    httpStatus: 403
+    userMessage: "You don't have permission to complete this banking action."
+  CHOICE_QUERY_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't look up that information. Please try again."
+  CHOICE_FILE_ERROR:
+    httpStatus: 400
+    userMessage: "We couldn't process that file. Please try again."

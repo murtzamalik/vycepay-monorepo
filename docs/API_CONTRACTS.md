@@ -11,12 +11,20 @@
 ```json
 {
   "code": "ERROR_CODE",
-  "message": "Human-readable message",
+  "message": "Customer-safe human-readable message",
   "requestId": "correlation-id",
   "details": {}
 }
 ```
 
+Guarantees:
+
+- `message` is always safe to show end users (from `vycepay-error-catalog.yaml` / Choice catalog `userMessage`).
+- `requestId` is always present for support correlation (`X-Request-Id` / MDC).
+- Never returns empty bodies for 4xx/5xx; BFF never uses `BACKEND_ERROR`.
+- Upstream empty error bodies map to `UPSTREAM_ERROR` with a catalog message.
+- Auth/security failures return `UNAUTHORIZED` / `FORBIDDEN` JSON envelopes.
+- Clients must show `message` and surface `requestId` for support.
 ## Pagination
 
 - `page` (0-based)

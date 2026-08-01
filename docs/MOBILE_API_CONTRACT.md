@@ -66,16 +66,17 @@ All errors use this shape:
 ```json
 {
   "code": "ERROR_CODE",
-  "message": "Human-readable message",
+  "message": "Customer-safe human-readable message",
   "requestId": "correlation-id",
   "details": null
 }
 ```
 
-- Show **message** to the user.
+- Show **message** to the user (backend catalog is the source of truth).
 - Use **code** for client logic (e.g. retry, redirect to KYC).
-- Use **requestId** when contacting support.
-
+- Show or retain **requestId** for support (e.g. “Request ID: …”).
+- Do not expect `BACKEND_ERROR`; empty upstream responses become `UPSTREAM_ERROR` with a safe message.
+- Propagate `X-Request-Id` when present; BFF generates one otherwise.
 ## Flows (step order)
 
 ### Registration (signup)
@@ -137,7 +138,8 @@ After step 4, wait for backend processing; wallet is created via webhook. Poll `
 4. **Send money:** `POST /api/v1/transactions/send` with header `Idempotency-Key` (unique per attempt) and body (`payeeBankCode`, `payeeAccountId`, **`accountType` required**, `amount`, etc.). Server re-validates and overwrites payee name. If Choice Bank requires OTP:
    - `POST /api/v1/transactions/send-otp?transactionId=<externalId from send response>&otpType=SMS` (success code: `TXN_OTP_SENT`)
    - `POST /api/v1/transactions/confirm-otp?transactionId=<id>&otpCode=<code>` (success code: `TXN_OTP_CONFIRMED`; invalid OTP returns `INVALID_OTP`)
-5. **Deposit (M-PESA):** `POST /api/v1/transactions/deposit/mpesa?mobile=<number>&amount=<kes>`. Optional header `Idempotency-Key` for idempotent deposit.
+5. **Optional — save beneficiary:** After success, prompt user → `POST /api/v1/transactions/beneficiaries`. Pay again via list + validate + send. Full guide: [MOBILE_BENEFICIARIES_HANDOFF.md](MOBILE_BENEFICIARIES_HANDOFF.md).
+6. **Deposit (M-PESA):** `POST /api/v1/transactions/deposit/mpesa?mobile=<number>&amount=<kes>`. Optional header `Idempotency-Key` for idempotent deposit.
 
 ## Endpoints (BFF proxy)
 
@@ -191,6 +193,10 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | GET | /api/v1/transactions/{transactionId} | **Full transaction detail** (new) |
 | GET | /api/v1/transactions/{transactionId}/status | Live status from Choice Bank |
 | GET | /api/v1/transactions/bank-codes | Bank list for send money UI |
+| GET | /api/v1/transactions/beneficiaries | Saved payees list. See [MOBILE_BENEFICIARIES_HANDOFF.md](MOBILE_BENEFICIARIES_HANDOFF.md). |
+| POST | /api/v1/transactions/beneficiaries | Create/upsert beneficiary (`BENEFICIARY_SAVED` / `BENEFICIARY_UPDATED`) |
+| PATCH | /api/v1/transactions/beneficiaries/{externalId} | Rename (`BENEFICIARY_UPDATED`) |
+| DELETE | /api/v1/transactions/beneficiaries/{externalId} | Soft-delete (`BENEFICIARY_DELETED`) |
 | GET | /api/v1/transactions/choice-history?startTime=&endTime=&page=&size= | Choice Bank transaction list |
 | GET | /api/v1/transactions?page=0&size=20&status=&type= | Local transaction list. `displayStatus` in each item. |
 

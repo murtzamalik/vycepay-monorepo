@@ -8,7 +8,7 @@ import { DateRangeFilter } from '@/components/layout/DateRangeFilter'
 import { DataTable } from '@/components/ui/DataTable'
 import { ErrorState, SkeletonTable } from '@/components/ui/States'
 import { useListQuery, type ListFilters } from '@/lib/hooks/useListQuery'
-import { buildQuery } from '@/lib/api'
+import {buildQuery, errorMessage} from '@/lib/api'
 import type { Column } from '@/lib/columns/types'
 
 function ListPageInner<T extends Record<string, unknown>>({
@@ -53,7 +53,7 @@ function ListPageInner<T extends Record<string, unknown>>({
         ) : null}
       </FilterBar>
       {isLoading ? <SkeletonTable /> : null}
-      {error ? <ErrorState message="Unable to load data." /> : null}
+      {error ? <ErrorState message={errorMessage(error, "Unable to load data.")} /> : null}
       {data ? <DataTable columns={columns} rows={data.content} rowKey={(row, i) => String(row.id ?? row.externalId ?? i)} /> : null}
       <PaginationBar data={data} onPageChange={(page) => setFilters({ page: String(page) })} />
     </div>

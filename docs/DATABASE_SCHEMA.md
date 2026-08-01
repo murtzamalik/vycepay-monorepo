@@ -15,6 +15,8 @@ Flyway migrations: `vycepay-database/src/main/resources/db/migration/`
 - `V5__kyc_profile_columns.sql` — KYC profile columns
 - `V6__fix_kyc_gender_column_type.sql` — KYC gender column fix (if present in env)
 - `V7__customer_credentials_and_device.sql` — Username/PIN, `customer_device`, OTP purpose, `auth_audit_event`
+- `V8__beneficiary.sql` — Saved transfer beneficiaries (soft-delete)
+- `V8__beneficiary.sql` — Saved transfer beneficiaries (soft-delete)
 
 ## Table Summary
 
@@ -23,9 +25,11 @@ Flyway migrations: `vycepay-database/src/main/resources/db/migration/`
 | customer | Identity + username/PIN hash + lockout columns; external_id for APIs |
 | customer_device | Single bound IMEI (ANDROID_ID fingerprint) per customer |
 | auth_audit_event | Auth security events (login fail, lockout, device bind, pin reset) — no secrets |
+| beneficiary | Saved payees per customer (nickname + rail + account); soft-delete |
 | kyc_verification | Choice onboarding tracking; links to callback 0001 |
 | wallet | Choice account mapping; balance_cache from callback 0003 |
 | transaction | Pending/completed tx; idempotency_key for deduplication |
+| beneficiary | Saved payees per customer (nickname + rail + account); soft-delete |
 | choice_bank_callback | Raw callback audit; processed flag for retry |
 | activity_log | Compliance audit trail |
 | otp_verification | Auth OTPs with `purpose` (SIGNUP, DEVICE_BIND, PIN_RESET, CREDENTIALS_MIGRATE) |

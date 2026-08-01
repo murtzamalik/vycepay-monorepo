@@ -12,13 +12,14 @@ import java.io.IOException;
 import java.util.UUID;
 
 /**
- * Sets requestId in MDC for correlation in logs.
- * Uses X-Request-Id header if present, otherwise generates UUID.
+ * Ensures every request has a correlation {@code requestId} in MDC and response header.
+ * Accepts inbound {@code X-Request-Id} when present.
+ * Registered via {@link com.vycepay.common.config.WebConfig} (single bean).
  */
 public class RequestIdFilter extends OncePerRequestFilter {
 
-    private static final String MDC_KEY = "requestId";
-    private static final String HEADER = "X-Request-Id";
+    public static final String HEADER = "X-Request-Id";
+    public static final String MDC_KEY = "requestId";
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,

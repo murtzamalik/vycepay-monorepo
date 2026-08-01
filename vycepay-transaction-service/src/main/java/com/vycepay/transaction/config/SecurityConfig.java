@@ -1,5 +1,7 @@
 package com.vycepay.transaction.config;
 
+import com.vycepay.common.security.JsonAccessDeniedHandler;
+import com.vycepay.common.security.JsonAuthenticationEntryPoint;
 import com.vycepay.common.security.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -19,9 +21,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           @Autowired(required = false) JwtAuthFilter jwtAuthFilter) throws Exception {
+                                           @Autowired(required = false) JwtAuthFilter jwtAuthFilter,
+                                           JsonAuthenticationEntryPoint authenticationEntryPoint,
+                                           JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         var chain = http.csrf(cs -> cs.disable())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler));
         if (jwtAuthFilter != null) {
             chain.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                     .authorizeHttpRequests(a -> a

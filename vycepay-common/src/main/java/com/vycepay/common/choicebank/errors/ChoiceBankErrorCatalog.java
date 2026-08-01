@@ -49,7 +49,8 @@ public class ChoiceBankErrorCatalog {
         prefixRules.clear();
         if (!resource.exists()) {
             log.warn("choice-bank-error-catalog.yaml missing; using hardcoded defaults only");
-            defaultMapping = new ChoiceBankErrorMapping("CHOICE_BANK_ERROR", 502, false, null);
+            defaultMapping = new ChoiceBankErrorMapping("CHOICE_BANK_ERROR", 502, false, null,
+                    "We couldn't complete this banking request. Please try again.");
             return;
         }
         try (InputStream in = resource.getInputStream()) {
@@ -64,7 +65,8 @@ public class ChoiceBankErrorCatalog {
             if (def != null) {
                 defaultMapping = mapEntry("default", def);
             } else {
-                defaultMapping = new ChoiceBankErrorMapping("CHOICE_BANK_ERROR", 502, false, null);
+                defaultMapping = new ChoiceBankErrorMapping("CHOICE_BANK_ERROR", 502, false, null,
+                        "We couldn't complete this banking request. Please try again.");
             }
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> fallbacks = (List<Map<String, Object>>) root.get("prefixFallbacks");
@@ -96,7 +98,8 @@ public class ChoiceBankErrorCatalog {
         boolean retry = m.get("retryable") instanceof Boolean b ? b
                 : Boolean.parseBoolean(String.valueOf(m.getOrDefault("retryable", "false")));
         String category = m.get("category") != null ? String.valueOf(m.get("category")) : null;
-        return new ChoiceBankErrorMapping(clientCode, http, retry, category);
+        String userMessage = m.get("userMessage") != null ? String.valueOf(m.get("userMessage")) : null;
+        return new ChoiceBankErrorMapping(clientCode, http, retry, category, userMessage);
     }
 
     private static int toInt(Object v, int dflt) {
@@ -142,9 +145,12 @@ public class ChoiceBankErrorCatalog {
         if (status == null) {
             status = HttpStatus.BAD_GATEWAY;
         }
-        String message = (choiceMsg != null && !choiceMsg.isBlank())
+        // Prefer curated userMessage; keep Choice msg only for logs via choiceMessage field.
+        String message = (m.getUserMessage() != null && !m.getUserMessage().isBlank())
+                ? m.getUserMessage()
+                : (choiceMsg != null && !choiceMsg.isBlank()
                 ? choiceMsg
-                : status.getReasonPhrase();
+                : status.getReasonPhrase());
         return new ChoiceBankUpstreamException(
                 m.getClientCode(),
                 message,

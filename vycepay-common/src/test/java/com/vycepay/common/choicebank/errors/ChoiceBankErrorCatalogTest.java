@@ -46,6 +46,14 @@ class ChoiceBankErrorCatalogTest {
         assertThat(ex.getChoiceCode()).isEqualTo("13000");
         assertThat(ex.getChoiceRequestId()).isEqualTo("REQ1");
         assertThat(ex.getChoicePath()).isEqualTo("trans/v2/applyForTransfer");
-        assertThat(ex.getMessage()).contains("Account does not exist");
+        assertThat(ex.getMessage()).isEqualTo("We couldn't find that bank account. Please check the details.");
+        assertThat(ex.getChoiceMessage()).isEqualTo("Account does not exist.");
+    }
+
+    @Test
+    void resolveExactIncludesUserMessage() {
+        ChoiceBankErrorMapping m = catalog.resolve("14009");
+        assertThat(m.getClientCode()).isEqualTo("CHOICE_INSUFFICIENT_BALANCE");
+        assertThat(m.getUserMessage()).contains("enough balance");
     }
 }

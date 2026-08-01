@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import {apiFetch, errorMessage} from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ErrorState, SkeletonTable } from '@/components/ui/States'
 
@@ -54,12 +54,12 @@ export function RoleEditor() {
         reason: form.get('reason'),
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed')
+      setError(errorMessage(err, 'Save failed'))
     }
   }
 
   if (role.isLoading) return <SkeletonTable />
-  if (role.error || !role.data) return <ErrorState message="Unable to load role." />
+  if (role.error || !role.data) return <ErrorState message={errorMessage(role.error, "Unable to load role.")} />
 
   return (
     <div className="grid">

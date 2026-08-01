@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import {apiFetch, errorMessage} from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { KeyValueGrid } from '@/components/detail/KeyValueGrid'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -23,7 +23,7 @@ export function AdminUserDetail() {
   })
 
   if (isLoading) return <SkeletonTable />
-  if (error || !data) return <ErrorState message="Unable to load admin user." />
+  if (error || !data) return <ErrorState message={errorMessage(error, "Unable to load admin user.")} />
 
   const roleIds = (data.roleIds as number[] | undefined) ?? []
   const assignedRoles = roles.data?.filter((r) => roleIds.includes(r.id)) ?? []
