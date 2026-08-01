@@ -25,7 +25,8 @@ public class CustomerNotification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "public_id", nullable = false, length = 36, unique = true)
+    /** Matches Flyway V9 {@code CHAR(36)} — Hibernate defaults String→VARCHAR. */
+    @Column(name = "public_id", nullable = false, length = 36, unique = true, columnDefinition = "CHAR(36)")
     private String publicId;
 
     @Column(name = "customer_id", nullable = false)
@@ -52,7 +53,8 @@ public class CustomerNotification {
     @Column(name = "choice_callback_id")
     private Long choiceCallbackId;
 
-    @Column(name = "batch_id", length = 36)
+    /** Matches Flyway V9 {@code CHAR(36)} — Hibernate defaults String→VARCHAR. */
+    @Column(name = "batch_id", length = 36, columnDefinition = "CHAR(36)")
     private String batchId;
 
     @Column(name = "created_by_admin_id")

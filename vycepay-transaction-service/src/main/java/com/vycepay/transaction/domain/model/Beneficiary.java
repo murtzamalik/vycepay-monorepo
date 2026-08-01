@@ -23,7 +23,8 @@ public class Beneficiary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "external_id", nullable = false, unique = true, length = 36)
+    /** Matches Flyway V8 {@code CHAR(36)} — Hibernate defaults String→VARCHAR. */
+    @Column(name = "external_id", nullable = false, unique = true, length = 36, columnDefinition = "CHAR(36)")
     private String externalId;
 
     @Column(name = "customer_id", nullable = false)
@@ -32,7 +33,8 @@ public class Beneficiary {
     @Column(name = "nickname", nullable = false, length = 50)
     private String nickname;
 
-    @Column(name = "account_type", nullable = false)
+    /** Matches Flyway V8 {@code TINYINT} — Hibernate defaults int→INTEGER. */
+    @Column(name = "account_type", nullable = false, columnDefinition = "TINYINT")
     private int accountType;
 
     @Column(name = "payee_bank_code", nullable = false, length = 32)
