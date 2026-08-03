@@ -16,6 +16,7 @@ This folder contains all project documentation for the VycePay Digital Wallet Pl
 | [MOBILE_API_CONTRACT.md](MOBILE_API_CONTRACT.md) | Mobile-facing API: base URL, auth, headers, flows, error codes |
 | [MOBILE_API_CONTRACT_DETAILED.md](MOBILE_API_CONTRACT_DETAILED.md) | Full mobile contract: request/response shapes for every endpoint |
 | [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md) | FCM E2E: callback→push matrix, payload contract, mobile handoff checklist |
+| [MOBILE_NOTIFICATIONS_HANDOFF.md](MOBILE_NOTIFICATIONS_HANDOFF.md) | **Mobile team:** inbox APIs, screens, FCM deep links, QA checklist |
 
 ## Other Documentation
 

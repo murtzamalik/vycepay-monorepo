@@ -132,6 +132,8 @@ All errors use this shape:
 
 Android inbox UI may consume these later; tray FCM still works independently.
 
+**Full mobile integration guide (screens + APIs + QA):** [MOBILE_NOTIFICATIONS_HANDOFF.md](MOBILE_NOTIFICATIONS_HANDOFF.md).
+
 ### KYC (onboarding)
 
 1. `GET /api/v1/kyc/status` — check `displayStatus` field: `NOT_STARTED | PENDING | APPROVED | REJECTED`.

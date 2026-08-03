@@ -86,11 +86,15 @@ All `data` values are strings.
 
 ## Mobile team checklist
 
-See [Mobile handoff](#mobile-team-handoff) below — share that section with Android.
+Share **[MOBILE_NOTIFICATIONS_HANDOFF.md](MOBILE_NOTIFICATIONS_HANDOFF.md)** with Android — full inbox APIs, screens, deep links, and QA.
+
+See also the shorter checklist below.
 
 ---
 
 ## Mobile team handoff
+
+**Full guide:** [MOBILE_NOTIFICATIONS_HANDOFF.md](MOBILE_NOTIFICATIONS_HANDOFF.md)
 
 **Package / Firebase Android app ID:** `com.vycepay`
 

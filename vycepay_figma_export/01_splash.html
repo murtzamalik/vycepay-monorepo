@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VycePay — 01 Splash</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#1D9E75;--green-dark:#0F6E56;--navy:#0D1117;--surface:#161B24;--border:rgba(255,255,255,0.08);--text:#E8EAF0;--muted:#8B91A8;--font:'Inter',system-ui,sans-serif}
+body{background:#1a1f2e;display:flex;justify-content:center;align-items:flex-start;padding:40px 20px;min-height:100vh;font-family:var(--font)}
+.pf{width:390px;background:var(--navy);border-radius:44px;border:1.5px solid rgba(255,255,255,0.12);overflow:hidden;display:inline-block}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;font-size:12px;font-weight:600;color:var(--text)}
+.body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:760px;padding:32px 24px;gap:14px;position:relative}
+.logo-box{width:72px;height:72px;background:var(--green);border-radius:22px;display:flex;align-items:center;justify-content:center}
+.logo-name{font-size:30px;font-weight:700;color:var(--text);letter-spacing:-0.5px}
+.logo-sub{font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:2px;margin-top:-8px}
+.tagline{font-size:14px;color:rgba(255,255,255,0.45);text-align:center;line-height:1.6;margin-top:6px}
+.dots{display:flex;gap:6px;margin-top:16px}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.15)}
+.dot.active{background:var(--green);width:20px;border-radius:4px}
+.bottom-area{position:absolute;bottom:36px;left:24px;right:24px;display:flex;flex-direction:column;gap:10px}
+.btn-p{background:var(--green);border-radius:16px;padding:15px;font-size:14px;font-weight:600;color:#fff;text-align:center;border:none;font-family:var(--font)}
+.signin-link{text-align:center;font-size:12px;color:rgba(255,255,255,0.3)}
+.signin-link span{color:var(--green)}
+.label{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px;letter-spacing:0.3px}
+</style></head><body><div>
+<div class="pf">
+  <div class="sb"><span>9:41</span><span style="display:flex;gap:4px;align-items:center"><span style="font-size:10px">●●●</span></span></div>
+  <div class="body">
+    <div class="logo-box">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+        <path d="M9 26L18 11L27 26" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12.5 21H23.5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="18" cy="30" r="2.5" fill="#fff"/>
+      </svg>
+    </div>
+    <div><div class="logo-name">VycePay</div><div class="logo-sub">KENYA WALLET</div></div>
+    <div class="tagline">Send, receive and manage<br>your money — anywhere in Kenya.</div>
+    <div class="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="bottom-area">
+      <div class="btn-p">Get started</div>
+      <div class="signin-link">Already have an account? <span>Sign in</span></div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.25)">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.5 3H11L8.5 6.5l1 3.5L6 8l-3.5 2 1-3.5L1 4h3.5L6 1z" fill="rgba(255,255,255,0.2)"/></svg>CBK Licensed
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.25)">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="2" y="5" width="8" height="6" rx="1" stroke="rgba(255,255,255,0.25)" stroke-width="1"/><path d="M4 5V3.5a2 2 0 014 0V5" stroke="rgba(255,255,255,0.25)" stroke-width="1"/></svg>256-bit SSL
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.25)">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="rgba(255,255,255,0.25)" stroke-width="1"/><polyline points="3.5 6 5 7.5 8.5 4" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-linecap="round"/></svg>M-PESA Ready
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="label">Screen 01 — Splash</div>
+</div></body></html>

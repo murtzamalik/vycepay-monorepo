@@ -1,0 +1,81 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VycePay — 28 Statement Download</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#1D9E75;--green-dark:#0F6E56;--green-10:rgba(29,158,117,0.10);--green-20:rgba(29,158,117,0.20);--navy:#0D1117;--surface:#161B24;--elevated:#1E2635;--border:rgba(255,255,255,0.08);--border-md:rgba(255,255,255,0.12);--text:#E8EAF0;--muted:#8B91A8;--dim:#545B73;--red:#E24B4A;--red-10:rgba(226,75,74,0.10);--amber:#EF9F27;--amber-10:rgba(239,159,39,0.10);--blue:#378ADD;--purple:#7F77DD;--font:'Inter',system-ui,sans-serif;--mono:'Courier New',monospace}
+body{background:#1a1f2e;display:flex;justify-content:center;padding:40px 20px;font-family:var(--font)}
+.pf{width:390px;background:var(--navy);border-radius:44px;border:1.5px solid var(--border-md);overflow:hidden;position:relative}
+.sb{display:flex;justify-content:space-between;padding:14px 24px 6px;font-size:12px;font-weight:600;color:var(--text)}
+.body{padding:20px;display:flex;flex-direction:column;gap:14px;min-height:760px}
+.back{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--green)}
+.title{font-size:22px;font-weight:700;color:var(--text);line-height:1.25}
+.sub{font-size:12px;color:var(--muted);line-height:1.55;margin-top:-6px}
+.fl{font-size:9px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px}
+.fi{background:rgba(255,255,255,0.05);border:0.5px solid var(--border-md);border-radius:10px;padding:11px 12px;font-size:13px;color:var(--text);font-family:var(--font)}
+.fi.ok{border-color:var(--green)}
+.btn-p{width:100%;background:var(--green);border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:600;color:#fff;text-align:center;cursor:pointer;font-family:var(--font)}
+.btn-g{width:100%;background:transparent;border:0.5px solid var(--border-md);border-radius:14px;padding:13px;font-size:13px;color:var(--muted);text-align:center;cursor:pointer;font-family:var(--font)}
+.card{background:rgba(255,255,255,0.03);border:0.5px solid var(--border);border-radius:14px;overflow:hidden}
+.cr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid var(--border)}
+.cr:last-child{border-bottom:none}
+.cl{font-size:10px;color:var(--muted)}.cv{font-size:12px;font-weight:500;color:var(--text)}
+.stepper{display:flex;align-items:center;gap:0}
+.sd{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.sd.done{background:var(--green);color:#fff}
+.sd.act{background:var(--green);color:#fff;box-shadow:0 0 0 4px var(--green-20)}
+.sd.todo{background:rgba(255,255,255,0.05);border:0.5px solid var(--border-md);color:var(--muted)}
+.sl{flex:1;height:1px}.sl.done{background:var(--green)}.sl.todo{background:var(--border-md)}
+.bnav{display:flex;justify-content:space-around;background:var(--surface);border-top:0.5px solid var(--border);padding:10px 0 22px}
+.ni{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.ni.active{color:var(--green)}
+.chip{background:rgba(255,255,255,0.05);border:0.5px solid var(--border-md);border-radius:9999px;padding:5px 12px;font-size:10px;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--green-10);border-color:rgba(29,158,117,0.3);color:var(--green)}
+.tx{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.tx:last-child{border-bottom:none}
+.txi{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tname{font-size:13px;font-weight:500;color:var(--text)}.tsub{font-size:10px;color:var(--muted);margin-top:2px}
+.tamt{font-size:13px;font-weight:600;text-align:right}.ttime{font-size:10px;color:var(--muted);text-align:right;margin-top:2px}
+.pos{color:var(--green)}.neg{color:var(--text)}
+.sheet-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end}
+.sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;border-top:0.5px solid var(--border-md);padding:16px 16px 28px}
+.handle{width:36px;height:3px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 16px}
+.label{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px;letter-spacing:0.3px}
+.settings-group{background:rgba(255,255,255,0.03);border:0.5px solid var(--border);border-radius:14px;overflow:hidden}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:0.5px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.sr-label{font-size:13px;color:var(--text)}.sr-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.tr{width:40px;height:22px;border-radius:11px;display:flex;align-items:center;padding:3px;flex-shrink:0}
+.tr.on{background:var(--green);justify-content:flex-end}.tr.off{background:rgba(255,255,255,0.1);justify-content:flex-start}
+.trthumb{width:16px;height:16px;border-radius:50%;background:#fff}
+.ob{width:48px;height:56px;border-radius:12px;background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--text)}
+.ob.f{background:var(--green-10);border-color:var(--green)}.ob.cur{border-color:var(--green);box-shadow:0 0 0 3px var(--green-20)}
+</style></head><body><div>
+<div class="pf">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="body">
+<div class="back"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round"/></svg>Back</div>
+<div class="title">Download statement</div>
+<div><div class="fl">Statement period</div>
+<div style="display:flex;gap:6px">
+<div style="flex:1;background:var(--green-10);border:1px solid var(--green);border-radius:10px;padding:9px;text-align:center;font-size:11px;font-weight:500;color:var(--green)">This month</div>
+<div style="flex:1;background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:10px;padding:9px;text-align:center;font-size:11px;color:var(--muted)">Last 3 months</div>
+<div style="flex:1;background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:10px;padding:9px;text-align:center;font-size:11px;color:var(--muted)">Custom</div>
+</div></div>
+<div style="display:flex;gap:8px"><div style="flex:1"><div class="fl">From</div><div class="fi">01 Mar 2026</div></div><div style="flex:1"><div class="fl">To</div><div class="fi ok">30 Mar 2026</div></div></div>
+<div><div class="fl">File format</div>
+<div style="display:flex;gap:6px">
+<div style="flex:1;background:var(--green-10);border:1px solid var(--green);border-radius:10px;padding:9px;display:flex;align-items:center;justify-content:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg><span style="font-size:11px;font-weight:500;color:var(--green)">PDF</span></div>
+<div style="flex:1;background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:10px;padding:9px;display:flex;align-items:center;justify-content:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span style="font-size:11px;color:var(--muted)">Excel</span></div>
+</div></div>
+<div style="background:rgba(255,255,255,0.03);border:0.5px solid var(--border);border-radius:12px;padding:12px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted)">Statement_Mar2026.pdf</span><span style="font-size:9px;background:rgba(29,158,117,0.15);color:var(--green);border-radius:4px;padding:2px 8px">Ready</span></div>
+<div style="font-size:10px;color:var(--muted);margin-top:5px">Generated 5 min ago · 124 KB</div>
+</div>
+<div style="display:flex;gap:8px;margin-top:auto">
+<div class="btn-g" style="flex:1">Share</div>
+<div class="btn-p" style="flex:2;display:flex;align-items:center;justify-content:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</div>
+</div>
+</div>
+</div>
+<div class="label">Screen 28 — Statement Download</div>
+</div></body></html>

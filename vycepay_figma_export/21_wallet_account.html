@@ -1,0 +1,78 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VycePay — 21 Wallet — Account Details</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#1D9E75;--green-dark:#0F6E56;--green-10:rgba(29,158,117,0.10);--green-20:rgba(29,158,117,0.20);--navy:#0D1117;--surface:#161B24;--elevated:#1E2635;--border:rgba(255,255,255,0.08);--border-md:rgba(255,255,255,0.12);--text:#E8EAF0;--muted:#8B91A8;--dim:#545B73;--red:#E24B4A;--red-10:rgba(226,75,74,0.10);--amber:#EF9F27;--amber-10:rgba(239,159,39,0.10);--blue:#378ADD;--purple:#7F77DD;--font:'Inter',system-ui,sans-serif;--mono:'Courier New',monospace}
+body{background:#1a1f2e;display:flex;justify-content:center;padding:40px 20px;font-family:var(--font)}
+.pf{width:390px;background:var(--navy);border-radius:44px;border:1.5px solid var(--border-md);overflow:hidden;position:relative}
+.sb{display:flex;justify-content:space-between;padding:14px 24px 6px;font-size:12px;font-weight:600;color:var(--text)}
+.body{padding:20px;display:flex;flex-direction:column;gap:14px;min-height:760px}
+.back{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--green)}
+.title{font-size:22px;font-weight:700;color:var(--text);line-height:1.25}
+.sub{font-size:12px;color:var(--muted);line-height:1.55;margin-top:-6px}
+.fl{font-size:9px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px}
+.fi{background:rgba(255,255,255,0.05);border:0.5px solid var(--border-md);border-radius:10px;padding:11px 12px;font-size:13px;color:var(--text);font-family:var(--font)}
+.fi.ok{border-color:var(--green)}
+.btn-p{width:100%;background:var(--green);border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:600;color:#fff;text-align:center;cursor:pointer;font-family:var(--font)}
+.btn-g{width:100%;background:transparent;border:0.5px solid var(--border-md);border-radius:14px;padding:13px;font-size:13px;color:var(--muted);text-align:center;cursor:pointer;font-family:var(--font)}
+.card{background:rgba(255,255,255,0.03);border:0.5px solid var(--border);border-radius:14px;overflow:hidden}
+.cr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid var(--border)}
+.cr:last-child{border-bottom:none}
+.cl{font-size:10px;color:var(--muted)}.cv{font-size:12px;font-weight:500;color:var(--text)}
+.stepper{display:flex;align-items:center;gap:0}
+.sd{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.sd.done{background:var(--green);color:#fff}
+.sd.act{background:var(--green);color:#fff;box-shadow:0 0 0 4px var(--green-20)}
+.sd.todo{background:rgba(255,255,255,0.05);border:0.5px solid var(--border-md);color:var(--muted)}
+.sl{flex:1;height:1px}.sl.done{background:var(--green)}.sl.todo{background:var(--border-md)}
+.bnav{display:flex;justify-content:space-around;background:var(--surface);border-top:0.5px solid var(--border);padding:10px 0 22px}
+.ni{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.ni.active{color:var(--green)}
+.chip{background:rgba(255,255,255,0.05);border:0.5px solid var(--border-md);border-radius:9999px;padding:5px 12px;font-size:10px;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--green-10);border-color:rgba(29,158,117,0.3);color:var(--green)}
+.tx{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.tx:last-child{border-bottom:none}
+.txi{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tname{font-size:13px;font-weight:500;color:var(--text)}.tsub{font-size:10px;color:var(--muted);margin-top:2px}
+.tamt{font-size:13px;font-weight:600;text-align:right}.ttime{font-size:10px;color:var(--muted);text-align:right;margin-top:2px}
+.pos{color:var(--green)}.neg{color:var(--text)}
+.sheet-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end}
+.sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;border-top:0.5px solid var(--border-md);padding:16px 16px 28px}
+.handle{width:36px;height:3px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 16px}
+.label{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px;letter-spacing:0.3px}
+.settings-group{background:rgba(255,255,255,0.03);border:0.5px solid var(--border);border-radius:14px;overflow:hidden}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:0.5px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.sr-label{font-size:13px;color:var(--text)}.sr-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.tr{width:40px;height:22px;border-radius:11px;display:flex;align-items:center;padding:3px;flex-shrink:0}
+.tr.on{background:var(--green);justify-content:flex-end}.tr.off{background:rgba(255,255,255,0.1);justify-content:flex-start}
+.trthumb{width:16px;height:16px;border-radius:50%;background:#fff}
+.ob{width:48px;height:56px;border-radius:12px;background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--text)}
+.ob.f{background:var(--green-10);border-color:var(--green)}.ob.cur{border-color:var(--green);box-shadow:0 0 0 3px var(--green-20)}
+</style></head><body><div>
+<div class="pf">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="body">
+<div class="title">My wallet</div>
+<div style="background:#0F6E56;border-radius:20px;padding:20px;position:relative;overflow:hidden">
+<div style="position:absolute;top:-20px;right:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.06)"></div>
+<div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:0.5px;text-transform:uppercase">Available balance</div>
+<div style="font-size:30px;font-weight:700;color:#fff;margin:5px 0 3px;letter-spacing:-0.5px">KES 12,450.00</div>
+<div style="font-size:10px;color:rgba(255,255,255,0.45)">Account · •••• 4829</div>
+</div>
+<div class="card">
+<div class="cr"><span class="cl">Account name</span><span class="cv">Amina Wanjiku</span></div>
+<div class="cr"><span class="cl">Account number</span><span style="font-size:12px;font-weight:500;color:var(--text);font-family:var(--mono)">KE•••4829</span></div>
+<div class="cr"><span class="cl">Short code</span><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;color:var(--green)">#VP4829</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div></div>
+<div class="cr"><span class="cl">Status</span><div style="display:flex;align-items:center;gap:5px"><div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div><span style="font-size:12px;color:var(--green)">Active · KYC verified</span></div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div style="background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:12px;padding:12px;display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:9px;background:var(--green-10);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div><div style="font-size:11px;color:var(--text)">Statement</div></div>
+<div style="background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:12px;padding:12px;display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:9px;background:rgba(55,138,221,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><div style="font-size:11px;color:var(--text)">Edit profile</div></div>
+<div style="background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:12px;padding:12px;display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:9px;background:rgba(239,159,39,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/></svg></div><div style="font-size:11px;color:var(--text)">Change mobile</div></div>
+<div style="background:rgba(255,255,255,0.04);border:0.5px solid var(--border-md);border-radius:12px;padding:12px;display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:9px;background:rgba(127,119,221,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div><div style="font-size:11px;color:var(--text)">Short code</div></div>
+</div>
+</div>
+</div>
+<div class="label">Screen 21 — Wallet — Account Details</div>
+</div></body></html>

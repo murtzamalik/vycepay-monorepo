@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VycePay — 02 Phone Entry</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#1D9E75;--navy:#0D1117;--surface:#161B24;--border:rgba(255,255,255,0.1);--text:#E8EAF0;--muted:#8B91A8;--font:'Inter',system-ui,sans-serif}
+body{background:#1a1f2e;display:flex;justify-content:center;align-items:flex-start;padding:40px 20px;min-height:100vh;font-family:var(--font)}
+.pf{width:390px;background:var(--navy);border-radius:44px;border:1.5px solid rgba(255,255,255,0.12);overflow:hidden}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;font-size:12px;font-weight:600;color:var(--text)}
+.body{padding:24px;display:flex;flex-direction:column;gap:18px;min-height:760px}
+.back{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--green)}
+h1{font-size:26px;font-weight:700;color:var(--text);line-height:1.2}
+.sub{font-size:13px;color:var(--muted);line-height:1.55;margin-top:-8px}
+.fl{font-size:9px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px}
+.cc-row{display:flex;gap:8px}
+.cc-box{background:rgba(255,255,255,0.06);border:0.5px solid var(--border);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text);white-space:nowrap}
+.num-field{flex:1;background:rgba(255,255,255,0.06);border:1px solid var(--green);border-radius:12px;padding:11px 14px;font-size:14px;color:var(--text);font-family:var(--font)}
+.hint{font-size:10px;color:rgba(255,255,255,0.25);margin-top:-10px;padding-left:2px}
+.divrow{display:flex;align-items:center;gap:10px;margin:4px 0}
+.divline{flex:1;height:0.5px;background:rgba(255,255,255,0.07)}
+.divtxt{font-size:10px;color:rgba(255,255,255,0.2)}
+.btn-p{background:var(--green);border-radius:16px;padding:15px;font-size:14px;font-weight:600;color:#fff;text-align:center;border:none;font-family:var(--font);width:100%}
+.trust{display:flex;justify-content:center;gap:16px;margin-top:4px}
+.tb{display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.25)}
+.label{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px;letter-spacing:0.3px}
+</style></head><body><div>
+<div class="pf">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="body">
+    <div class="back">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Back
+    </div>
+    <div><h1>Enter your<br>phone number</h1></div>
+    <div class="sub">We'll send a one-time verification code to confirm your number.</div>
+    <div>
+      <div class="fl">Mobile number</div>
+      <div class="cc-row">
+        <div class="cc-box">
+          <svg width="20" height="14" viewBox="0 0 20 14" fill="none"><rect width="20" height="14" rx="2" fill="#006600"/><rect y="4.5" width="20" height="5" fill="#CC0000"/><rect y="5.5" width="20" height="3" fill="#000"/><circle cx="10" cy="7" r="2.5" fill="#fff" opacity="0.9"/></svg>
+          +254
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 4L5 6.5 7.5 4" stroke="rgba(255,255,255,0.35)" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="num-field">712 345 678</div>
+      </div>
+      <div class="hint" style="margin-top:6px">Enter without the leading zero</div>
+    </div>
+    <div class="divrow"><div class="divline"></div><div class="divtxt">secure &amp; encrypted</div><div class="divline"></div></div>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <div class="btn-p">Send verification code</div>
+      <div class="trust">
+        <div class="tb"><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.5 3H11L8.5 6.5l1 3.5L6 8l-3.5 2 1-3.5L1 4h3.5L6 1z" fill="rgba(255,255,255,0.2)"/></svg>CBK Licensed</div>
+        <div class="tb"><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="2" y="5" width="8" height="6" rx="1" stroke="rgba(255,255,255,0.25)" stroke-width="1"/><path d="M4 5V3.5a2 2 0 014 0V5" stroke="rgba(255,255,255,0.25)" stroke-width="1"/></svg>256-bit SSL</div>
+        <div class="tb"><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="rgba(255,255,255,0.25)" stroke-width="1"/><polyline points="3.5 6 5 7.5 8.5 4" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-linecap="round"/></svg>M-PESA Ready</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="label">Screen 02 — Phone Entry</div>
+</div></body></html>

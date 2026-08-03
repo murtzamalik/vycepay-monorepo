@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VycePay — 03 OTP Verify</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#1D9E75;--green-20:rgba(29,158,117,0.20);--navy:#0D1117;--border:rgba(255,255,255,0.1);--text:#E8EAF0;--muted:#8B91A8;--font:'Inter',system-ui,sans-serif}
+body{background:#1a1f2e;display:flex;justify-content:center;padding:40px 20px;font-family:var(--font)}
+.pf{width:390px;background:var(--navy);border-radius:44px;border:1.5px solid rgba(255,255,255,0.12);overflow:hidden}
+.sb{display:flex;justify-content:space-between;padding:14px 24px 6px;font-size:12px;font-weight:600;color:var(--text)}
+.body{padding:24px;display:flex;flex-direction:column;gap:18px;min-height:760px}
+.back{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--green)}
+.icon-ring{width:56px;height:56px;border-radius:18px;background:rgba(29,158,117,0.12);display:flex;align-items:center;justify-content:center}
+h1{font-size:24px;font-weight:700;color:var(--text)}
+.sub{font-size:13px;color:var(--muted);line-height:1.55;margin-top:-10px}
+.otp-row{display:flex;gap:8px;justify-content:center}
+.ob{width:52px;height:60px;border-radius:12px;background:rgba(255,255,255,0.04);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--text)}
+.ob.f{background:rgba(29,158,117,0.08);border-color:var(--green)}
+.ob.cur{border-color:var(--green);box-shadow:0 0 0 3px var(--green-20)}
+.timer-row{display:flex;justify-content:space-between;font-size:12px}
+.timer{color:rgba(255,255,255,0.3)}
+.resend{color:rgba(29,158,117,0.4)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto}
+.np{background:rgba(255,255,255,0.04);border-radius:10px;padding:14px;text-align:center;font-size:18px;font-weight:500;color:var(--text);border:none;font-family:var(--font)}
+.np.del{font-size:14px;color:var(--muted)}
+.label{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px;letter-spacing:0.3px}
+</style></head><body><div>
+<div class="pf">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="body">
+    <div class="back"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round"/></svg>Back</div>
+    <div class="icon-ring">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </div>
+    <div>
+      <h1>Verify your number</h1>
+      <div class="sub" style="margin-top:6px">Code sent to <span style="color:var(--text)">+254 712 *** 678</span>.<br>Enter the 6-digit code below.</div>
+    </div>
+    <div class="otp-row">
+      <div class="ob f">1</div><div class="ob f">2</div><div class="ob f">3</div>
+      <div class="ob cur"><span style="opacity:0.3">_</span></div>
+      <div class="ob"></div><div class="ob"></div>
+    </div>
+    <div class="timer-row">
+      <div class="timer">Resend in 00:42</div>
+      <div class="resend">Resend code</div>
+    </div>
+    <div class="numpad">
+      <button class="np">1</button><button class="np">2</button><button class="np">3</button>
+      <button class="np">4</button><button class="np">5</button><button class="np">6</button>
+      <button class="np">7</button><button class="np">8</button><button class="np">9</button>
+      <button class="np" style="background:transparent"></button>
+      <button class="np">0</button>
+      <button class="np del">⌫</button>
+    </div>
+  </div>
+</div>
+<div class="label">Screen 03 — OTP Verify</div>
+</div></body></html>
