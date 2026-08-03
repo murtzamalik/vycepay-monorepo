@@ -33,6 +33,13 @@ export function formatPercent(value: unknown): string {
   return `${n.toFixed(1)}%`
 }
 
+/** Locale-aware integer for counts (not currency). */
+export function formatCount(value: unknown): string {
+  const n = Number(value)
+  if (Number.isNaN(n)) return '—'
+  return Math.round(n).toLocaleString('en-KE')
+}
+
 export function initials(first?: unknown, last?: unknown): string {
   const a = String(first ?? '').trim()[0] ?? ''
   const b = String(last ?? '').trim()[0] ?? ''

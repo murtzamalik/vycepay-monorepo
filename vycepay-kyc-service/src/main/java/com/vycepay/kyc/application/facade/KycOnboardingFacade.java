@@ -20,6 +20,7 @@ import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.service.OnboardingCredentialsService;
 import com.vycepay.kyc.domain.model.Customer;
 import com.vycepay.kyc.domain.model.KycVerification;
+import com.vycepay.kyc.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
 import com.vycepay.kyc.infrastructure.persistence.KycVerificationRepository;
 
@@ -46,19 +47,22 @@ public class KycOnboardingFacade {
     private final KycVerificationRepository kycRepository;
     private final OnboardingCredentialsService onboardingCredentialsService;
     private final SensitiveDataEncryptionPort encryptionPort;
+    private final CustomerActivityRecorder activityRecorder;
 
     public KycOnboardingFacade(BankingProviderPort bankingProvider,
                                ChoiceBankResponseAssessor choiceAssessor,
                                CustomerRepository customerRepository,
                                KycVerificationRepository kycRepository,
                                OnboardingCredentialsService onboardingCredentialsService,
-                               @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort) {
+                               @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort,
+                               CustomerActivityRecorder activityRecorder) {
         this.bankingProvider = bankingProvider;
         this.choiceAssessor = choiceAssessor;
         this.customerRepository = customerRepository;
         this.kycRepository = kycRepository;
         this.onboardingCredentialsService = onboardingCredentialsService;
         this.encryptionPort = encryptionPort;
+        this.activityRecorder = activityRecorder;
     }
 
     /**
@@ -98,6 +102,7 @@ public class KycOnboardingFacade {
             applyKycProfile(kyc, profile);
         }
         kycRepository.save(kyc);
+        activityRecorder.record(customerId, "KYC_SUBMITTED", "KYC", onboardingRequestId);
         log.info("Onboarding submitted: customerId={} onboardingRequestId={}", customerId, onboardingRequestId);
         return onboardingRequestId;
     }

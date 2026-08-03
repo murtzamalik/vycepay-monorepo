@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Map.entry;
+
 import com.vycepay.admin.config.AdminProperties;
 import com.vycepay.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
@@ -98,11 +100,43 @@ public class AdminReadService {
                 "SELECT t.external_id externalId, t.type, t.amount, t.currency, t.status, t.created_at createdAt, c.external_id customerExternalId FROM `transaction` t JOIN customer c ON c.id=t.customer_id ORDER BY t.created_at DESC LIMIT ?", lim);
     }
 
-    public Map<String, Object> customers(Integer pageReq, Integer sizeReq, String search, String status, String fromDate, String toDate) {
+    private static final Map<String, String> CUSTOMER_SORT = Map.ofEntries(
+            entry("createdAt", "c.created_at"), entry("status", "c.status"), entry("externalId", "c.external_id"),
+            entry("firstName", "c.first_name"), entry("lastName", "c.last_name"), entry("walletBalance", "w.balance_cache"));
+    private static final Map<String, String> TX_SORT = Map.ofEntries(
+            entry("createdAt", "t.created_at"), entry("amount", "t.amount"), entry("status", "t.status"),
+            entry("type", "t.type"), entry("externalId", "t.external_id"), entry("customerExternalId", "c.external_id"),
+            entry("errorCode", "t.error_code"));
+    private static final Map<String, String> KYC_SORT = Map.ofEntries(
+            entry("createdAt", "k.created_at"), entry("status", "k.status"), entry("id", "k.id"),
+            entry("idType", "k.id_type"), entry("customerExternalId", "c.external_id"));
+    private static final Map<String, String> WALLET_SORT = Map.ofEntries(
+            entry("createdAt", "w.created_at"), entry("id", "w.id"), entry("balance", "w.balance_cache"),
+            entry("status", "w.status"), entry("choiceAccountId", "w.choice_account_id"), entry("customerExternalId", "c.external_id"));
+    private static final Map<String, String> CALLBACK_SORT = Map.ofEntries(
+            entry("createdAt", "created_at"), entry("id", "id"), entry("notificationType", "notification_type"),
+            entry("processed", "processed"));
+    private static final Map<String, String> NOTIFICATION_SORT = Map.ofEntries(
+            entry("createdAt", "n.created_at"), entry("id", "n.id"), entry("pushType", "n.push_type"),
+            entry("source", "n.source"), entry("customerExternalId", "c.external_id"));
+    private static final Map<String, String> ADMIN_USER_SORT = Map.ofEntries(
+            entry("id", "id"), entry("username", "username"), entry("status", "status"),
+            entry("lastLoginAt", "last_login_at"), entry("email", "email"), entry("createdAt", "created_at"));
+    private static final Map<String, String> ACTIVITY_SORT = Map.ofEntries(
+            entry("createdAt", "created_at"), entry("id", "id"), entry("action", "action"));
+    private static final Map<String, String> ADMIN_AUDIT_SORT = Map.ofEntries(
+            entry("createdAt", "a.created_at"), entry("id", "a.id"), entry("action", "a.action"),
+            entry("adminUsername", "u.username"));
+    private static final Map<String, String> AUTH_AUDIT_SORT = Map.ofEntries(
+            entry("createdAt", "a.created_at"), entry("id", "a.id"), entry("eventType", "a.event_type"),
+            entry("outcome", "a.outcome"));
+
+    public Map<String, Object> customers(Integer pageReq, Integer sizeReq, String search, String status, String fromDate, String toDate, String sort, String order) {
         int page = Pagination.page(pageReq), size = Pagination.size(sizeReq);
         DateRangeQuery range = DateRangeQuery.of(fromDate, toDate);
         Query q = customerQuery(search, status, false, false, range);
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(q.sql + " ORDER BY c.created_at DESC LIMIT ? OFFSET ?", params(q.params, size, Pagination.offset(page, size)));
+        String orderBy = resolveSort(sort, order, CUSTOMER_SORT, "ORDER BY c.created_at DESC");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(q.sql + " " + orderBy + " LIMIT ? OFFSET ?", params(q.params, size, Pagination.offset(page, size)));
         maskCustomers(rows);
         rows.forEach(row -> row.put("kycStatusLabel", kycStatusLabel((String) row.get("kycStatus"))));
         long total = jdbcTemplate.queryForObject(customerQuery(search, status, true, false, range).sql, Long.class, q.params.toArray());
@@ -159,7 +193,7 @@ public class AdminReadService {
         return m;
     }
 
-    public Map<String, Object> customerTransactions(String id, Integer pageReq, Integer sizeReq, String type, String status, String fromDate, String toDate) {
+    public Map<String, Object> customerTransactions(String id, Integer pageReq, Integer sizeReq, String type, String status, String fromDate, String toDate, String sort, String order) {
         Long customerId = customerPk(id);
         StringBuilder where = new StringBuilder("t.customer_id=?");
         List<Object> p = new ArrayList<>();
@@ -168,7 +202,8 @@ public class AdminReadService {
         if (status != null && !status.isBlank()) { where.append(" AND t.status=?"); p.add(status); }
         DateRangeQuery.of(fromDate, toDate).apply("t.created_at", where, p);
         return page("SELECT t.external_id externalId, t.type, t.amount, t.currency, t.status, t.created_at createdAt FROM `transaction` t WHERE " + where,
-                "SELECT COUNT(*) FROM `transaction` t WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM `transaction` t WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, TX_SORT, "ORDER BY t.created_at DESC"), p.toArray());
     }
 
     public Map<String, Object> customerKyc(String id) {
@@ -194,13 +229,14 @@ public class AdminReadService {
         return row;
     }
 
-    public Map<String, Object> customerActivity(String id, Integer pageReq, Integer sizeReq) {
+    public Map<String, Object> customerActivity(String id, Integer pageReq, Integer sizeReq, String sort, String order) {
         Long customerId = customerPk(id);
         return page("SELECT id, action, resource_type resourceType, resource_id resourceId, created_at createdAt FROM activity_log WHERE customer_id=?",
-                "SELECT COUNT(*) FROM activity_log WHERE customer_id=?", pageReq, sizeReq, customerId);
+                "SELECT COUNT(*) FROM activity_log WHERE customer_id=?", pageReq, sizeReq,
+                resolveSort(sort, order, ACTIVITY_SORT, "ORDER BY created_at DESC"), customerId);
     }
 
-    public Map<String, Object> kyc(Integer pageReq, Integer sizeReq, String status, String search, String fromDate, String toDate) {
+    public Map<String, Object> kyc(Integer pageReq, Integer sizeReq, String status, String search, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (status != null && !status.isBlank()) { where.append(" AND k.status=?"); p.add(status); }
@@ -211,7 +247,8 @@ public class AdminReadService {
         }
         DateRangeQuery.of(fromDate, toDate).apply("k.created_at", where, p);
         return page("SELECT k.id, k.choice_onboarding_request_id choiceOnboardingRequestId, k.status, k.id_type idType, k.created_at createdAt, c.external_id customerExternalId, c.first_name firstName, c.last_name lastName FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE " + where,
-                "SELECT COUNT(*) FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, KYC_SORT, "ORDER BY k.created_at DESC"), p.toArray());
     }
 
     public Map<String, Object> kycDetail(Long id) {
@@ -223,7 +260,7 @@ public class AdminReadService {
         return row;
     }
 
-    public Map<String, Object> wallets(Integer pageReq, Integer sizeReq, String search, String status) {
+    public Map<String, Object> wallets(Integer pageReq, Integer sizeReq, String search, String status, String sort, String order) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (status != null && !status.isBlank()) { where.append(" AND w.status=?"); p.add(status); }
@@ -232,8 +269,9 @@ public class AdminReadService {
             String s = "%" + search + "%";
             p.add(s); p.add(s); p.add(s);
         }
-        Map<String, Object> res = page("SELECT w.id, w.choice_account_id choiceAccountId, w.balance_cache balance, w.currency, w.status, c.external_id customerExternalId, c.mobile_country_code mobileCountryCode, c.mobile FROM wallet w JOIN customer c ON c.id=w.customer_id WHERE " + where,
-                "SELECT COUNT(*) FROM wallet w JOIN customer c ON c.id=w.customer_id WHERE " + where, pageReq, sizeReq, p.toArray());
+        Map<String, Object> res = page("SELECT w.id, w.choice_account_id choiceAccountId, w.balance_cache balance, w.currency, w.status, w.created_at createdAt, c.external_id customerExternalId, c.mobile_country_code mobileCountryCode, c.mobile FROM wallet w JOIN customer c ON c.id=w.customer_id WHERE " + where,
+                "SELECT COUNT(*) FROM wallet w JOIN customer c ON c.id=w.customer_id WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, WALLET_SORT, "ORDER BY w.created_at DESC"), p.toArray());
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> content = (List<Map<String, Object>>) res.get("content");
         content.forEach(this::maskCustomer);
@@ -248,7 +286,7 @@ public class AdminReadService {
         return row;
     }
 
-    public Map<String, Object> transactions(Integer pageReq, Integer sizeReq, String type, String status, String search, String customerId, String fromDate, String toDate) {
+    public Map<String, Object> transactions(Integer pageReq, Integer sizeReq, String type, String status, String search, String customerId, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (type != null && !type.isBlank()) { where.append(" AND t.type=?"); p.add(type); }
@@ -261,7 +299,8 @@ public class AdminReadService {
         }
         DateRangeQuery.of(fromDate, toDate).apply("t.created_at", where, p);
         return page("SELECT t.external_id externalId, t.choice_request_id choiceRequestId, t.type, t.amount, t.currency, t.status, t.error_code errorCode, t.error_msg errorMsg, t.created_at createdAt, c.external_id customerExternalId FROM `transaction` t JOIN customer c ON c.id=t.customer_id WHERE " + where,
-                "SELECT COUNT(*) FROM `transaction` t JOIN customer c ON c.id=t.customer_id WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM `transaction` t JOIN customer c ON c.id=t.customer_id WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, TX_SORT, "ORDER BY t.created_at DESC"), p.toArray());
     }
 
     public Map<String, Object> transactionDetail(String id) {
@@ -270,23 +309,25 @@ public class AdminReadService {
         return rows.get(0);
     }
 
-    public Map<String, Object> failedTransactions(Integer pageReq, Integer sizeReq, String errorCode, String fromDate, String toDate) {
+    public Map<String, Object> failedTransactions(Integer pageReq, Integer sizeReq, String errorCode, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("t.status='FAILED'");
         List<Object> p = new ArrayList<>();
         if (errorCode != null && !errorCode.isBlank()) { where.append(" AND t.error_code=?"); p.add(errorCode); }
         DateRangeQuery.of(fromDate, toDate).apply("t.created_at", where, p);
         return page("SELECT t.external_id externalId, t.type, t.amount, t.currency, t.status, t.error_code errorCode, t.error_msg errorMsg, t.created_at createdAt, c.external_id customerExternalId FROM `transaction` t JOIN customer c ON c.id=t.customer_id WHERE " + where,
-                "SELECT COUNT(*) FROM `transaction` t WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM `transaction` t JOIN customer c ON c.id=t.customer_id WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, TX_SORT, "ORDER BY t.created_at DESC"), p.toArray());
     }
 
-    public Map<String, Object> callbacks(Integer pageReq, Integer sizeReq, String type, Boolean processed, String fromDate, String toDate) {
+    public Map<String, Object> callbacks(Integer pageReq, Integer sizeReq, String type, Boolean processed, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (type != null && !type.isBlank()) { where.append(" AND notification_type=?"); p.add(type); }
         if (processed != null) { where.append(" AND processed=?"); p.add(processed); }
         DateRangeQuery.of(fromDate, toDate).apply("created_at", where, p);
         return page("SELECT id, choice_request_id choiceRequestId, notification_type notificationType, processed, processed_at processedAt, processing_error processingError, created_at createdAt FROM choice_bank_callback WHERE " + where,
-                "SELECT COUNT(*) FROM choice_bank_callback WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM choice_bank_callback WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, CALLBACK_SORT, "ORDER BY created_at DESC"), p.toArray());
     }
 
     public Map<String, Object> callbackDetail(Long id) {
@@ -298,7 +339,7 @@ public class AdminReadService {
     }
 
     public Map<String, Object> notifications(Integer pageReq, Integer sizeReq, String customerId, String pushType,
-                                             String source, String batchId, String fromDate, String toDate) {
+                                             String source, String batchId, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("n.deleted_at IS NULL");
         List<Object> p = new ArrayList<>();
         if (customerId != null && !customerId.isBlank()) {
@@ -313,7 +354,7 @@ public class AdminReadService {
         return page(
                 "SELECT n.id, n.public_id publicId, n.customer_id customerId, c.external_id customerExternalId, n.source, n.push_type pushType, n.notification_type notificationType, n.title, n.body, n.batch_id batchId, n.read_at readAt, n.created_at createdAt FROM customer_notification n LEFT JOIN customer c ON c.id=n.customer_id WHERE " + where,
                 "SELECT COUNT(*) FROM customer_notification n LEFT JOIN customer c ON c.id=n.customer_id WHERE " + where,
-                pageReq, sizeReq, p.toArray());
+                pageReq, sizeReq, resolveSort(sort, order, NOTIFICATION_SORT, "ORDER BY n.created_at DESC"), p.toArray());
     }
 
     public Map<String, Object> notificationDetail(Long id) {
@@ -394,36 +435,74 @@ public class AdminReadService {
         return m;
     }
 
+    /**
+     * Customer acquisition by period with wallets created for those registrants and a running total.
+     * Uses a derived table so MySQL ONLY_FULL_GROUP_BY accepts the aggregations.
+     */
     public List<Map<String, Object>> reportGrowth(String groupBy, String fromDate, String toDate) {
         String fmt = groupBy(groupBy);
         DateRangeQuery range = DateRangeQuery.of(fromDate, toDate);
+        String sql = """
+                SELECT g.period, g.newCustomers, g.activeWallets,
+                       SUM(g.newCustomers) OVER (ORDER BY g.period) cumulativeTotal
+                FROM (
+                  SELECT DATE_FORMAT(c.created_at, ?) period,
+                         COUNT(DISTINCT c.id) newCustomers,
+                         COUNT(DISTINCT w.id) activeWallets
+                  FROM customer c
+                  LEFT JOIN wallet w ON w.customer_id = c.id
+                  %s
+                  GROUP BY DATE_FORMAT(c.created_at, ?)
+                ) g
+                ORDER BY g.period
+                """.formatted(range.hasRange()
+                ? "WHERE c.created_at >= ? AND c.created_at < DATE_ADD(?, INTERVAL 1 DAY)"
+                : "");
         if (range.hasRange()) {
-            return jdbcTemplate.queryForList(
-                    "SELECT DATE_FORMAT(c.created_at, ?) period, COUNT(*) newCustomers, (SELECT COUNT(*) FROM wallet w WHERE w.customer_id IN (SELECT id FROM customer c2 WHERE DATE_FORMAT(c2.created_at, ?)=DATE_FORMAT(c.created_at, ?))) activeWallets, SUM(COUNT(*)) OVER (ORDER BY DATE_FORMAT(c.created_at, ?)) cumulativeTotal FROM customer c WHERE c.created_at >= ? AND c.created_at < DATE_ADD(?, INTERVAL 1 DAY) GROUP BY DATE_FORMAT(c.created_at, ?) ORDER BY period",
-                    fmt, fmt, fmt, fmt, range.from().toString(), range.to().toString(), fmt);
+            return jdbcTemplate.queryForList(sql, fmt, range.from().toString(), range.to().toString(), fmt);
         }
-        return jdbcTemplate.queryForList(
-                "SELECT DATE_FORMAT(c.created_at, ?) period, COUNT(*) newCustomers, (SELECT COUNT(*) FROM wallet w JOIN customer c3 ON c3.id=w.customer_id WHERE DATE_FORMAT(c3.created_at, ?)=DATE_FORMAT(c.created_at, ?)) activeWallets, SUM(COUNT(*)) OVER (ORDER BY DATE_FORMAT(c.created_at, ?)) cumulativeTotal FROM customer c GROUP BY DATE_FORMAT(c.created_at, ?) ORDER BY period",
-                fmt, fmt, fmt, fmt, fmt);
+        return jdbcTemplate.queryForList(sql, fmt, fmt);
     }
 
-    public Map<String, Object> auditLog(Integer pageReq, Integer sizeReq, String action, String customerId, String fromDate, String toDate) {
+    /**
+     * Customer activity from activity_log (product actions: transfer, KYC, wallet, etc.).
+     */
+    public Map<String, Object> auditLog(Integer pageReq, Integer sizeReq, String action, String customerId, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (action != null && !action.isBlank()) { where.append(" AND action=?"); p.add(action); }
         if (customerId != null && !customerId.isBlank()) { where.append(" AND customer_id IN (SELECT id FROM customer WHERE external_id=? OR id=?)"); p.add(customerId); p.add(numericId(customerId)); }
         DateRangeQuery.of(fromDate, toDate).apply("created_at", where, p);
         return page("SELECT id, customer_id customerId, action, resource_type resourceType, resource_id resourceId, created_at createdAt FROM activity_log WHERE " + where,
-                "SELECT COUNT(*) FROM activity_log WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM activity_log WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, ACTIVITY_SORT, "ORDER BY created_at DESC"), p.toArray());
     }
 
-    public Map<String, Object> adminAuditLog(Integer pageReq, Integer sizeReq, String action, String fromDate, String toDate) {
+    /**
+     * Admin mutation audit trail from admin_audit_log.
+     */
+    public Map<String, Object> adminAuditLog(Integer pageReq, Integer sizeReq, String action, String fromDate, String toDate, String sort, String order) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (action != null && !action.isBlank()) { where.append(" AND a.action=?"); p.add(action); }
         DateRangeQuery.of(fromDate, toDate).apply("a.created_at", where, p);
         return page("SELECT a.id, a.action, a.entity_type entityType, a.entity_id entityId, a.reason, a.created_at createdAt, u.username adminUsername FROM admin_audit_log a JOIN admin_user u ON u.id=a.admin_user_id WHERE " + where,
-                "SELECT COUNT(*) FROM admin_audit_log a WHERE " + where, pageReq, sizeReq, p.toArray());
+                "SELECT COUNT(*) FROM admin_audit_log a WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, ADMIN_AUDIT_SORT, "ORDER BY a.created_at DESC"), p.toArray());
+    }
+
+    /**
+     * Auth security events from auth_audit_event (login, lockout, device bind, PIN).
+     */
+    public Map<String, Object> authAuditLog(Integer pageReq, Integer sizeReq, String eventType, String fromDate, String toDate, String sort, String order) {
+        StringBuilder where = new StringBuilder("1=1");
+        List<Object> p = new ArrayList<>();
+        if (eventType != null && !eventType.isBlank()) { where.append(" AND a.event_type=?"); p.add(eventType); }
+        DateRangeQuery.of(fromDate, toDate).apply("a.created_at", where, p);
+        return page(
+                "SELECT a.id, a.event_type eventType, a.outcome, a.identifier_masked identifierMasked, a.detail, a.created_at createdAt, c.external_id customerExternalId FROM auth_audit_event a LEFT JOIN customer c ON c.id=a.customer_id WHERE " + where,
+                "SELECT COUNT(*) FROM auth_audit_event a WHERE " + where, pageReq, sizeReq,
+                resolveSort(sort, order, AUTH_AUDIT_SORT, "ORDER BY a.created_at DESC"), p.toArray());
     }
 
     public List<Map<String, Object>> menus() {
@@ -442,9 +521,10 @@ public class AdminReadService {
         return r;
     }
 
-    public Map<String, Object> adminUsers(Integer pageReq, Integer sizeReq) {
-        return page("SELECT id, external_id externalId, username, email, full_name fullName, status, last_login_at lastLoginAt FROM admin_user",
-                "SELECT COUNT(*) FROM admin_user", pageReq, sizeReq);
+    public Map<String, Object> adminUsers(Integer pageReq, Integer sizeReq, String sort, String order) {
+        return page("SELECT id, external_id externalId, username, email, full_name fullName, status, last_login_at lastLoginAt, created_at createdAt FROM admin_user",
+                "SELECT COUNT(*) FROM admin_user", pageReq, sizeReq,
+                resolveSort(sort, order, ADMIN_USER_SORT, "ORDER BY created_at DESC"));
     }
 
     public Map<String, Object> adminUser(Long id) {
@@ -512,15 +592,31 @@ public class AdminReadService {
         return v == null ? 0 : v;
     }
 
-    private Map<String, Object> page(String select, String count, Integer pageReq, Integer sizeReq, Object... params) {
+    /**
+     * Paginated query with an explicit ORDER BY clause (never client-supplied raw SQL).
+     * @param orderBySql resolved via {@link #resolveSort}; must start with {@code ORDER BY}
+     */
+    private Map<String, Object> page(String select, String count, Integer pageReq, Integer sizeReq, String orderBySql, Object... params) {
         int page = Pagination.page(pageReq), size = Pagination.size(sizeReq);
         List<Object> p = new ArrayList<>(List.of(params));
         List<Object> listParams = new ArrayList<>(p);
         listParams.add(size);
         listParams.add(Pagination.offset(page, size));
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(select + " ORDER BY 1 DESC LIMIT ? OFFSET ?", listParams.toArray());
-        long total = jdbcTemplate.queryForObject(count, Long.class, p.toArray());
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(select + " " + orderBySql + " LIMIT ? OFFSET ?", listParams.toArray());
+        Long totalObj = jdbcTemplate.queryForObject(count, Long.class, p.toArray());
+        long total = totalObj == null ? 0 : totalObj;
         return Pagination.response(rows, page, size, total);
+    }
+
+    /**
+     * Maps a client sort key to a whitelist column; falls back to {@code defaultOrderBy} when unknown.
+     */
+    private String resolveSort(String sort, String order, Map<String, String> allowed, String defaultOrderBy) {
+        if (sort == null || sort.isBlank() || !allowed.containsKey(sort)) {
+            return defaultOrderBy;
+        }
+        String dir = "asc".equalsIgnoreCase(order) ? "ASC" : "DESC";
+        return "ORDER BY " + allowed.get(sort) + " " + dir;
     }
 
     private Query customerQuery(String search, String status, boolean count, boolean detail, DateRangeQuery range) {

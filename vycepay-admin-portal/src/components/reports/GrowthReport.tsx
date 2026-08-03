@@ -3,12 +3,12 @@
 import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch, buildQuery, defaultDateRange } from '@/lib/api'
+import { apiFetch, buildQuery, defaultDateRange, errorMessage } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DateRangeFilter } from '@/components/layout/DateRangeFilter'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { SimpleLineChart } from '@/components/charts/SimpleCharts'
-import { SkeletonTable } from '@/components/ui/States'
+import { ErrorState, SkeletonTable } from '@/components/ui/States'
 
 function GrowthReportInner() {
   const searchParams = useSearchParams()
@@ -17,9 +17,13 @@ function GrowthReportInner() {
   const fromDate = searchParams.get('fromDate') ?? defaults.fromDate
   const toDate = searchParams.get('toDate') ?? defaults.toDate
   const groupBy = searchParams.get('groupBy') ?? 'day'
-  const { data, isLoading } = useQuery({ queryKey: ['report-growth', fromDate, toDate], queryFn: () => apiFetch<Record<string, unknown>[]>(`/reports/customer-growth${buildQuery({ fromDate, toDate, groupBy })}`) })
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['report-growth', fromDate, toDate, groupBy],
+    queryFn: () => apiFetch<Record<string, unknown>[]>(`/reports/customer-growth${buildQuery({ fromDate, toDate, groupBy })}`),
+  })
 
   if (isLoading) return <SkeletonTable />
+  if (error) return <ErrorState message={errorMessage(error, 'Unable to load growth report.')} />
 
   return (
     <div className="grid">

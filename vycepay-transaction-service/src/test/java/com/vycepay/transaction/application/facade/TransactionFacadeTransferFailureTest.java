@@ -8,6 +8,7 @@ import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.exception.ChoiceBankUpstreamException;
 import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
 import com.vycepay.transaction.domain.model.Transaction;
+import com.vycepay.transaction.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,8 @@ class TransactionFacadeTransferFailureTest {
     private TransactionRepository transactionRepository;
     @Mock
     private WalletRepository walletRepository;
+    @Mock
+    private CustomerActivityRecorder activityRecorder;
 
     private TransactionFacade facade;
 
@@ -52,7 +55,7 @@ class TransactionFacadeTransferFailureTest {
         ChoiceBankErrorCatalog catalog = new ChoiceBankErrorCatalog();
         catalog.loadFromClasspath();
         ChoiceBankResponseAssessor assessor = new ChoiceBankResponseAssessor(catalog);
-        facade = new TransactionFacade(bankingProvider, transactionRepository, walletRepository, assessor);
+        facade = new TransactionFacade(bankingProvider, transactionRepository, walletRepository, assessor, activityRecorder);
     }
 
     @Test

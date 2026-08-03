@@ -22,13 +22,13 @@ const PUSH_TYPES = [
 const SOURCES = ['', 'CALLBACK', 'ADMIN_COMPOSE']
 
 const columns: Column[] = [
-  { key: 'id', label: 'ID' },
-  { key: 'customerId', label: 'Customer', mono: true, render: (r) => String(r.customerExternalId ?? r.customerId ?? '—') },
-  { key: 'pushType', label: 'Type' },
-  { key: 'source', label: 'Source', render: (r) => <StatusBadge status={String(r.source ?? '')} /> },
+  { key: 'id', label: 'ID', sortable: true },
+  { key: 'customerId', label: 'Customer', mono: true, sortable: true, render: (r) => String(r.customerExternalId ?? r.customerId ?? '—') },
+  { key: 'pushType', label: 'Type', sortable: true },
+  { key: 'source', label: 'Source', sortable: true, render: (r) => <StatusBadge status={String(r.source ?? '')} /> },
   { key: 'title', label: 'Title' },
   { key: 'batchId', label: 'Batch', mono: true, render: (r) => r.batchId ? String(r.batchId).slice(0, 8) + '…' : '—' },
-  { key: 'createdAt', label: 'Created', render: (r) => formatDate(r.createdAt) },
+  { key: 'createdAt', label: 'Created', sortable: true, render: (r) => formatDate(r.createdAt) },
   { key: 'actions', label: '', render: (r) => <EntityLink href={`/notifications/${r.id}`}><span className="btn secondary btn-sm">View</span></EntityLink> },
 ]
 

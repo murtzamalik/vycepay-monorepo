@@ -25,10 +25,24 @@ const columns: Column[] = [
     )},
   },
   { key: 'mobile', label: 'Mobile', render: (r) => <span className="mono">{formatMobile(r.mobileCountryCode, r.mobile)}</span> },
-  { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
+  {
+    key: 'status',
+    label: 'Status',
+    sortable: true,
+    filter: {
+      type: 'select',
+      param: 'status',
+      options: [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'SUSPENDED', label: 'Suspended' },
+        { value: 'PENDING', label: 'Pending' },
+      ],
+    },
+    render: (r) => <StatusBadge status={r.status} />,
+  },
   { key: 'kycStatus', label: 'KYC', render: (r) => <StatusBadge status={String(r.kycStatusLabel ?? formatKycStatus(r.kycStatus))} /> },
-  { key: 'walletBalance', label: 'Balance', render: (r) => formatKes(r.walletBalance) },
-  { key: 'createdAt', label: 'Registered', render: (r) => formatDate(r.createdAt) },
+  { key: 'walletBalance', label: 'Balance', sortable: true, render: (r) => formatKes(r.walletBalance) },
+  { key: 'createdAt', label: 'Registered', sortable: true, render: (r) => formatDate(r.createdAt) },
   {
     key: 'actions',
     label: '',
@@ -49,19 +63,6 @@ export function CustomerList() {
       exportPath="/api/admin/customers/export"
       columns={columns}
       showDateRange
-      filters={
-        <select className="input input-sm" defaultValue="" onChange={(e) => {
-          const url = new URLSearchParams(window.location.search)
-          if (e.target.value) url.set('status', e.target.value); else url.delete('status')
-          url.set('page', '0')
-          window.location.search = url.toString()
-        }}>
-          <option value="">All statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="SUSPENDED">Suspended</option>
-          <option value="PENDING">Pending</option>
-        </select>
-      }
     />
   )
 }

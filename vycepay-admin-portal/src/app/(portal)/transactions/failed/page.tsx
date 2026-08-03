@@ -7,11 +7,17 @@ import { formatDate, formatKes } from '@/lib/format'
 import type { Column } from '@/lib/columns/types'
 
 const columns: Column[] = [
-  { key: 'externalId', label: 'TX ID', mono: true, render: (r) => <EntityLink href={`/transactions/${r.externalId}`}>{String(r.externalId)}</EntityLink> },
-  { key: 'type', label: 'Type', render: (r) => <StatusBadge status={r.type} /> },
-  { key: 'amount', label: 'Amount', render: (r) => formatKes(r.amount) },
-  { key: 'errorCode', label: 'Error', mono: true },
-  { key: 'createdAt', label: 'Date', render: (r) => formatDate(r.createdAt) },
+  { key: 'externalId', label: 'TX ID', mono: true, sortable: true, render: (r) => <EntityLink href={`/transactions/${r.externalId}`}>{String(r.externalId)}</EntityLink> },
+  { key: 'type', label: 'Type', sortable: true, render: (r) => <StatusBadge status={r.type} /> },
+  { key: 'amount', label: 'Amount', sortable: true, render: (r) => formatKes(r.amount) },
+  {
+    key: 'errorCode',
+    label: 'Error',
+    mono: true,
+    sortable: true,
+    filter: { type: 'text', param: 'errorCode', placeholder: 'Error code' },
+  },
+  { key: 'createdAt', label: 'Date', sortable: true, render: (r) => formatDate(r.createdAt) },
 ]
 
 export default function Page() {
@@ -22,16 +28,6 @@ export default function Page() {
       endpoint="/transactions/failed"
       columns={columns}
       showDateRange
-      filterSlot={({ filters, setFilters }) => (
-        <input
-          className="input input-sm"
-          placeholder="Error code"
-          defaultValue={filters.errorCode ?? ''}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') setFilters({ errorCode: (e.target as HTMLInputElement).value })
-          }}
-        />
-      )}
     />
   )
 }

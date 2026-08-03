@@ -61,15 +61,40 @@ public class CsvExportService {
         return toCsv(rows);
     }
 
-    public String auditLog(HttpServletRequest request, String action, String fromDate, String toDate) {
+    /**
+     * Exports audit rows for the given source: customer (activity_log), auth (auth_audit_event), or admin.
+     */
+    public String auditLog(HttpServletRequest request, String source, String action, String fromDate, String toDate) {
         int limit = properties.getExport().getMaxRows();
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
-        if (action != null && !action.isBlank()) { where.append(" AND action=?"); p.add(action); }
-        DateRangeQuery.of(fromDate, toDate).apply("created_at", where, p);
+        if (action != null && !action.isBlank()) {
+            if ("auth".equals(source)) {
+                where.append(" AND event_type=?");
+            } else {
+                where.append(" AND action=?");
+            }
+            p.add(action);
+        }
+        String select;
+        String entity;
+        if ("auth".equals(source)) {
+            select = "SELECT id,event_type,outcome,identifier_masked,detail,created_at FROM auth_audit_event WHERE ";
+            entity = "auth_audit_event";
+            DateRangeQuery.of(fromDate, toDate).apply("created_at", where, p);
+        } else if ("customer".equals(source)) {
+            select = "SELECT id,action,resource_type,resource_id,created_at FROM activity_log WHERE ";
+            entity = "activity_log";
+            DateRangeQuery.of(fromDate, toDate).apply("created_at", where, p);
+        } else {
+            select = "SELECT id,action,entity_type,entity_id,reason,created_at FROM admin_audit_log WHERE ";
+            entity = "admin_audit_log";
+            DateRangeQuery.of(fromDate, toDate).apply("created_at", where, p);
+        }
         p.add(limit);
-        var rows = jdbcTemplate.queryForList("SELECT id,action,resource_type,resource_id,created_at FROM activity_log WHERE " + where + " ORDER BY created_at DESC LIMIT ?", p.toArray());
-        auditService.log(securityContext.currentAdmin(), "EXPORT_AUDIT_LOG", "activity_log", null, null, "{\"rows\":" + rows.size() + "}", request);
+        var rows = jdbcTemplate.queryForList(select + where + " ORDER BY created_at DESC LIMIT ?", p.toArray());
+        auditService.log(securityContext.currentAdmin(), "EXPORT_AUDIT_LOG", entity, null, null,
+                "{\"source\":\"" + source + "\",\"rows\":" + rows.size() + "}", request);
         return toCsv(rows);
     }
 

@@ -12,11 +12,11 @@ import { formatDateTime } from '@/lib/format'
 import type { Column } from '@/lib/columns/types'
 
 const columns: Column[] = [
-  { key: 'username', label: 'Username', mono: true },
+  { key: 'username', label: 'Username', mono: true, sortable: true },
   { key: 'fullName', label: 'Name' },
-  { key: 'email', label: 'Email' },
-  { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-  { key: 'lastLoginAt', label: 'Last Login', render: (r) => formatDateTime(r.lastLoginAt) },
+  { key: 'email', label: 'Email', sortable: true },
+  { key: 'status', label: 'Status', sortable: true, render: (r) => <StatusBadge status={r.status} /> },
+  { key: 'lastLoginAt', label: 'Last Login', sortable: true, render: (r) => formatDateTime(r.lastLoginAt) },
   {
     key: 'actions',
     label: '',

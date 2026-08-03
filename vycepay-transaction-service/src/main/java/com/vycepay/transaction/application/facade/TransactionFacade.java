@@ -7,6 +7,7 @@ import com.vycepay.common.choicebank.RequestIdGenerator;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
 import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
 import com.vycepay.transaction.domain.model.Transaction;
+import com.vycepay.transaction.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
 import org.slf4j.Logger;
@@ -44,15 +45,18 @@ public class TransactionFacade {
     private final TransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
     private final ChoiceBankResponseAssessor choiceAssessor;
+    private final CustomerActivityRecorder activityRecorder;
 
     public TransactionFacade(BankingProviderPort bankingProvider,
                              TransactionRepository transactionRepository,
                              WalletRepository walletRepository,
-                             ChoiceBankResponseAssessor choiceAssessor) {
+                             ChoiceBankResponseAssessor choiceAssessor,
+                             CustomerActivityRecorder activityRecorder) {
         this.bankingProvider = bankingProvider;
         this.transactionRepository = transactionRepository;
         this.walletRepository = walletRepository;
         this.choiceAssessor = choiceAssessor;
+        this.activityRecorder = activityRecorder;
     }
 
     /**
@@ -138,7 +142,9 @@ public class TransactionFacade {
         tx.setPayeeAccountName(payeeAccountName);
         tx.setRemark(remark);
         tx.setIdempotencyKey(idempotencyKey);
-        return transactionRepository.save(tx);
+        Transaction saved = transactionRepository.save(tx);
+        activityRecorder.record(customerId, "TRANSFER_CREATED", "TRANSACTION", saved.getExternalId());
+        return saved;
     }
 
     /**
@@ -273,7 +279,9 @@ public class TransactionFacade {
         tx.setStatus(STATUS_PENDING);
         tx.setPayeeAccountId(mobile);
         tx.setIdempotencyKey(idempotencyKey);
-        return transactionRepository.save(tx);
+        Transaction saved = transactionRepository.save(tx);
+        activityRecorder.record(customerId, "DEPOSIT_CREATED", "TRANSACTION", saved.getExternalId());
+        return saved;
     }
 
     /**

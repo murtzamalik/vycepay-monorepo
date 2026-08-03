@@ -50,9 +50,11 @@ public class NotificationController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) String batchId,
             @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate) {
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String order) {
         return ResponseEntity.ok(ApiSuccessResponses.ok("NOTIFICATIONS_OK", "Notifications",
-                readService.notifications(page, size, customerId, pushType, source, batchId, fromDate, toDate)));
+                readService.notifications(page, size, customerId, pushType, source, batchId, fromDate, toDate, sort, order)));
     }
 
     @GetMapping("/summary")

@@ -6,6 +6,7 @@ import com.vycepay.callback.domain.model.ChoiceBankCallback;
 import com.vycepay.common.security.port.SensitiveDataEncryptionPort;
 import com.vycepay.callback.domain.model.Wallet;
 import com.vycepay.callback.domain.port.NotificationHandler;
+import com.vycepay.callback.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.callback.infrastructure.persistence.KycVerificationRepository;
 import com.vycepay.callback.infrastructure.persistence.WalletRepository;
 import org.slf4j.Logger;
@@ -32,17 +33,20 @@ public class OnboardingResultHandler implements NotificationHandler {
     private final ObjectMapper objectMapper;
     private final SensitiveDataEncryptionPort encryptionPort;
     private final CallbackPushPublisher pushPublisher;
+    private final CustomerActivityRecorder activityRecorder;
 
     public OnboardingResultHandler(KycVerificationRepository kycRepository,
                                    WalletRepository walletRepository,
                                    ObjectMapper objectMapper,
                                    @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort,
-                                   CallbackPushPublisher pushPublisher) {
+                                   CallbackPushPublisher pushPublisher,
+                                   CustomerActivityRecorder activityRecorder) {
         this.kycRepository = kycRepository;
         this.walletRepository = walletRepository;
         this.objectMapper = objectMapper;
         this.encryptionPort = encryptionPort;
         this.pushPublisher = pushPublisher;
+        this.activityRecorder = activityRecorder;
     }
 
     @Override
@@ -103,6 +107,7 @@ public class OnboardingResultHandler implements NotificationHandler {
                     .status("ACTIVE")
                     .build();
             walletRepository.save(wallet);
+            activityRecorder.record(customerId, "WALLET_CREATED", "WALLET", choiceAccountId);
             log.info("Created wallet for customerId={}, choiceAccountId={}", customerId, choiceAccountId);
         }
     }
