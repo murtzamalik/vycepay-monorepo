@@ -10,10 +10,13 @@ import com.vycepay.auth.api.v1.dto.RegisterDeviceRequest;
 import com.vycepay.auth.api.v1.dto.RegisterDeviceResponse;
 import com.vycepay.auth.api.v1.dto.RegisterRequest;
 import com.vycepay.auth.api.v1.dto.SetCredentialsRequest;
+import com.vycepay.auth.api.v1.dto.VerifyContactsRequest;
+import com.vycepay.auth.api.v1.dto.VerifyContactsResponse;
 import com.vycepay.auth.api.v1.dto.VerifyDeviceOtpRequest;
 import com.vycepay.auth.api.v1.dto.VerifyMigrateOtpRequest;
 import com.vycepay.auth.api.v1.dto.VerifyOtpRequest;
 import com.vycepay.auth.application.facade.AuthFacade;
+import com.vycepay.auth.application.service.ContactsVerifyService;
 import com.vycepay.auth.application.service.JwtService;
 import com.vycepay.auth.domain.model.Customer;
 import com.vycepay.auth.domain.model.DeviceToken;
@@ -22,6 +25,7 @@ import com.vycepay.auth.infrastructure.persistence.DeviceTokenRepository;
 import com.vycepay.common.api.ApiSuccessResponse;
 import com.vycepay.common.api.ApiSuccessResponses;
 import com.vycepay.common.exception.BusinessException;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,14 +41,17 @@ public class AuthController {
     private final JwtService jwtService;
     private final CustomerRepository customerRepository;
     private final DeviceTokenRepository deviceTokenRepository;
+    private final ContactsVerifyService contactsVerifyService;
 
     public AuthController(AuthFacade authFacade, JwtService jwtService,
                           CustomerRepository customerRepository,
-                          DeviceTokenRepository deviceTokenRepository) {
+                          DeviceTokenRepository deviceTokenRepository,
+                          ContactsVerifyService contactsVerifyService) {
         this.authFacade = authFacade;
         this.jwtService = jwtService;
         this.customerRepository = customerRepository;
         this.deviceTokenRepository = deviceTokenRepository;
+        this.contactsVerifyService = contactsVerifyService;
     }
 
     /**
@@ -169,6 +176,20 @@ public class AuthController {
                 request.getImei(),
                 request.getPlatform());
         return ResponseEntity.ok(ApiSuccessResponses.ok("AUTH_PIN_RESET_OK", "PIN reset successfully."));
+    }
+
+    /**
+     * Matches device contact mobiles to VycePay users with ACTIVE wallets.
+     * Returns username + account title (+ payeeAccountId for later Choice transfer).
+     */
+    @Operation(summary = "Verify contact mobiles against VycePay customers")
+    @PostMapping("/contacts/verify")
+    public ResponseEntity<ApiSuccessResponse<VerifyContactsResponse>> verifyContacts(
+            @RequestHeader("X-Customer-Id") String externalId,
+            @RequestBody VerifyContactsRequest request) {
+        VerifyContactsResponse data = contactsVerifyService.verify(externalId, request);
+        return ResponseEntity.ok(ApiSuccessResponses.ok(
+                "AUTH_CONTACTS_VERIFIED", "Contacts verified.", data));
     }
 
     @GetMapping("/me")
