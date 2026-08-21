@@ -1,5 +1,6 @@
 package com.vycepay.common.exception;
 
+import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -15,7 +16,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Global exception handler. Returns consistent customer-safe error envelope from the catalog.
+ * Global exception handler. Returns consistent customer-safe error envelope.
+ * Choice Bank upstream errors prefer Choice {@code msg} when present.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -40,8 +42,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleChoiceUpstream(ChoiceBankUpstreamException e) {
         log.warn("Choice Bank upstream error: clientCode={} choiceCode={} path={} choiceMsg={} - {}",
                 e.getCode(), e.getChoiceCode(), e.getChoicePath(), e.getChoiceMessage(), e.getMessage());
-        // Prefer catalog userMessage for clientCode; never expose raw Choice text as primary message.
-        String message = catalog.userMessage(e.getCode());
+        // Choice-message-first: show Choice msg when present; Vyce catalog is fallback only.
+        String message = ChoiceCustomerMessage.prefer(e.getChoiceMessage(), catalog.userMessage(e.getCode()));
         ErrorResponse body = new ErrorResponse(
                 e.getCode(), message, getRequestId(), null);
         body.setChoiceCode(e.getChoiceCode());

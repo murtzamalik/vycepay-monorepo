@@ -73,6 +73,8 @@ For errors, the BFF returns this shape:
 
 `code` is for client logic; `requestId` is for support/debugging.
 
+**Choice-message-first:** For Choice Bank–backed APIs, if Choice returns a non-blank `msg`, that text is returned as `message` (errors and successes). Show it to the customer. Vyce catalog / static copy is used only when Choice `msg` is blank.
+
 ---
 
 ## Success Envelope (Action Endpoints)
@@ -472,19 +474,19 @@ Confirm OTP:
 
 - **GET** `/api/v1/transactions/{transactionId}/status`
 - **Auth:** Required (Bearer)
-- **Response (200, JSON):** a Choice status payload mapped as a `Map<String,Object>`
+- **Response:** `200 OK` success envelope (`code = TXN_STATUS_OK`); Choice status payload is in `data`. Show envelope `message` (Choice `msg` when present).
 
 ### 21) Bank codes (for UI selection)
 
 - **GET** `/api/v1/transactions/bank-codes`
 - **Auth:** Required (Bearer)
-- **Response:** `200 OK` with a JSON object (`Map<String,Object>`) from Choice
+- **Response:** `200 OK` success envelope (`code = TXN_BANK_CODES_OK`); Choice payload in `data`.
 
 ### 22) Choice transaction history
 
 - **GET** `/api/v1/transactions/choice-history?startTime=<ms>&endTime=<ms>&page=<1-based>&size=<pageSize>`
 - **Auth:** Required (Bearer)
-- **Response:** `200 OK` with JSON object (`Map<String,Object>`) from Choice
+- **Response:** `200 OK` success envelope (`code = TXN_CHOICE_HISTORY_OK`); Choice payload in `data`.
 
 ### 23) Local transaction list (paginated)
 

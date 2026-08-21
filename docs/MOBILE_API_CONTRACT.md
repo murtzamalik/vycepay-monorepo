@@ -72,7 +72,7 @@ All errors use this shape:
 }
 ```
 
-- Show **message** to the user (backend catalog is the source of truth).
+- Show **message** to the user. For Choice Bank–backed APIs, backend prefers Choice’s own `msg` when present; otherwise the Vyce catalog / static fallback.
 - Use **code** for client logic (e.g. retry, redirect to KYC).
 - Show or retain **requestId** for support (e.g. “Request ID: …”).
 - Do not expect `BACKEND_ERROR`; empty upstream responses become `UPSTREAM_ERROR` with a safe message.

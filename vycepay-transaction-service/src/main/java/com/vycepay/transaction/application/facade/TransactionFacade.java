@@ -1,11 +1,13 @@
 package com.vycepay.transaction.application.facade;
 
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.choicebank.RequestIdGenerator;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
 import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
+import com.vycepay.transaction.application.TransactionChoiceOutcome;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
@@ -89,15 +91,16 @@ public class TransactionFacade {
      * @return Transaction (existing or new)
      */
     @Transactional
-    public Transaction applyTransfer(Long customerId, Long walletId, String choiceAccountId,
+    public TransactionChoiceOutcome applyTransfer(Long customerId, Long walletId, String choiceAccountId,
                                      String payeeBankCode, String payeeAccountId, Integer accountType,
                                      BigDecimal amount, String remark, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeTransfer(customerId, walletId, choiceAccountId,
                         payeeBankCode, payeeAccountId, accountType, amount, remark, idempotencyKey));
     }
 
-    private Transaction executeTransfer(Long customerId, Long walletId, String choiceAccountId,
+    private TransactionChoiceOutcome executeTransfer(Long customerId, Long walletId, String choiceAccountId,
                                         String payeeBankCode, String payeeAccountId, Integer accountType,
                                         BigDecimal amount, String remark, String idempotencyKey) {
         String bankCodeForValidate = (accountType != null && accountType == ACCOUNT_TYPE_PESALINK)
@@ -144,7 +147,7 @@ public class TransactionFacade {
         tx.setIdempotencyKey(idempotencyKey);
         Transaction saved = transactionRepository.save(tx);
         activityRecorder.record(customerId, "TRANSFER_CREATED", "TRANSACTION", saved.getExternalId());
-        return saved;
+        return new TransactionChoiceOutcome(saved, response.getMsg());
     }
 
     /**
@@ -214,6 +217,7 @@ public class TransactionFacade {
         result.setFreezeStatus(freezeStatus != null ? freezeStatus : 0);
         result.setRestrictStatus(restrictStatus != null ? restrictStatus : 0);
         result.setValid(true);
+        result.setMessage(response.getMsg());
         log.info("Account validated: accountId={}, accountType={}", result.getAccountId(), result.getAccountType());
         return result;
     }
@@ -240,17 +244,18 @@ public class TransactionFacade {
      * Initiates M-PESA STK deposit. If idempotencyKey is provided and a transaction already exists with that key, returns it without calling Choice Bank.
      */
     @Transactional
-    public Transaction depositFromMpesa(Long customerId, Long walletId, String choiceAccountId,
+    public TransactionChoiceOutcome depositFromMpesa(Long customerId, Long walletId, String choiceAccountId,
                                         String mobile, int amountKes, String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                    .map(existing -> new TransactionChoiceOutcome(existing, null))
                     .orElseGet(() -> executeDepositFromMpesa(customerId, walletId, choiceAccountId, mobile, amountKes, idempotencyKey));
         }
         String internalKey = "deposit-" + choiceAccountId + "-" + System.currentTimeMillis();
         return executeDepositFromMpesa(customerId, walletId, choiceAccountId, mobile, amountKes, internalKey);
     }
 
-    private Transaction executeDepositFromMpesa(Long customerId, Long walletId, String choiceAccountId,
+    private TransactionChoiceOutcome executeDepositFromMpesa(Long customerId, Long walletId, String choiceAccountId,
                                                String mobile, int amountKes, String idempotencyKey) {
         var params = Map.<String, Object>of(
                 "accountId", choiceAccountId,
@@ -281,73 +286,66 @@ public class TransactionFacade {
         tx.setIdempotencyKey(idempotencyKey);
         Transaction saved = transactionRepository.save(tx);
         activityRecorder.record(customerId, "DEPOSIT_CREATED", "TRANSACTION", saved.getExternalId());
-        return saved;
+        return new TransactionChoiceOutcome(saved, response.getMsg());
     }
 
     /**
      * Sends OTP via Choice Bank for a pending transfer.
-     * Used when Choice Bank requires OTP to complete the transaction.
      *
-     * @param customerId         Our customer ID
-     * @param transactionExternalId Our transaction external ID (UUID)
-     * @param otpType            SMS or EMAIL
+     * @return Choice {@code msg} for customer display
      */
-    public void sendTransferOtp(Long customerId, String transactionExternalId, String otpType) {
+    public String sendTransferOtp(Long customerId, String transactionExternalId, String otpType) {
         Transaction tx = transactionRepository.findByExternalIdAndCustomerId(transactionExternalId, customerId)
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Transaction not found", HttpStatus.NOT_FOUND));
         if (tx.getChoiceTxId() == null) {
             throw new BusinessException("INVALID_TRANSACTION", "Transaction has no Choice Bank reference", HttpStatus.CONFLICT);
         }
         var params = Map.<String, Object>of("businessId", tx.getChoiceTxId(), "otpType", otpType);
-        ChoiceBankResponse response = bankingProvider.post("common/sendOtp", params);
-        choiceAssessor.requireSuccess(response, "common/sendOtp");
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
+                bankingProvider.post("common/sendOtp", params), "common/sendOtp");
         log.info("OTP sent for transfer: txId={}", tx.getChoiceTxId());
+        return result.msg();
     }
 
     /**
      * Resends OTP via Choice Bank (common/resendOtp) for a pending transfer.
+     *
+     * @return Choice {@code msg} for customer display
      */
-    public void resendTransferOtp(Long customerId, String transactionExternalId, String otpType) {
+    public String resendTransferOtp(Long customerId, String transactionExternalId, String otpType) {
         Transaction tx = transactionRepository.findByExternalIdAndCustomerId(transactionExternalId, customerId)
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Transaction not found", HttpStatus.NOT_FOUND));
         if (tx.getChoiceTxId() == null) {
             throw new BusinessException("INVALID_TRANSACTION", "Transaction has no Choice Bank reference", HttpStatus.CONFLICT);
         }
         var params = Map.<String, Object>of("businessId", tx.getChoiceTxId(), "otpType", otpType);
-        ChoiceBankResponse response = bankingProvider.post("common/resendOtp", params);
-        choiceAssessor.requireSuccess(response, "common/resendOtp");
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
+                bankingProvider.post("common/resendOtp", params), "common/resendOtp");
         log.info("OTP resent for transfer: txId={}", tx.getChoiceTxId());
+        return result.msg();
     }
 
     /**
      * Confirms OTP via Choice Bank for a pending transfer.
      *
-     * @param customerId         Our customer ID
-     * @param transactionExternalId Our transaction external ID
-     * @param otpCode            OTP from user
-     * @return true if confirmation succeeded
+     * @return Choice {@code msg} for customer display
      */
-    public boolean confirmTransferOtp(Long customerId, String transactionExternalId, String otpCode) {
+    public String confirmTransferOtp(Long customerId, String transactionExternalId, String otpCode) {
         Transaction tx = transactionRepository.findByExternalIdAndCustomerId(transactionExternalId, customerId)
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Transaction not found", HttpStatus.NOT_FOUND));
         if (tx.getChoiceTxId() == null) {
             throw new BusinessException("INVALID_TRANSACTION", "Transaction has no Choice Bank reference", HttpStatus.CONFLICT);
         }
         var params = Map.<String, Object>of("businessId", tx.getChoiceTxId(), "otpCode", otpCode);
-        ChoiceBankResponse response = bankingProvider.post("common/confirmOperation", params);
-        choiceAssessor.requireSuccess(response, "common/confirmOperation");
-        return true;
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
+                bankingProvider.post("common/confirmOperation", params), "common/confirmOperation");
+        return result.msg();
     }
 
     /**
      * Queries Choice Bank for transaction status and optionally updates local record.
-     * Use when callback is delayed or to poll pending transactions.
-     *
-     * @param customerId         Our customer ID
-     * @param transactionExternalId Our transaction external ID
-     * @return Choice Bank status data (status, msg, etc.) or empty map if not found
      */
-    public Map<String, Object> queryTransactionStatus(Long customerId, String transactionExternalId) {
+    public ChoiceBankResult queryTransactionStatus(Long customerId, String transactionExternalId) {
         Transaction tx = transactionRepository.findByExternalIdAndCustomerId(transactionExternalId, customerId)
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Transaction not found", HttpStatus.NOT_FOUND));
         if (tx.getChoiceTxId() == null) {
@@ -355,30 +353,25 @@ public class TransactionFacade {
         }
         var params = Map.<String, Object>of("txId", tx.getChoiceTxId());
         ChoiceBankResponse response = bankingProvider.post("query/getTransResult", params);
-        choiceAssessor.requireSuccess(response, "query/getTransResult");
-        return requireMapData(response.getData(), "query/getTransResult");
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(response, "query/getTransResult");
+        Map<String, Object> data = requireMapData(result.data(), "query/getTransResult");
+        return new ChoiceBankResult(data, result.msg(), result.choiceRequestId());
     }
 
     /**
      * Fetches bank codes from Choice Bank (staticData/getBankCodes) for transfer UI.
      */
-    public Map<String, Object> getBankCodes() {
+    public ChoiceBankResult getBankCodes() {
         ChoiceBankResponse response = bankingProvider.post("staticData/getBankCodes", Map.of());
-        choiceAssessor.requireSuccess(response, "staticData/getBankCodes");
-        return requireMapData(response.getData(), "staticData/getBankCodes");
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(response, "staticData/getBankCodes");
+        Map<String, Object> data = requireMapData(result.data(), "staticData/getBankCodes");
+        return new ChoiceBankResult(data, result.msg(), result.choiceRequestId());
     }
 
     /**
      * Queries Choice Bank transaction list (query/getTransList) for an account.
-     *
-     * @param choiceAccountId Choice Bank account ID
-     * @param userId          Choice BaaS end-user id ({@code kyc_verification.choice_user_id}), not VycePay external id
-     * @param startTime       UTC timestamp ms
-     * @param endTime         UTC timestamp ms
-     * @param pageNo          Page number (1-based)
-     * @param pageSize        Page size
      */
-    public Map<String, Object> getChoiceTransList(String choiceAccountId, String userId,
+    public ChoiceBankResult getChoiceTransList(String choiceAccountId, String userId,
                                                   long startTime, long endTime, int pageNo, int pageSize) {
         var params = new java.util.HashMap<String, Object>();
         params.put("accountId", choiceAccountId);
@@ -391,8 +384,9 @@ public class TransactionFacade {
         params.put("pageSize", pageSize);
         params.put("orderByDesc", 1);
         ChoiceBankResponse response = bankingProvider.post("query/getTransList", params);
-        choiceAssessor.requireSuccess(response, "query/getTransList");
-        return requireMapData(response.getData(), "query/getTransList");
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(response, "query/getTransList");
+        Map<String, Object> data = requireMapData(result.data(), "query/getTransList");
+        return new ChoiceBankResult(data, result.msg(), result.choiceRequestId());
     }
 
     @SuppressWarnings("unchecked")

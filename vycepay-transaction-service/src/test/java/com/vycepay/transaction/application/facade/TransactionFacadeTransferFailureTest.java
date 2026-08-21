@@ -7,6 +7,7 @@ import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.exception.ChoiceBankUpstreamException;
 import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
+import com.vycepay.transaction.application.TransactionChoiceOutcome;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
@@ -131,10 +132,10 @@ class TransactionFacadeTransferFailureTest {
         when(bankingProvider.post(eq("trans/v2/applyForTransfer"), any())).thenReturn(transferResp);
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Transaction tx = facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
+        TransactionChoiceOutcome outcome = facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
                 new BigDecimal("100.00"), "note", "idem-ok");
 
-        assertEquals("CHOICE TITLE", tx.getPayeeAccountName());
+        assertEquals("CHOICE TITLE", outcome.transaction().getPayeeAccountName());
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);

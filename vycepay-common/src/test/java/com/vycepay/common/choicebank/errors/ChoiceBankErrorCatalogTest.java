@@ -46,8 +46,15 @@ class ChoiceBankErrorCatalogTest {
         assertThat(ex.getChoiceCode()).isEqualTo("13000");
         assertThat(ex.getChoiceRequestId()).isEqualTo("REQ1");
         assertThat(ex.getChoicePath()).isEqualTo("trans/v2/applyForTransfer");
-        assertThat(ex.getMessage()).isEqualTo("We couldn't find that bank account. Please check the details.");
+        assertThat(ex.getMessage()).isEqualTo("Account does not exist.");
         assertThat(ex.getChoiceMessage()).isEqualTo("Account does not exist.");
+    }
+
+    @Test
+    void toExceptionBlankChoiceMsgUsesCatalogFallback() {
+        ChoiceBankUpstreamException ex = catalog.toException("13000", "  ", "REQ2", "trans/v2/applyForTransfer");
+        assertThat(ex.getCode()).isEqualTo("CHOICE_ACCOUNT_NOT_FOUND");
+        assertThat(ex.getMessage()).isEqualTo("We couldn't find that bank account. Please check the details.");
     }
 
     @Test

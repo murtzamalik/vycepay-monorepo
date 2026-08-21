@@ -1,6 +1,9 @@
 package com.vycepay.transaction.api.v1;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vycepay.common.exception.ChoiceBankUpstreamException;
+import com.vycepay.common.exception.GlobalExceptionHandler;
+import com.vycepay.common.exception.VyceErrorCatalog;
 import com.vycepay.transaction.api.v1.dto.SendMoneyRequest;
 import com.vycepay.transaction.application.facade.TransactionFacade;
 import com.vycepay.transaction.domain.model.Customer;
@@ -9,17 +12,14 @@ import com.vycepay.transaction.infrastructure.persistence.CustomerRepository;
 import com.vycepay.transaction.infrastructure.persistence.KycVerificationRepository;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
-import com.vycepay.common.exception.ChoiceBankUpstreamException;
-import com.vycepay.common.exception.GlobalExceptionHandler;
-import com.vycepay.common.exception.VyceErrorCatalog;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -34,28 +34,36 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Verifies {@link GlobalExceptionHandler} maps {@link ChoiceBankUpstreamException} to HTTP status and body fields.
+ * Prefer Choice {@code msg} as customer-facing {@code message}.
  */
-@WebMvcTest(controllers = TransactionController.class)
-@Import({GlobalExceptionHandler.class, VyceErrorCatalog.class})
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
 class TransactionControllerChoiceUpstreamWebMvcTest {
 
-    @Autowired
     private MockMvc mockMvc;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockBean
+    @Mock
     private TransactionFacade transactionFacade;
-    @MockBean
+    @Mock
     private CustomerRepository customerRepository;
-    @MockBean
+    @Mock
     private WalletRepository walletRepository;
-    @MockBean
+    @Mock
     private TransactionRepository transactionRepository;
-    @MockBean
+    @Mock
     private KycVerificationRepository kycVerificationRepository;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        VyceErrorCatalog catalog = new VyceErrorCatalog();
+        catalog.loadFromClasspath();
+        TransactionController controller = new TransactionController(
+                transactionFacade, customerRepository, walletRepository,
+                transactionRepository, kycVerificationRepository);
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler(catalog))
+                .build();
+    }
 
     @Test
     void send_whenChoiceUpstream_returnsMappedStatusAndFields() throws Exception {
@@ -94,7 +102,7 @@ class TransactionControllerChoiceUpstreamWebMvcTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("CHOICE_ACCOUNT_NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("We couldn't find that bank account. Please check the details."))
+                .andExpect(jsonPath("$.message").value("Account not found"))
                 .andExpect(jsonPath("$.choiceCode").value("13000"))
                 .andExpect(jsonPath("$.choicePath").value("trans/v2/applyForTransfer"))
                 .andExpect(jsonPath("$.choiceRequestId").value("cb-req-99"))

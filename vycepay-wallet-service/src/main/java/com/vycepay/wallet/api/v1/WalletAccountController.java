@@ -2,6 +2,8 @@ package com.vycepay.wallet.api.v1;
 
 import com.vycepay.common.api.ApiSuccessResponse;
 import com.vycepay.common.api.ApiSuccessResponses;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
+import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.wallet.api.v1.dto.ConfirmMobileChangeRequest;
 import com.vycepay.wallet.api.v1.dto.EditSubAccountNameRequest;
@@ -25,6 +27,7 @@ import java.util.Map;
 
 /**
  * Choice Bank account management APIs (proxied through VycePay with customer scoping).
+ * Envelope {@code message} prefers Choice Bank {@code msg} when present.
  */
 @RestController
 @RequestMapping("/api/v1/wallets/account")
@@ -44,16 +47,16 @@ public class WalletAccountController {
     public ResponseEntity<ApiSuccessResponse<Object>> getDetails(@RequestHeader("X-Customer-Id") String externalId) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.getAccountDetails(ctx);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_ACCOUNT_DETAILS", "Account details retrieved.", data));
+        return ok("WALLET_ACCOUNT_DETAILS", "Account details retrieved.",
+                accountManagementFacade.getAccountDetails(ctx));
     }
 
     @GetMapping("/list-by-user")
     public ResponseEntity<ApiSuccessResponse<Object>> listByUser(@RequestHeader("X-Customer-Id") String externalId) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.queryAccountListByUserId(ctx);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_ACCOUNT_LIST", "Accounts retrieved.", data));
+        return ok("WALLET_ACCOUNT_LIST", "Accounts retrieved.",
+                accountManagementFacade.queryAccountListByUserId(ctx));
     }
 
     @GetMapping("/abnormal")
@@ -63,24 +66,24 @@ public class WalletAccountController {
             @RequestParam(defaultValue = "20") int pageSize) {
         requireFacade();
         contextService.requireContext(externalId);
-        Object data = accountManagementFacade.getAbnormalAccountList(pageNo, pageSize);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_ABNORMAL_ACCOUNTS", "Abnormal account list retrieved.", data));
+        return ok("WALLET_ABNORMAL_ACCOUNTS", "Abnormal account list retrieved.",
+                accountManagementFacade.getAbnormalAccountList(pageNo, pageSize));
     }
 
     @PostMapping("/short-code/apply")
     public ResponseEntity<ApiSuccessResponse<Object>> applyShortCode(@RequestHeader("X-Customer-Id") String externalId) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.applyForShortCode(ctx);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_SHORT_CODE_APPLIED", "Short code applied.", data));
+        return ok("WALLET_SHORT_CODE_APPLIED", "Short code applied.",
+                accountManagementFacade.applyForShortCode(ctx));
     }
 
     @PostMapping("/short-code/query")
     public ResponseEntity<ApiSuccessResponse<Object>> queryShortCode(@RequestHeader("X-Customer-Id") String externalId) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.queryForShortCode(ctx);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_SHORT_CODE_QUERY", "Short code retrieved.", data));
+        return ok("WALLET_SHORT_CODE_QUERY", "Short code retrieved.",
+                accountManagementFacade.queryForShortCode(ctx));
     }
 
     @PostMapping("/short-code/resolve")
@@ -89,16 +92,16 @@ public class WalletAccountController {
             @RequestBody ShortCodeResolveRequest request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.queryAccountByShortCode(ctx, request.getShortCode());
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_SHORT_CODE_RESOLVED", "Account resolved from short code.", data));
+        return ok("WALLET_SHORT_CODE_RESOLVED", "Account resolved from short code.",
+                accountManagementFacade.queryAccountByShortCode(ctx, request.getShortCode()));
     }
 
     @PostMapping("/activate")
     public ResponseEntity<ApiSuccessResponse<Object>> activate(@RequestHeader("X-Customer-Id") String externalId) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.activateAccount(ctx);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_ACCOUNT_ACTIVATED", "Dormant account activation requested.", data));
+        return ok("WALLET_ACCOUNT_ACTIVATED", "Dormant account activation requested.",
+                accountManagementFacade.activateAccount(ctx));
     }
 
     @PostMapping("/email")
@@ -107,8 +110,8 @@ public class WalletAccountController {
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.addOrUpdateEmail(ctx, body);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_EMAIL_UPDATED", "Email update requested.", data));
+        return ok("WALLET_EMAIL_UPDATED", "Email update requested.",
+                accountManagementFacade.addOrUpdateEmail(ctx, body));
     }
 
     @PostMapping("/mobile-change")
@@ -117,8 +120,8 @@ public class WalletAccountController {
             @RequestBody MobileChangeV2Request request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.mobileChangeV2(ctx, request.getNewMobileCountryCode(), request.getNewMobileNumber());
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_MOBILE_CHANGE_REQUESTED", "Mobile change requested.", data));
+        return ok("WALLET_MOBILE_CHANGE_REQUESTED", "Mobile change requested.",
+                accountManagementFacade.mobileChangeV2(ctx, request.getNewMobileCountryCode(), request.getNewMobileNumber()));
     }
 
     @PostMapping("/mobile-change/confirm")
@@ -127,9 +130,10 @@ public class WalletAccountController {
             @RequestBody ConfirmMobileChangeRequest request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        accountManagementFacade.confirmMobileChange(ctx, request.getRequestId(),
+        ChoiceBankResult result = accountManagementFacade.confirmMobileChange(ctx, request.getRequestId(),
                 request.getProveIdCode(), request.getConfirmChangeCode());
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_MOBILE_CHANGE_CONFIRMED", "Mobile change confirmed."));
+        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_MOBILE_CHANGE_CONFIRMED",
+                ChoiceCustomerMessage.prefer(result.msg(), "Mobile change confirmed.")));
     }
 
     @PostMapping("/verify-email-address")
@@ -138,8 +142,8 @@ public class WalletAccountController {
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.verifyEmailAddress(ctx, body);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_VERIFY_EMAIL_REQUESTED", "Email verification requested.", data));
+        return ok("WALLET_VERIFY_EMAIL_REQUESTED", "Email verification requested.",
+                accountManagementFacade.verifyEmailAddress(ctx, body));
     }
 
     @PostMapping("/verify-email-or-mobile")
@@ -148,8 +152,8 @@ public class WalletAccountController {
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.verifyEmailOrMobile(ctx, body);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_VERIFY_CONTACT_REQUESTED", "Contact verification requested.", data));
+        return ok("WALLET_VERIFY_CONTACT_REQUESTED", "Contact verification requested.",
+                accountManagementFacade.verifyEmailOrMobile(ctx, body));
     }
 
     @PostMapping("/sub-account-name")
@@ -158,8 +162,8 @@ public class WalletAccountController {
             @RequestBody EditSubAccountNameRequest request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.editSubAccountName(ctx, request.getSubAccountName());
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_SUB_ACCOUNT_NAME_UPDATED", "Sub-account name update requested.", data));
+        return ok("WALLET_SUB_ACCOUNT_NAME_UPDATED", "Sub-account name update requested.",
+                accountManagementFacade.editSubAccountName(ctx, request.getSubAccountName()));
     }
 
     @PostMapping("/verify-otp")
@@ -168,8 +172,13 @@ public class WalletAccountController {
             @RequestBody VerifyAccountOtpRequest request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
-        Object data = accountManagementFacade.verifyAccountOtp(ctx, request.getApplicationId(), request.getOtpCode());
-        return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_ACCOUNT_OTP_VERIFIED", "Account OTP verified.", data));
+        return ok("WALLET_ACCOUNT_OTP_VERIFIED", "Account OTP verified.",
+                accountManagementFacade.verifyAccountOtp(ctx, request.getApplicationId(), request.getOtpCode()));
+    }
+
+    private ResponseEntity<ApiSuccessResponse<Object>> ok(String code, String fallback, ChoiceBankResult result) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok(code,
+                ChoiceCustomerMessage.prefer(result.msg(), fallback), result.data()));
     }
 
     private void requireFacade() {

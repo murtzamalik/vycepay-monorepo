@@ -1,6 +1,7 @@
 package com.vycepay.wallet.application.facade;
 
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
@@ -41,7 +42,7 @@ public class AccountStatementFacade {
      * Applies for a periodic account statement. Persists Choice {@code jobId} for query and webhook correlation.
      */
     @Transactional
-    public Map<String, Object> applyAccountStatement(WalletAccountContext ctx,
+    public ChoiceBankResult applyAccountStatement(WalletAccountContext ctx,
                                                      long statementStartTime,
                                                      long statementEndTime,
                                                      Integer fileType) {
@@ -55,7 +56,7 @@ public class AccountStatementFacade {
             params.put("fileType", choiceFileType);
         }
         ChoiceBankResponse response = bankingProvider.post(PATH_APPLY_ACCOUNT_STATEMENT, params);
-        choiceAssessor.requireSuccess(response, PATH_APPLY_ACCOUNT_STATEMENT);
+        ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_APPLY_ACCOUNT_STATEMENT);
         String jobId = extractStatementJobId(response);
         if (jobId == null || jobId.isBlank()) {
             throw new BusinessException("CHOICE_BANK_ERROR", "Missing statement job id from Choice Bank",
@@ -71,27 +72,27 @@ public class AccountStatementFacade {
         Map<String, Object> out = new HashMap<>();
         out.put("choiceRequestId", jobId);
         out.put("jobId", jobId);
-        if (response.getData() instanceof Map<?, ?> d) {
+        if (choiceResult.data() instanceof Map<?, ?> d) {
             @SuppressWarnings("unchecked")
             Map<String, Object> dm = (Map<String, Object>) d;
             out.putAll(dm);
         }
-        return out;
+        return new ChoiceBankResult(out, choiceResult.msg(), choiceResult.choiceRequestId());
     }
 
     /**
      * Queries statement generation status from Choice Bank and merges local job state when present.
      */
-    public Map<String, Object> queryAccountStatement(WalletAccountContext ctx, String requestId) {
+    public ChoiceBankResult queryAccountStatement(WalletAccountContext ctx, String requestId) {
         statementJobRepository.findByChoiceRequestIdAndCustomerId(requestId, ctx.customerId())
                 .orElseThrow(() -> new BusinessException("STATEMENT_JOB_NOT_FOUND",
                         "Unknown statement request for this customer", HttpStatus.NOT_FOUND));
 
         var params = Map.<String, Object>of("jobId", requestId);
         ChoiceBankResponse response = bankingProvider.post(PATH_QUERY_ACCOUNT_STATEMENT, params);
-        choiceAssessor.requireSuccess(response, PATH_QUERY_ACCOUNT_STATEMENT);
+        ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_QUERY_ACCOUNT_STATEMENT);
         Map<String, Object> out = new HashMap<>();
-        if (response.getData() instanceof Map<?, ?> d) {
+        if (choiceResult.data() instanceof Map<?, ?> d) {
             @SuppressWarnings("unchecked")
             Map<String, Object> dm = (Map<String, Object>) d;
             out.putAll(dm);
@@ -103,7 +104,7 @@ public class AccountStatementFacade {
                 out.put("localDownloadUrl", job.getDownloadUrl());
             }
         });
-        return out;
+        return new ChoiceBankResult(out, choiceResult.msg(), choiceResult.choiceRequestId());
     }
 
     private void mergeChoiceQueryIntoJob(AccountStatementJob job, Map<String, Object> choiceData) {

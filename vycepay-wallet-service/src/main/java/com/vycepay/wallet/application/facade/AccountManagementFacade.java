@@ -1,6 +1,6 @@
 package com.vycepay.wallet.application.facade;
 
-import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
@@ -14,6 +14,7 @@ import java.util.Map;
 
 /**
  * Orchestrates Choice Bank account management APIs (query, short code, contact, SME sub-account, verify OTP).
+ * Returns {@link ChoiceBankResult} so controllers can prefer Choice {@code msg} for customer display.
  */
 @Service
 @ConditionalOnBean(BankingProviderPort.class)
@@ -43,113 +44,121 @@ public class AccountManagementFacade {
         this.choiceAssessor = choiceAssessor;
     }
 
-    public Object getAccountDetails(WalletAccountContext ctx) {
+    public ChoiceBankResult getAccountDetails(WalletAccountContext ctx) {
         var params = Map.<String, Object>of("accountId", ctx.choiceAccountId());
-        return dataOrThrow(bankingProvider.post(PATH_GET_ACCOUNT_DETAILS, params), PATH_GET_ACCOUNT_DETAILS);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_GET_ACCOUNT_DETAILS, params), PATH_GET_ACCOUNT_DETAILS);
     }
 
-    public Object queryAccountListByUserId(WalletAccountContext ctx) {
+    public ChoiceBankResult queryAccountListByUserId(WalletAccountContext ctx) {
         String userId = ctx.choiceUserIdOrThrow();
         if (userId == null) {
             throw new BusinessException("CHOICE_USER_ID_MISSING", "Choice user id not available yet; complete onboarding.",
                     HttpStatus.CONFLICT);
         }
         var params = Map.<String, Object>of("userId", userId);
-        return dataOrThrow(bankingProvider.post(PATH_QUERY_ACCOUNT_LIST, params), PATH_QUERY_ACCOUNT_LIST);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_QUERY_ACCOUNT_LIST, params), PATH_QUERY_ACCOUNT_LIST);
     }
 
-    public Object getAbnormalAccountList(int pageNo, int pageSize) {
+    public ChoiceBankResult getAbnormalAccountList(int pageNo, int pageSize) {
         var params = new HashMap<String, Object>();
         params.put("pageNo", pageNo);
         params.put("pageSize", pageSize);
-        return dataOrThrow(bankingProvider.post(PATH_GET_ABNORMAL_ACCOUNT_LIST, params), PATH_GET_ABNORMAL_ACCOUNT_LIST);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_GET_ABNORMAL_ACCOUNT_LIST, params), PATH_GET_ABNORMAL_ACCOUNT_LIST);
     }
 
-    public Object applyForShortCode(WalletAccountContext ctx) {
+    public ChoiceBankResult applyForShortCode(WalletAccountContext ctx) {
         var params = Map.<String, Object>of("accountId", ctx.choiceAccountId());
-        return dataOrThrow(bankingProvider.post(PATH_APPLY_SHORT_CODE, params), PATH_APPLY_SHORT_CODE);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_APPLY_SHORT_CODE, params), PATH_APPLY_SHORT_CODE);
     }
 
-    public Object queryForShortCode(WalletAccountContext ctx) {
+    public ChoiceBankResult queryForShortCode(WalletAccountContext ctx) {
         var params = Map.<String, Object>of("accountId", ctx.choiceAccountId());
-        return dataOrThrow(bankingProvider.post(PATH_QUERY_SHORT_CODE, params), PATH_QUERY_SHORT_CODE);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_QUERY_SHORT_CODE, params), PATH_QUERY_SHORT_CODE);
     }
 
-    public Object queryAccountByShortCode(WalletAccountContext ctx, String shortCode) {
+    public ChoiceBankResult queryAccountByShortCode(WalletAccountContext ctx, String shortCode) {
         var params = Map.<String, Object>of("shortCode", shortCode);
-        Object data = dataOrThrow(bankingProvider.post(PATH_QUERY_ACCOUNT_BY_SHORT_CODE, params), PATH_QUERY_ACCOUNT_BY_SHORT_CODE);
-        if (data instanceof Map<?, ?> m) {
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_QUERY_ACCOUNT_BY_SHORT_CODE, params), PATH_QUERY_ACCOUNT_BY_SHORT_CODE);
+        if (result.data() instanceof Map<?, ?> m) {
             Object aid = m.get("accountId");
             if (aid != null && !ctx.choiceAccountId().equals(aid.toString())) {
                 throw new BusinessException("SHORT_CODE_MISMATCH", "Short code does not belong to this wallet.",
                         HttpStatus.FORBIDDEN);
             }
         }
-        return data;
+        return result;
     }
 
-    public Object activateAccount(WalletAccountContext ctx) {
+    public ChoiceBankResult activateAccount(WalletAccountContext ctx) {
         var params = Map.<String, Object>of("accountId", ctx.choiceAccountId());
-        return dataOrThrow(bankingProvider.post(PATH_ACTIVATE_ACCOUNT, params), PATH_ACTIVATE_ACCOUNT);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_ACTIVATE_ACCOUNT, params), PATH_ACTIVATE_ACCOUNT);
     }
 
-    public Object addOrUpdateEmail(WalletAccountContext ctx, Map<String, Object> body) {
+    public ChoiceBankResult addOrUpdateEmail(WalletAccountContext ctx, Map<String, Object> body) {
         var params = new HashMap<String, Object>();
         params.putAll(body);
-        return dataOrThrow(bankingProvider.post(PATH_ADD_OR_UPDATE_EMAIL, params), PATH_ADD_OR_UPDATE_EMAIL);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_ADD_OR_UPDATE_EMAIL, params), PATH_ADD_OR_UPDATE_EMAIL);
     }
 
-    public Object mobileChangeV2(WalletAccountContext ctx, String newMobileCountryCode, String newMobileNumber) {
+    public ChoiceBankResult mobileChangeV2(WalletAccountContext ctx, String newMobileCountryCode, String newMobileNumber) {
         var params = new HashMap<String, Object>();
         params.put("accountId", ctx.choiceAccountId());
         params.put("newMobileCountryCode", newMobileCountryCode);
         params.put("newMobileNumber", newMobileNumber);
-        return dataOrThrow(bankingProvider.post(PATH_MOBILE_CHANGE_V2, params), PATH_MOBILE_CHANGE_V2);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_MOBILE_CHANGE_V2, params), PATH_MOBILE_CHANGE_V2);
     }
 
-    public Object confirmMobileChange(WalletAccountContext ctx, String requestId,
-                                      String proveIdCode, String confirmChangeCode) {
+    public ChoiceBankResult confirmMobileChange(WalletAccountContext ctx, String requestId,
+                                                String proveIdCode, String confirmChangeCode) {
         var params = new HashMap<String, Object>();
         params.put("requestId", requestId);
         params.put("ProveIdCode", proveIdCode);
         params.put("confirmChangeCode", confirmChangeCode);
-        choiceAssessor.requireSuccess(bankingProvider.post(PATH_CONFIRM_MOBILE_CHANGE, params), PATH_CONFIRM_MOBILE_CHANGE);
-        return Map.of();
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_CONFIRM_MOBILE_CHANGE, params), PATH_CONFIRM_MOBILE_CHANGE);
     }
 
-    public Object verifyEmailAddress(WalletAccountContext ctx, Map<String, Object> body) {
+    public ChoiceBankResult verifyEmailAddress(WalletAccountContext ctx, Map<String, Object> body) {
         var params = new HashMap<String, Object>();
         params.putAll(body);
-        return dataOrThrow(bankingProvider.post(PATH_VERIFY_EMAIL_ADDRESS, params), PATH_VERIFY_EMAIL_ADDRESS);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_VERIFY_EMAIL_ADDRESS, params), PATH_VERIFY_EMAIL_ADDRESS);
     }
 
-    public Object verifyEmailOrMobile(WalletAccountContext ctx, Map<String, Object> body) {
+    public ChoiceBankResult verifyEmailOrMobile(WalletAccountContext ctx, Map<String, Object> body) {
         var params = new HashMap<String, Object>();
         params.putAll(body);
-        return dataOrThrow(bankingProvider.post(PATH_VERIFY_EMAIL_OR_MOBILE, params), PATH_VERIFY_EMAIL_OR_MOBILE);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_VERIFY_EMAIL_OR_MOBILE, params), PATH_VERIFY_EMAIL_OR_MOBILE);
     }
 
-    public Object editSubAccountName(WalletAccountContext ctx, String subAccountName) {
+    public ChoiceBankResult editSubAccountName(WalletAccountContext ctx, String subAccountName) {
         var params = new HashMap<String, Object>();
         params.put("accountId", ctx.choiceAccountId());
         if (subAccountName != null) {
             params.put("subAccountName", subAccountName);
         }
-        return dataOrThrow(bankingProvider.post(PATH_EDIT_SUB_ACCOUNT_NAME, params), PATH_EDIT_SUB_ACCOUNT_NAME);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_EDIT_SUB_ACCOUNT_NAME, params), PATH_EDIT_SUB_ACCOUNT_NAME);
     }
 
     /**
      * Choice account-level OTP verification (e.g. after email/mobile flows). Not common/confirmOperation.
      */
-    public Object verifyAccountOtp(WalletAccountContext ctx, String applicationId, String otpCode) {
+    public ChoiceBankResult verifyAccountOtp(WalletAccountContext ctx, String applicationId, String otpCode) {
         var params = new HashMap<String, Object>();
         params.put("applicationId", applicationId);
         params.put("otpCode", otpCode);
-        return dataOrThrow(bankingProvider.post(PATH_VERIFY_ACCOUNT_OTP, params), PATH_VERIFY_ACCOUNT_OTP);
-    }
-
-    private Object dataOrThrow(ChoiceBankResponse response, String path) {
-        choiceAssessor.requireSuccess(response, path);
-        return response.getData() != null ? response.getData() : Map.of();
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_VERIFY_ACCOUNT_OTP, params), PATH_VERIFY_ACCOUNT_OTP);
     }
 }

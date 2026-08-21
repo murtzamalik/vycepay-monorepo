@@ -16,6 +16,7 @@ import com.vycepay.transaction.api.v1.dto.SendMoneyRequest;
 import com.vycepay.transaction.api.v1.dto.TransactionResponse;
 import com.vycepay.transaction.api.v1.dto.ValidateAccountRequest;
 import com.vycepay.transaction.api.v1.dto.ValidateAccountResponse;
+import com.vycepay.transaction.application.TransactionChoiceOutcome;
 import com.vycepay.transaction.application.facade.TransactionFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import com.vycepay.transaction.domain.model.Transaction;
@@ -27,6 +28,8 @@ import com.vycepay.transaction.infrastructure.persistence.TransactionSpecificati
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
 import com.vycepay.common.api.ApiSuccessResponse;
 import com.vycepay.common.api.ApiSuccessResponses;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
+import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Parameter;
 
@@ -96,11 +99,11 @@ public class TransactionController {
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var wallet = walletRepository.findByCustomerId(customer.getId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Wallet not found", HttpStatus.NOT_FOUND));
-        var tx = transactionFacade.applyTransfer(
+        var outcome = transactionFacade.applyTransfer(
                 customer.getId(), wallet.getId(), wallet.getChoiceAccountId(),
                 request.getPayeeBankCode(), request.getPayeeAccountId(), request.getAccountType(),
                 request.getAmount(), request.getRemark(), idempotencyKey);
-        return ResponseEntity.ok(toResponse(tx));
+        return ResponseEntity.ok(toResponse(outcome));
     }
 
     /**
@@ -117,9 +120,9 @@ public class TransactionController {
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var wallet = walletRepository.findByCustomerId(customer.getId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Wallet not found", HttpStatus.NOT_FOUND));
-        var tx = transactionFacade.depositFromMpesa(
+        var outcome = transactionFacade.depositFromMpesa(
                 customer.getId(), wallet.getId(), wallet.getChoiceAccountId(), mobile, amount, idempotencyKey);
-        return ResponseEntity.ok(toResponse(tx));
+        return ResponseEntity.ok(toResponse(outcome));
     }
 
     /**
@@ -138,8 +141,9 @@ public class TransactionController {
         }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        transactionFacade.sendTransferOtp(customer.getId(), transactionId, otpType);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_SENT", "Transaction OTP sent successfully."));
+        String choiceMsg = transactionFacade.sendTransferOtp(customer.getId(), transactionId, otpType);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_SENT",
+                ChoiceCustomerMessage.prefer(choiceMsg, "Transaction OTP sent successfully.")));
     }
 
     /**
@@ -156,8 +160,9 @@ public class TransactionController {
         }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        transactionFacade.resendTransferOtp(customer.getId(), transactionId, otpType);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_RESENT", "Transaction OTP resent successfully."));
+        String choiceMsg = transactionFacade.resendTransferOtp(customer.getId(), transactionId, otpType);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_RESENT",
+                ChoiceCustomerMessage.prefer(choiceMsg, "Transaction OTP resent successfully.")));
     }
 
     /**
@@ -174,8 +179,9 @@ public class TransactionController {
         }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        transactionFacade.confirmTransferOtp(customer.getId(), transactionId, otpCode);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_CONFIRMED", "Transaction OTP confirmed successfully."));
+        String choiceMsg = transactionFacade.confirmTransferOtp(customer.getId(), transactionId, otpCode);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_OTP_CONFIRMED",
+                ChoiceCustomerMessage.prefer(choiceMsg, "Transaction OTP confirmed successfully.")));
     }
 
     /**
@@ -197,24 +203,35 @@ public class TransactionController {
      * Queries Choice Bank for transaction status (getTransResult). Use when callback delayed.
      */
     @GetMapping("/{transactionId}/status")
-    public ResponseEntity<Map<String, Object>> getStatus(
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> getStatus(
             @RequestHeader("X-Customer-Id") String externalId,
             @Parameter(description = "Transaction externalId (UUID) from POST /transactions/send response")
             @PathVariable String transactionId) {
-        if (transactionFacade == null) return ResponseEntity.status(503).build();
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        var status = transactionFacade.queryTransactionStatus(customer.getId(), transactionId);
-        return ResponseEntity.ok(status);
+        ChoiceBankResult result = transactionFacade.queryTransactionStatus(customer.getId(), transactionId);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_STATUS_OK",
+                ChoiceCustomerMessage.prefer(result.msg(), "Transaction status retrieved."),
+                (Map<String, Object>) result.data()));
     }
 
     /**
      * Fetches bank codes from Choice Bank for transfer UI (payee bank selection).
      */
     @GetMapping("/bank-codes")
-    public ResponseEntity<Map<String, Object>> getBankCodes() {
-        if (transactionFacade == null) return ResponseEntity.status(503).build();
-        return ResponseEntity.ok(transactionFacade.getBankCodes());
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> getBankCodes() {
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
+        ChoiceBankResult result = transactionFacade.getBankCodes();
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_BANK_CODES_OK",
+                ChoiceCustomerMessage.prefer(result.msg(), "Bank codes retrieved."),
+                (Map<String, Object>) result.data()));
     }
 
     /**
@@ -223,13 +240,16 @@ public class TransactionController {
      * Requires {@code kyc_verification.choice_user_id} from the latest KYC row (same id Choice expects as {@code userId}).
      */
     @GetMapping("/choice-history")
-    public ResponseEntity<Map<String, Object>> getChoiceHistory(
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> getChoiceHistory(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestParam long startTime,
             @RequestParam long endTime,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        if (transactionFacade == null) return ResponseEntity.status(503).build();
+        if (transactionFacade == null) {
+            throw new BusinessException("SERVICE_UNAVAILABLE", "Transaction service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
+        }
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var wallet = walletRepository.findByCustomerId(customer.getId())
@@ -242,9 +262,11 @@ public class TransactionController {
                     "Choice user id not available yet; complete onboarding.",
                     HttpStatus.CONFLICT);
         }
-        var result = transactionFacade.getChoiceTransList(
+        ChoiceBankResult result = transactionFacade.getChoiceTransList(
                 wallet.getChoiceAccountId(), choiceUserId, startTime, endTime, page, size);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("TXN_CHOICE_HISTORY_OK",
+                ChoiceCustomerMessage.prefer(result.msg(), "Choice transaction history retrieved."),
+                (Map<String, Object>) result.data()));
     }
 
     /**
@@ -266,6 +288,12 @@ public class TransactionController {
         Page<Transaction> txs = transactionRepository.findAll(spec,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(txs.map(this::toResponse));
+    }
+
+    private TransactionResponse toResponse(TransactionChoiceOutcome outcome) {
+        TransactionResponse r = toResponse(outcome.transaction());
+        r.setMessage(ChoiceCustomerMessage.prefer(outcome.choiceMsg(), null));
+        return r;
     }
 
     private TransactionResponse toResponse(Transaction tx) {

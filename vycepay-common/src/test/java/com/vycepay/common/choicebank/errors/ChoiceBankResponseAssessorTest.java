@@ -30,6 +30,19 @@ class ChoiceBankResponseAssessorTest {
     }
 
     @Test
+    void requireSuccessResultReturnsMsgAndData() {
+        ChoiceBankResponse r = new ChoiceBankResponse();
+        r.setCode("00000");
+        r.setMsg("Short code applied successfully.");
+        r.setRequestId("RID-1");
+        r.setData(java.util.Map.of("shortCode", "VP1"));
+        ChoiceBankResult result = assessor.requireSuccessResult(r, "account/applyForShortCode");
+        assertThat(result.msg()).isEqualTo("Short code applied successfully.");
+        assertThat(result.choiceRequestId()).isEqualTo("RID-1");
+        assertThat(result.data()).isEqualTo(java.util.Map.of("shortCode", "VP1"));
+    }
+
+    @Test
     void requireSuccessThrowsMappedException() {
         ChoiceBankResponse r = new ChoiceBankResponse();
         r.setCode("13000");

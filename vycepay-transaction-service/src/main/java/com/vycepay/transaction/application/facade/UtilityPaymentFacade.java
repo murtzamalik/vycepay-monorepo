@@ -2,10 +2,12 @@ package com.vycepay.transaction.application.facade;
 
 import com.vycepay.common.choicebank.RequestIdGenerator;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
+import com.vycepay.transaction.application.TransactionChoiceOutcome;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -42,60 +44,63 @@ public class UtilityPaymentFacade {
     }
 
     @Transactional
-    public Transaction airtimePayment(Long customerId, Long walletId, String choiceAccountId,
+    public TransactionChoiceOutcome airtimePayment(Long customerId, Long walletId, String choiceAccountId,
                                     Map<String, Object> params, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeDebit("utilityPayment/v2/airtimePayment", TYPE_UTILITY_AIRTIME,
                         customerId, walletId, choiceAccountId, params, idempotencyKey));
     }
 
     @Transactional
-    public Transaction airtimeBulkPayment(Long customerId, Long walletId, String choiceAccountId,
+    public TransactionChoiceOutcome airtimeBulkPayment(Long customerId, Long walletId, String choiceAccountId,
                                           Map<String, Object> params, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeDebit("utilityPayment/v2/airtimeBulkPayment", TYPE_UTILITY_AIRTIME_BULK,
                         customerId, walletId, choiceAccountId, params, idempotencyKey));
     }
 
     @Transactional
-    public Transaction billPayment(Long customerId, Long walletId, String choiceAccountId,
+    public TransactionChoiceOutcome billPayment(Long customerId, Long walletId, String choiceAccountId,
                                    Map<String, Object> params, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeDebit("utilityPayment/v2/billPayment", TYPE_UTILITY_BILL_PAYMENT,
                         customerId, walletId, choiceAccountId, params, idempotencyKey));
     }
 
-    public Map<String, Object> billQuery(String choiceAccountId, Map<String, Object> params) {
+    public ChoiceBankResult billQuery(String choiceAccountId, Map<String, Object> params) {
         var p = new HashMap<String, Object>();
         if (params != null) {
             p.putAll(params);
         }
         p.putIfAbsent("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post("utilityPayment/billQuery", p);
-        return unwrap(response, "utilityPayment/billQuery");
+        return choiceAssessor.requireSuccessResult(response, "utilityPayment/billQuery");
     }
 
-    public Map<String, Object> paymentQuery(String choiceAccountId, Map<String, Object> params) {
+    public ChoiceBankResult paymentQuery(String choiceAccountId, Map<String, Object> params) {
         var p = new HashMap<String, Object>();
         if (params != null) {
             p.putAll(params);
         }
         p.putIfAbsent("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post("utilityPayment/paymentQuery", p);
-        return unwrap(response, "utilityPayment/paymentQuery");
+        return choiceAssessor.requireSuccessResult(response, "utilityPayment/paymentQuery");
     }
 
-    public Map<String, Object> bulkPaymentQuery(String choiceAccountId, Map<String, Object> params) {
+    public ChoiceBankResult bulkPaymentQuery(String choiceAccountId, Map<String, Object> params) {
         var p = new HashMap<String, Object>();
         if (params != null) {
             p.putAll(params);
         }
         p.putIfAbsent("accountId", choiceAccountId);
         ChoiceBankResponse response = bankingProvider.post("utilityPayment/bulkPaymentQuery", p);
-        return unwrap(response, "utilityPayment/bulkPaymentQuery");
+        return choiceAssessor.requireSuccessResult(response, "utilityPayment/bulkPaymentQuery");
     }
 
-    private Transaction executeDebit(String path, String type,
+    private TransactionChoiceOutcome executeDebit(String path, String type,
                                      Long customerId, Long walletId, String choiceAccountId,
                                      Map<String, Object> requestParams, String idempotencyKey) {
         var params = new HashMap<String, Object>();
@@ -127,21 +132,12 @@ public class UtilityPaymentFacade {
         tx.setStatus(STATUS_PENDING);
         tx.setRemark(remarkFrom(params));
         tx.setIdempotencyKey(idempotencyKey);
-        return transactionRepository.save(tx);
+        return new TransactionChoiceOutcome(transactionRepository.save(tx), response.getMsg());
     }
 
     private static String remarkFrom(Map<String, Object> params) {
         Object r = params.get("remark");
         return r != null ? r.toString() : "UTILITY";
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> unwrap(ChoiceBankResponse response, String path) {
-        choiceAssessor.requireSuccess(response, path);
-        if (response.getData() instanceof Map) {
-            return (Map<String, Object>) response.getData();
-        }
-        return Map.of();
     }
 
     public static BigDecimal extractAmount(Map<String, Object> params) {

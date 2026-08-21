@@ -21,14 +21,22 @@ public class KycStatusResponse {
     @Schema(description = "Choice Bank account ID when approved")
     private String choiceAccountId;
 
+    @Schema(description = "Customer-facing message from Choice Bank when present")
+    private String message;
+
     public KycStatusResponse() {
     }
 
     public KycStatusResponse(String status, String choiceOnboardingRequestId, String choiceAccountId) {
+        this(status, choiceOnboardingRequestId, choiceAccountId, null);
+    }
+
+    public KycStatusResponse(String status, String choiceOnboardingRequestId, String choiceAccountId, String message) {
         this.status = status;
         this.displayStatus = KycDisplayStatus.fromRawStatus(status);
         this.choiceOnboardingRequestId = choiceOnboardingRequestId;
         this.choiceAccountId = choiceAccountId;
+        this.message = message;
     }
 
     public String getStatus() {
@@ -61,5 +69,13 @@ public class KycStatusResponse {
 
     public void setChoiceAccountId(String choiceAccountId) {
         this.choiceAccountId = choiceAccountId;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

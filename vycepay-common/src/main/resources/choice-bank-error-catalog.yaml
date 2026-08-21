@@ -1,6 +1,6 @@
 # Choice Bank BaaS API error mapping (top-level response.code).
 # Exact entries override prefix fallbacks. Prefixes are matched longest-first.
-# userMessage is customer-facing; raw Choice msg is kept for logs only.
+# userMessage is the Vyce fallback when Choice msg is blank; when Choice sends msg, that text is shown to the customer.
 
 default:
   clientCode: CHOICE_BANK_ERROR

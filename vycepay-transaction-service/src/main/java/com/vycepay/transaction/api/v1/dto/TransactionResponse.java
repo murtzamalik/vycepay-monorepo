@@ -48,6 +48,9 @@ public class TransactionResponse {
     @Schema(description = "Completion timestamp")
     private Instant completedAt;
 
+    @Schema(description = "Customer-facing message from Choice Bank when present (create/deposit flows)")
+    private String message;
+
     public String getExternalId() {
         return externalId;
     }
@@ -142,5 +145,13 @@ public class TransactionResponse {
 
     public void setCompletedAt(Instant completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

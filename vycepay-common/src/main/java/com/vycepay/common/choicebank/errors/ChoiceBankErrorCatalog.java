@@ -145,12 +145,11 @@ public class ChoiceBankErrorCatalog {
         if (status == null) {
             status = HttpStatus.BAD_GATEWAY;
         }
-        // Prefer curated userMessage; keep Choice msg only for logs via choiceMessage field.
-        String message = (m.getUserMessage() != null && !m.getUserMessage().isBlank())
+        // Choice-message-first: show Choice msg when present; catalog userMessage is fallback only.
+        String catalogFallback = (m.getUserMessage() != null && !m.getUserMessage().isBlank())
                 ? m.getUserMessage()
-                : (choiceMsg != null && !choiceMsg.isBlank()
-                ? choiceMsg
-                : status.getReasonPhrase());
+                : status.getReasonPhrase();
+        String message = ChoiceCustomerMessage.prefer(choiceMsg, catalogFallback);
         return new ChoiceBankUpstreamException(
                 m.getClientCode(),
                 message,

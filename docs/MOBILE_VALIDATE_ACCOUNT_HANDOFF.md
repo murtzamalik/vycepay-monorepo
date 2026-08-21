@@ -102,6 +102,7 @@ On **send** for PesaLink (`4`), set `payeeBankCode` to the same bank code used a
 | `freezeStatus` | `0` normal, `1` frozen (backend also errors) |
 | `restrictStatus` | `0` normal, `1` restrict in (cannot receive), `2` restrict out |
 | `valid` | `true` only when receivable |
+| `message` | Optional; Choice Bank text when present — prefer for toasts |
 
 ### Error codes (handle in UI)
 

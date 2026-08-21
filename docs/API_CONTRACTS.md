@@ -19,7 +19,8 @@
 
 Guarantees:
 
-- `message` is always safe to show end users (from `vycepay-error-catalog.yaml` / Choice catalog `userMessage`).
+- For Choice Bank–backed flows: if Choice returns a non-blank `msg`, that text is the customer-facing `message` (errors and successes). Vyce catalog / static copy is used only when Choice `msg` is blank.
+- Pure Vyce errors (auth, validation, local rules): `message` comes from `vycepay-error-catalog.yaml`.
 - `requestId` is always present for support correlation (`X-Request-Id` / MDC).
 - Never returns empty bodies for 4xx/5xx; BFF never uses `BACKEND_ERROR`.
 - Upstream empty error bodies map to `UPSTREAM_ERROR` with a catalog message.

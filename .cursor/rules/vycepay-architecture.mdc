@@ -67,3 +67,13 @@ public void receiveAndProcess(String rawPayload) { }
 - Domain exceptions: `BusinessException` with code and message
 - Map to HTTP in `@ControllerAdvice` with consistent envelope
 - Log at service boundary; include `requestId` in context
+
+## Choice-message-first (customer-facing)
+
+When a flow calls Choice Bank and Choice returns a non-blank `msg` (error **or** success), that text **is** the customer-facing `message` on the API envelope / DTO.
+
+- Prefer Choice `msg` via `ChoiceCustomerMessage.prefer(choiceMsg, fallback)`
+- Vyce YAML catalogs (`choice-bank-error-catalog.yaml` `userMessage`, `vycepay-error-catalog.yaml`) and hardcoded controller strings are **fallback only** when Choice `msg` is blank
+- Catalogs still own HTTP status, client `code`, and `retryable`
+- Pure Vyce errors (auth, validation, local business rules with no Choice call) keep Vyce catalog messages
+- Never invent mobile-side remapping: the app shows envelope / DTO `message` as returned

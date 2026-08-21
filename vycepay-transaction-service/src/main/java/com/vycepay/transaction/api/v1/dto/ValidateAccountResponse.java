@@ -26,6 +26,9 @@ public class ValidateAccountResponse {
     @Schema(description = "True when account can receive funds (not frozen and not restrict-in)")
     private boolean valid;
 
+    @Schema(description = "Customer-facing message from Choice Bank when present")
+    private String message;
+
     public String getAccountId() {
         return accountId;
     }
@@ -72,5 +75,13 @@ public class ValidateAccountResponse {
 
     public void setValid(boolean valid) {
         this.valid = valid;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

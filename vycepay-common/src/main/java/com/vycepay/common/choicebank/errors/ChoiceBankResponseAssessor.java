@@ -2,9 +2,11 @@ package com.vycepay.common.choicebank.errors;
 
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.common.exception.ChoiceBankUpstreamException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -31,6 +33,15 @@ public class ChoiceBankResponseAssessor {
             return;
         }
         throw catalog.toException(response.getCode(), response.getMsg(), response.getRequestId(), path);
+    }
+
+    /**
+     * Like {@link #requireSuccess}, then returns data + Choice {@code msg} for customer-facing envelopes.
+     */
+    public ChoiceBankResult requireSuccessResult(ChoiceBankResponse response, String path) {
+        requireSuccess(response, path);
+        Object data = response.getData() != null ? response.getData() : Map.of();
+        return new ChoiceBankResult(data, response.getMsg(), response.getRequestId());
     }
 
     /**

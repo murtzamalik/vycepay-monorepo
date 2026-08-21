@@ -12,10 +12,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.security.port.SensitiveDataEncryptionPort;
+import com.vycepay.kyc.application.KycSubmitOutcome;
 import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.service.OnboardingCredentialsService;
 import com.vycepay.kyc.domain.model.Customer;
@@ -77,7 +79,7 @@ public class KycOnboardingFacade {
      * @return Choice onboardingRequestId if success
      */
     @Transactional
-    public String submitOnboarding(Long customerId, String userId, Map<String, Object> params,
+    public KycSubmitOutcome submitOnboarding(Long customerId, String userId, Map<String, Object> params,
                                    KycProfileCommand profile, String username, String pin) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
@@ -104,7 +106,7 @@ public class KycOnboardingFacade {
         kycRepository.save(kyc);
         activityRecorder.record(customerId, "KYC_SUBMITTED", "KYC", onboardingRequestId);
         log.info("Onboarding submitted: customerId={} onboardingRequestId={}", customerId, onboardingRequestId);
-        return onboardingRequestId;
+        return new KycSubmitOutcome(onboardingRequestId, response.getMsg());
     }
 
     private void syncCustomerProfile(Customer customer, KycProfileCommand profile) {
@@ -161,58 +163,44 @@ public class KycOnboardingFacade {
     /**
      * Sends OTP via Choice Bank for onboarding or transaction.
      *
-     * @param businessId Onboarding request ID or transaction ID
-     * @param otpType    SMS or EMAIL
+     * @return Choice {@code msg} for customer display
      */
-    public void sendOtp(String businessId, String otpType) {
+    public String sendOtp(String businessId, String otpType) {
         Map<String, Object> params = Map.of("businessId", businessId, "otpType", otpType);
-        choiceAssessor.requireSuccess(bankingProvider.post(PATH_SEND_OTP, params), PATH_SEND_OTP);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_SEND_OTP, params), PATH_SEND_OTP).msg();
     }
 
     /**
      * Resends OTP via Choice Bank (common/resendOtp). Use when initial OTP expired or not received.
      *
-     * @param businessId Onboarding request ID or transaction ID
-     * @param otpType    SMS or EMAIL
+     * @return Choice {@code msg} for customer display
      */
-    public void resendOtp(String businessId, String otpType) {
+    public String resendOtp(String businessId, String otpType) {
         Map<String, Object> params = Map.of("businessId", businessId, "otpType", otpType);
-        choiceAssessor.requireSuccess(bankingProvider.post(PATH_RESEND_OTP, params), PATH_RESEND_OTP);
+        return choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_RESEND_OTP, params), PATH_RESEND_OTP).msg();
     }
 
     /**
      * Confirms OTP via Choice Bank.
      *
-     * @param businessId Onboarding request ID or transaction ID
-     * @param otpCode    OTP from user
-     * @return true when Choice returns success ({@code code=00000})
+     * @return Choice {@code msg} for customer display
      */
-    public boolean confirmOtp(String businessId, String otpCode) {
+    public String confirmOtp(String businessId, String otpCode) {
         Map<String, Object> params = Map.of("businessId", businessId, "otpCode", otpCode);
-        ChoiceBankResponse response = bankingProvider.post(PATH_CONFIRM_OPERATION, params);
-        choiceAssessor.requireSuccess(response, PATH_CONFIRM_OPERATION);
-        return true;
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_CONFIRM_OPERATION, params), PATH_CONFIRM_OPERATION);
+        return result.msg();
     }
 
     /**
      * Polls Choice Bank for onboarding status.
      */
-    public Map<String, Object> getOnboardingStatus(String onboardingRequestId) {
+    public ChoiceBankResult getOnboardingStatus(String onboardingRequestId) {
         Map<String, Object> params = Map.of("onboardingRequestId", onboardingRequestId);
         ChoiceBankResponse response = bankingProvider.post(PATH_GET_ONBOARDING_STATUS, params);
-        choiceAssessor.requireSuccess(response, PATH_GET_ONBOARDING_STATUS);
-        if (response.getData() == null) {
-            return Map.of();
-        }
-        if (response.getData() instanceof Map<?, ?> data) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> typed = (Map<String, Object>) data;
-            return typed;
-        }
-        throw new BusinessException(
-                "CHOICE_INVALID_RESPONSE",
-                "Choice Bank returned unexpected data for " + PATH_GET_ONBOARDING_STATUS,
-                HttpStatus.BAD_GATEWAY);
+        return choiceAssessor.requireSuccessResult(response, PATH_GET_ONBOARDING_STATUS);
     }
 
     @SuppressWarnings("unchecked")

@@ -2,8 +2,11 @@ package com.vycepay.transaction.api.v1;
 
 import com.vycepay.common.api.ApiSuccessResponse;
 import com.vycepay.common.api.ApiSuccessResponses;
+import com.vycepay.common.choicebank.errors.ChoiceBankResult;
+import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.transaction.api.v1.dto.TransactionResponse;
+import com.vycepay.transaction.application.TransactionChoiceOutcome;
 import com.vycepay.transaction.application.facade.UtilityPaymentFacade;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.domain.model.TransactionDisplayStatus;
@@ -23,6 +26,7 @@ import java.util.Map;
 
 /**
  * Choice Bank utility payment APIs (airtime, bill query/pay, payment queries).
+ * Envelope {@code message} prefers Choice Bank {@code msg} when present.
  */
 @RestController
 @RequestMapping("/api/v1/transactions/utilities")
@@ -48,10 +52,11 @@ public class UtilityPaymentController {
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = loadWallet(externalId);
-        Transaction tx = utilityPaymentFacade.airtimePayment(
+        TransactionChoiceOutcome outcome = utilityPaymentFacade.airtimePayment(
                 ctx.customerId(), ctx.walletId(), ctx.choiceAccountId(), body, idempotencyKey);
         return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_AIRTIME_INITIATED",
-                "Airtime payment initiated.", toResponse(tx)));
+                ChoiceCustomerMessage.prefer(outcome.choiceMsg(), "Airtime payment initiated."),
+                toResponse(outcome)));
     }
 
     @PostMapping("/airtime-bulk")
@@ -61,21 +66,25 @@ public class UtilityPaymentController {
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = loadWallet(externalId);
-        Transaction tx = utilityPaymentFacade.airtimeBulkPayment(
+        TransactionChoiceOutcome outcome = utilityPaymentFacade.airtimeBulkPayment(
                 ctx.customerId(), ctx.walletId(), ctx.choiceAccountId(), body, idempotencyKey);
         return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_AIRTIME_BULK_INITIATED",
-                "Bulk airtime payment initiated.", toResponse(tx)));
+                ChoiceCustomerMessage.prefer(outcome.choiceMsg(), "Bulk airtime payment initiated."),
+                toResponse(outcome)));
     }
 
     @PostMapping("/bill-query")
+    @SuppressWarnings("unchecked")
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> billQuery(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = loadWallet(externalId);
         Map<String, Object> params = new HashMap<>(body);
-        Map<String, Object> data = utilityPaymentFacade.billQuery(ctx.choiceAccountId(), params);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_BILL_QUERY_OK", "Bill query completed.", data));
+        ChoiceBankResult result = utilityPaymentFacade.billQuery(ctx.choiceAccountId(), params);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_BILL_QUERY_OK",
+                ChoiceCustomerMessage.prefer(result.msg(), "Bill query completed."),
+                (Map<String, Object>) result.data()));
     }
 
     @PostMapping("/bill-payment")
@@ -85,31 +94,37 @@ public class UtilityPaymentController {
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = loadWallet(externalId);
-        Transaction tx = utilityPaymentFacade.billPayment(
+        TransactionChoiceOutcome outcome = utilityPaymentFacade.billPayment(
                 ctx.customerId(), ctx.walletId(), ctx.choiceAccountId(), body, idempotencyKey);
         return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_BILL_PAYMENT_INITIATED",
-                "Bill payment initiated.", toResponse(tx)));
+                ChoiceCustomerMessage.prefer(outcome.choiceMsg(), "Bill payment initiated."),
+                toResponse(outcome)));
     }
 
     @PostMapping("/payment-query")
+    @SuppressWarnings("unchecked")
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> paymentQuery(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = loadWallet(externalId);
-        Map<String, Object> data = utilityPaymentFacade.paymentQuery(ctx.choiceAccountId(), body);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_PAYMENT_QUERY_OK", "Payment query completed.", data));
+        ChoiceBankResult result = utilityPaymentFacade.paymentQuery(ctx.choiceAccountId(), body);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_PAYMENT_QUERY_OK",
+                ChoiceCustomerMessage.prefer(result.msg(), "Payment query completed."),
+                (Map<String, Object>) result.data()));
     }
 
     @PostMapping("/bulk-payment-query")
+    @SuppressWarnings("unchecked")
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> bulkPaymentQuery(
             @RequestHeader("X-Customer-Id") String externalId,
             @RequestBody Map<String, Object> body) {
         requireFacade();
         var ctx = loadWallet(externalId);
-        Map<String, Object> data = utilityPaymentFacade.bulkPaymentQuery(ctx.choiceAccountId(), body);
+        ChoiceBankResult result = utilityPaymentFacade.bulkPaymentQuery(ctx.choiceAccountId(), body);
         return ResponseEntity.ok(ApiSuccessResponses.ok("UTILITY_BULK_PAYMENT_QUERY_OK",
-                "Bulk payment query completed.", data));
+                ChoiceCustomerMessage.prefer(result.msg(), "Bulk payment query completed."),
+                (Map<String, Object>) result.data()));
     }
 
     private WalletCtx loadWallet(String externalId) {
@@ -124,6 +139,12 @@ public class UtilityPaymentController {
         if (utilityPaymentFacade == null) {
             throw new BusinessException("SERVICE_UNAVAILABLE", "Choice Bank is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
         }
+    }
+
+    private TransactionResponse toResponse(TransactionChoiceOutcome outcome) {
+        TransactionResponse r = toResponse(outcome.transaction());
+        r.setMessage(ChoiceCustomerMessage.prefer(outcome.choiceMsg(), null));
+        return r;
     }
 
     private TransactionResponse toResponse(Transaction tx) {

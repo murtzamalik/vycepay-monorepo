@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.vycepay.kyc.api.v1.dto.KycStatusResponse;
 import com.vycepay.kyc.api.v1.dto.KycSubmitRequest;
+import com.vycepay.kyc.application.KycSubmitOutcome;
 import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.facade.KycOnboardingFacade;
 import com.vycepay.kyc.domain.model.Customer;
@@ -22,6 +23,7 @@ import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
 import com.vycepay.kyc.infrastructure.persistence.KycVerificationRepository;
 import com.vycepay.common.api.ApiSuccessResponse;
 import com.vycepay.common.api.ApiSuccessResponses;
+import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 
@@ -90,10 +92,11 @@ public class KycController {
                 request.getAddress(),
                 request.getKraPin(),
                 request.getEmail());
-        String onboardingRequestId = kycFacade.submitOnboarding(
+        KycSubmitOutcome outcome = kycFacade.submitOnboarding(
                 customer.getId(), externalId, params, profile,
                 request.getUsername(), request.getPin());
-        return ResponseEntity.ok(new KycStatusResponse("1", onboardingRequestId, null));
+        return ResponseEntity.ok(new KycStatusResponse("1", outcome.onboardingRequestId(), null,
+                ChoiceCustomerMessage.prefer(outcome.choiceMsg(), null)));
     }
 
     /**
@@ -106,8 +109,9 @@ public class KycController {
         if (kycFacade == null) {
             throw new BusinessException("SERVICE_UNAVAILABLE", "KYC service is not configured.", HttpStatus.SERVICE_UNAVAILABLE);
         }
-        kycFacade.sendOtp(onboardingRequestId, "SMS");
-        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_SENT", "KYC OTP sent successfully."));
+        String choiceMsg = kycFacade.sendOtp(onboardingRequestId, "SMS");
+        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_SENT",
+                ChoiceCustomerMessage.prefer(choiceMsg, "KYC OTP sent successfully.")));
     }
 
     /**
@@ -128,8 +132,9 @@ public class KycController {
         if (!kyc.getCustomerId().equals(customer.getId())) {
             throw new BusinessException("FORBIDDEN", "Onboarding request does not belong to this customer", HttpStatus.FORBIDDEN);
         }
-        kycFacade.resendOtp(onboardingRequestId, otpType);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_RESENT", "KYC OTP resent successfully."));
+        String choiceMsg = kycFacade.resendOtp(onboardingRequestId, otpType);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_RESENT",
+                ChoiceCustomerMessage.prefer(choiceMsg, "KYC OTP resent successfully.")));
     }
 
     /**
@@ -150,7 +155,8 @@ public class KycController {
         if (!kyc.getCustomerId().equals(customer.getId())) {
             throw new BusinessException("FORBIDDEN", "Onboarding request does not belong to this customer", HttpStatus.FORBIDDEN);
         }
-        kycFacade.confirmOtp(onboardingRequestId, otpCode);
-        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_CONFIRMED", "KYC OTP confirmed successfully."));
+        String choiceMsg = kycFacade.confirmOtp(onboardingRequestId, otpCode);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("KYC_OTP_CONFIRMED",
+                ChoiceCustomerMessage.prefer(choiceMsg, "KYC OTP confirmed successfully.")));
     }
 }
