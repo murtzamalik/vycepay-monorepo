@@ -14,6 +14,7 @@ import com.vycepay.callback.infrastructure.persistence.PushDeliveryLogRepository
 import com.vycepay.common.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -41,6 +43,8 @@ public class NotificationOrchestrator {
     private static final Logger log = LoggerFactory.getLogger(NotificationOrchestrator.class);
 
     public static final String PUSH_ADMIN_MESSAGE = "ADMIN_MESSAGE";
+    public static final String PUSH_TRANSACTION_RESULT = "TRANSACTION_RESULT";
+    private static final String DEDUPE_PREFIX_TX = "TX:";
     private static final int MAX_COMPOSE_RECIPIENTS = 100;
     private static final int MAX_RESENDS_PER_HOUR = 5;
     private static final int TITLE_MAX = 128;
@@ -66,6 +70,8 @@ public class NotificationOrchestrator {
 
     /**
      * Builds inbox + FCM for a callback-driven push. No-op when message is null.
+     * Money events ({@code TRANSACTION_RESULT}) are deduped by Choice {@code txId}
+     * so paired 0002/0003 callbacks produce a single inbox row and FCM send.
      */
     @Async
     public void createAndSendFromCallback(Long customerId, PushMessage message, Long choiceCallbackId) {
@@ -80,17 +86,38 @@ public class NotificationOrchestrator {
                         PushDeliveryLog.TRIGGER_AUTO, null);
                 return;
             }
-            CustomerNotification notification = persistInbox(
-                    customerId,
-                    CustomerNotification.SOURCE_CALLBACK,
-                    message.getPushType(),
-                    message.getNotificationType(),
-                    truncate(message.getTitle(), TITLE_MAX),
-                    truncate(message.getBody(), BODY_MAX),
-                    message.getData(),
-                    choiceCallbackId,
-                    null,
-                    null);
+            String dedupeKey = resolveDedupeKey(message);
+            if (dedupeKey != null) {
+                Optional<CustomerNotification> existing =
+                        notificationRepository.findByCustomerIdAndDedupeKey(customerId, dedupeKey);
+                if (existing.isPresent()) {
+                    log.debug("Push skipped (already notified) customerId={} dedupeKey={}", customerId, dedupeKey);
+                    recordStandaloneSkip(customerId, PushSendResult.skipped(PushSendResult.SKIP_ALREADY_NOTIFIED),
+                            PushDeliveryLog.TRIGGER_AUTO, null);
+                    return;
+                }
+            }
+            CustomerNotification notification;
+            try {
+                notification = persistInbox(
+                        customerId,
+                        CustomerNotification.SOURCE_CALLBACK,
+                        message.getPushType(),
+                        message.getNotificationType(),
+                        truncate(message.getTitle(), TITLE_MAX),
+                        truncate(message.getBody(), BODY_MAX),
+                        message.getData(),
+                        choiceCallbackId,
+                        null,
+                        null,
+                        dedupeKey);
+            } catch (DataIntegrityViolationException e) {
+                log.debug("Push skipped (dedupe race) customerId={} dedupeKey={}: {}",
+                        customerId, dedupeKey, e.getMessage());
+                recordStandaloneSkip(customerId, PushSendResult.skipped(PushSendResult.SKIP_ALREADY_NOTIFIED),
+                        PushDeliveryLog.TRIGGER_AUTO, null);
+                return;
+            }
             PushSendResult result = pushNotificationPort.sendToCustomer(customerId, message);
             recordDelivery(notification.getId(), customerId, result, PushDeliveryLog.TRIGGER_AUTO, null);
         } catch (Exception e) {
@@ -151,7 +178,8 @@ public class NotificationOrchestrator {
                     safeData,
                     null,
                     batchId,
-                    adminId);
+                    adminId,
+                    null);
             notificationIds.add(notification.getId());
 
             PushMessage.Builder builder = PushMessage.builder()
@@ -230,7 +258,7 @@ public class NotificationOrchestrator {
     private CustomerNotification persistInbox(Long customerId, String source, String pushType,
                                               String notificationType, String title, String body,
                                               Map<String, String> data, Long choiceCallbackId,
-                                              String batchId, Long adminId) {
+                                              String batchId, Long adminId, String dedupeKey) {
         CustomerNotification n = new CustomerNotification();
         n.setCustomerId(customerId);
         n.setSource(source);
@@ -242,7 +270,26 @@ public class NotificationOrchestrator {
         n.setChoiceCallbackId(choiceCallbackId);
         n.setBatchId(batchId);
         n.setCreatedByAdminId(adminId);
+        n.setDedupeKey(dedupeKey);
         return notificationRepository.save(n);
+    }
+
+    /**
+     * Builds TX:{txId} for TRANSACTION_RESULT pushes; null for all other types.
+     */
+    private static String resolveDedupeKey(PushMessage message) {
+        if (message == null || !PUSH_TRANSACTION_RESULT.equals(message.getPushType())) {
+            return null;
+        }
+        Map<String, String> data = message.getData();
+        if (data == null) {
+            return null;
+        }
+        String txId = data.get("txId");
+        if (txId == null || txId.isBlank() || "null".equalsIgnoreCase(txId)) {
+            return null;
+        }
+        return DEDUPE_PREFIX_TX + txId.trim();
     }
 
     private PushDeliveryLog recordDelivery(Long notificationId, Long customerId, PushSendResult result,

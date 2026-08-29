@@ -15,6 +15,9 @@ public class TransactionResponse {
     @Schema(description = "External transaction ID (UUID)")
     private String externalId;
 
+    @Schema(description = "Choice Bank transaction id (UTRANS...) when known")
+    private String choiceTxId;
+
     @Schema(description = "Transaction type (TRANSFER, DEPOSIT)")
     private String type;
 
@@ -57,6 +60,14 @@ public class TransactionResponse {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
+    }
+
+    public String getChoiceTxId() {
+        return choiceTxId;
+    }
+
+    public void setChoiceTxId(String choiceTxId) {
+        this.choiceTxId = choiceTxId;
     }
 
     public String getType() {

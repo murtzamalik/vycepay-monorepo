@@ -17,6 +17,7 @@ Flyway migrations: `vycepay-database/src/main/resources/db/migration/`
 - `V7__customer_credentials_and_device.sql` — Username/PIN, `customer_device`, OTP purpose, `auth_audit_event`
 - `V8__beneficiary.sql` — Saved transfer beneficiaries (soft-delete)
 - `V9__notification_inbox.sql` — `customer_notification` inbox + `push_delivery_log` + admin notification permissions/menu
+- `V10__money_event_dedupe.sql` — `customer_notification.dedupe_key` (unique per customer) + unique `transaction.choice_tx_id`
 
 ## Table Summary
 
@@ -33,5 +34,5 @@ Flyway migrations: `vycepay-database/src/main/resources/db/migration/`
 | activity_log | Compliance audit trail |
 | otp_verification | Auth OTPs with `purpose` (SIGNUP, DEVICE_BIND, PIN_RESET, CREDENTIALS_MIGRATE) |
 | device_token | FCM push tokens (separate from IMEI binding) |
-| customer_notification | In-app notification inbox (callback + admin compose) |
+| customer_notification | In-app notification inbox (callback + admin compose); money events use `dedupe_key=TX:{txId}` |
 | push_delivery_log | One row per FCM send attempt (AUTO / COMPOSE / RESEND) |

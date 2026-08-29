@@ -14,6 +14,8 @@ public final class PushSendResult {
     public static final String SKIP_NO_TOKENS = "NO_TOKENS";
     public static final String SKIP_NO_CUSTOMER = "NO_CUSTOMER";
     public static final String SKIP_UNSUPPORTED_TYPE = "UNSUPPORTED_TYPE";
+    /** Same Choice txId already has a TRANSACTION_RESULT inbox row (0002/0003 pair). */
+    public static final String SKIP_ALREADY_NOTIFIED = "ALREADY_NOTIFIED";
 
     private final String status;
     private final String skipReason;

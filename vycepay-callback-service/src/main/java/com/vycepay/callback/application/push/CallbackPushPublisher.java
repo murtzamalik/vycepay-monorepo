@@ -29,7 +29,8 @@ public class CallbackPushPublisher {
 
     /**
      * Builds and sends a push for the given Choice notification type.
-     * No-op when customerId is null, type is unsupported (e.g. 0003), or factory returns null.
+     * No-op when customerId is null, type is unsupported, or factory returns null.
+     * 0002/0003 money events are deduped by TX:{txId} in {@link NotificationOrchestrator}.
      */
     public void publishBestEffort(Long customerId, String notificationType, Map<String, Object> params) {
         publishBestEffort(customerId, notificationType, params, null);

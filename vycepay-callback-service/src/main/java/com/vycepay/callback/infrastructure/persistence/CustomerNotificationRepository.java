@@ -16,6 +16,8 @@ public interface CustomerNotificationRepository extends JpaRepository<CustomerNo
 
     Optional<CustomerNotification> findByIdAndDeletedAtIsNull(Long id);
 
+    Optional<CustomerNotification> findByCustomerIdAndDedupeKey(Long customerId, String dedupeKey);
+
     Page<CustomerNotification> findByCustomerIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long customerId, Pageable pageable);
 
     long countByCustomerIdAndDeletedAtIsNullAndReadAtIsNull(Long customerId);

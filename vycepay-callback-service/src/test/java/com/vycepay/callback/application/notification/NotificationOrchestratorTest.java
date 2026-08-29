@@ -60,15 +60,45 @@ class NotificationOrchestratorTest {
 
         PushMessage message = PushMessage.builder()
                 .title("t").body("b").pushType("TRANSACTION_RESULT").notificationType("0002")
+                .putData("txId", "UTRANS123")
                 .build();
+        when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS123"))
+                .thenReturn(java.util.Optional.empty());
         orchestrator.createAndSendFromCallback(1L, message, 99L);
 
         verify(notificationRepository).save(any());
+        ArgumentCaptor<CustomerNotification> notifCaptor = ArgumentCaptor.forClass(CustomerNotification.class);
+        verify(notificationRepository).save(notifCaptor.capture());
+        assertEquals("TX:UTRANS123", notifCaptor.getValue().getDedupeKey());
         verify(pushNotificationPort).sendToCustomer(eq(1L), any());
         ArgumentCaptor<PushDeliveryLog> logCaptor = ArgumentCaptor.forClass(PushDeliveryLog.class);
         verify(deliveryLogRepository).save(logCaptor.capture());
         assertEquals(PushSendResult.STATUS_SENT, logCaptor.getValue().getStatus());
         assertEquals(PushDeliveryLog.TRIGGER_AUTO, logCaptor.getValue().getTriggerSource());
+    }
+
+    @Test
+    void createAndSendFromCallback_sameTxId_skipsSecondPush() {
+        CustomerNotification existing = new CustomerNotification();
+        existing.setId(9L);
+        existing.setDedupeKey("TX:UTRANS123");
+        when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS123"))
+                .thenReturn(java.util.Optional.of(existing));
+        when(deliveryLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        PushMessage message = PushMessage.builder()
+                .title("Money received").body("Deposit of KES 30.00 completed")
+                .pushType("TRANSACTION_RESULT").notificationType("0003")
+                .putData("txId", "UTRANS123")
+                .build();
+        orchestrator.createAndSendFromCallback(1L, message, 100L);
+
+        verify(notificationRepository, never()).save(any());
+        verify(pushNotificationPort, never()).sendToCustomer(any(), any());
+        ArgumentCaptor<PushDeliveryLog> logCaptor = ArgumentCaptor.forClass(PushDeliveryLog.class);
+        verify(deliveryLogRepository).save(logCaptor.capture());
+        assertEquals(PushSendResult.STATUS_SKIPPED, logCaptor.getValue().getStatus());
+        assertEquals(PushSendResult.SKIP_ALREADY_NOTIFIED, logCaptor.getValue().getSkipReason());
     }
 
     @Test

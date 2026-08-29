@@ -110,8 +110,8 @@ All calls go through the **same** client and signing logic; only `params` and pa
 |------------------|---------|--------|----------|
 | **0024** | ProfileCheckResultHandler | Resolve KYC by `onboardingRequestId`; log document check result. | `KYC_DOCUMENT_CHECK` (`resultDescription`) |
 | **0001** | OnboardingResultHandler | Update `kyc_verification` (status, userId, accountId, rejection info). If status = 7 (account opened), create `wallet` for that customer. | `KYC_ONBOARDING_RESULT` |
-| **0002** | TransactionResultHandler | Find transaction by choiceTxId or choiceRequestId; update status, errorCode, errorMsg, completedAt. | `TRANSACTION_RESULT` (primary money push) |
-| **0003** | BalanceChangeHandler | Find wallet by accountId; update balance_cache and last_balance_update_at. | **None** (dedupe with 0002) |
+| **0002** | TransactionResultHandler | Find transaction by choiceTxId or choiceRequestId; update status, errorCode, errorMsg, completedAt. If missing, upsert inbound DEPOSIT (credit) then push. | `TRANSACTION_RESULT` (deduped by `TX:{txId}`) |
+| **0003** | BalanceChangeHandler | Find wallet by accountId; update balance_cache and last_balance_update_at; upsert inbound DEPOSIT when no local row; push. | `TRANSACTION_RESULT` (deduped with 0002) |
 | **0009** | AccountStatementResultHandler | Find `account_statement_job` by `requestId` (or equivalent in `params`); set `download_url` / status when statement file is ready. | `STATEMENT_READY` when `fileUrl` present |
 | **0015** | AccountStatementFileJobHandler | Same as 0009 for file-job complete (`jobId` + `fileUrl`). | `STATEMENT_READY` |
 | **0021** | AccountStatusChangeHandler | Find wallet by `accountId`; update `wallet.status` from Choice account status fields. | `ACCOUNT_STATUS` |

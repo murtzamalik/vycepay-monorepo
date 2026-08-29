@@ -150,6 +150,7 @@ public class UtilityPaymentController {
     private TransactionResponse toResponse(Transaction tx) {
         var r = new TransactionResponse();
         r.setExternalId(tx.getExternalId());
+        r.setChoiceTxId(tx.getChoiceTxId());
         r.setType(tx.getType());
         r.setAmount(tx.getAmount());
         r.setCurrency(tx.getCurrency());

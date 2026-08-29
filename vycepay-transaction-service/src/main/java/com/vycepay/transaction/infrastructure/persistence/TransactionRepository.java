@@ -18,5 +18,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     Optional<Transaction> findByExternalIdAndCustomerId(String externalId, Long customerId);
 
+    Optional<Transaction> findByChoiceTxIdAndCustomerId(String choiceTxId, Long customerId);
+
     Page<Transaction> findByCustomerIdOrderByCreatedAtDesc(Long customerId, Pageable pageable);
 }

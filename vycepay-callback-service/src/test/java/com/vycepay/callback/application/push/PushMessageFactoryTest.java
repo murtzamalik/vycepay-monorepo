@@ -139,12 +139,50 @@ class PushMessageFactoryTest {
     }
 
     @Test
-    void balanceChange_0003_skipped() {
+    void balanceChange_0003_payBillCredit() {
         Map<String, Object> params = new HashMap<>();
-        params.put("txId", "UTRANS02880586c4b020018212");
-        params.put("amount", "50.00");
+        params.put("txId", "UTRANS029874c90bc020008212");
+        params.put("amount", "30.00");
+        params.put("currency", "KES");
+        params.put("paymentChannel", "PAY_BILL");
+        params.put("oppoAccountName", "ROSE WUGHANGA MWALUKUKU");
+        params.put("externalId", "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+
+        PushMessage msg = factory.create("0003", params);
+
+        assertNotNull(msg);
+        assertEquals(PushMessageFactory.PUSH_TRANSACTION_RESULT, msg.getPushType());
+        assertEquals("0003", msg.getNotificationType());
+        assertEquals("Money received", msg.getTitle());
+        assertEquals("Deposit of KES 30.00 completed", msg.getBody());
+        assertEquals("UTRANS029874c90bc020008212", msg.getData().get("txId"));
+        assertEquals("8", msg.getData().get("txStatus"));
+        assertEquals("a1b2c3d4-e5f6-7890-abcd-ef1234567890", msg.getData().get("externalId"));
+    }
+
+    @Test
+    void balanceChange_0003_missingTxId_returnsNull() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("amount", "30.00");
+        params.put("paymentChannel", "PAY_BILL");
 
         assertNull(factory.create("0003", params));
+    }
+
+    @Test
+    void balanceChange_0003_debit() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("txId", "UTRANS02880c6f81c020008212");
+        params.put("amount", "-30.00");
+        params.put("currency", "KES");
+        params.put("paymentChannel", "INTERNAL_TRANSFER");
+        params.put("oppoAccountName", "DERRICK GWEHONA MUDAKI");
+
+        PushMessage msg = factory.create("0003", params);
+
+        assertNotNull(msg);
+        assertEquals("Money sent", msg.getTitle());
+        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI", msg.getBody());
     }
 
     @Test

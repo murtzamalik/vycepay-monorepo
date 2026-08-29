@@ -9,8 +9,8 @@ import java.util.Set;
 
 /**
  * Builds user-facing FCM title/body/data from Choice Bank callback params.
- * Types that send push: 0024, 0001, 0002, 0015, 0009, 0021.
- * Type 0003 (balance change) is intentionally skipped — paired with 0002 in live traffic.
+ * Types that send push: 0024, 0001, 0002, 0003, 0015, 0009, 0021.
+ * 0002 and 0003 share pushType TRANSACTION_RESULT; inbox dedupe uses Choice txId.
  */
 @Component
 public class PushMessageFactory {
@@ -21,13 +21,13 @@ public class PushMessageFactory {
     public static final String PUSH_STATEMENT_READY = "STATEMENT_READY";
     public static final String PUSH_ACCOUNT_STATUS = "ACCOUNT_STATUS";
 
-    private static final Set<String> SUPPORTED = Set.of("0024", "0001", "0002", "0015", "0009", "0021");
+    private static final Set<String> SUPPORTED = Set.of("0024", "0001", "0002", "0003", "0015", "0009", "0021");
     private static final int TX_STATUS_SUCCESS = 8;
     private static final int TX_STATUS_FAILED = 4;
     private static final int ONBOARDING_ACCOUNT_OPENED = 7;
 
     /**
-     * @return push message, or null when type should not notify (e.g. 0003) or params insufficient
+     * @return push message, or null when type unsupported or params insufficient (e.g. missing txId)
      */
     public PushMessage create(String notificationType, Map<String, Object> params) {
         if (notificationType == null || params == null || !SUPPORTED.contains(notificationType)) {
@@ -36,7 +36,8 @@ public class PushMessageFactory {
         return switch (notificationType) {
             case "0024" -> forProfileCheck(params);
             case "0001" -> forOnboarding(params);
-            case "0002" -> forTransaction(params);
+            case "0002" -> forTransaction(params, "0002", false);
+            case "0003" -> forTransaction(params, "0003", true);
             case "0015", "0009" -> forStatement(notificationType, params);
             case "0021" -> forAccountStatus(params);
             default -> null;
@@ -81,8 +82,22 @@ public class PushMessageFactory {
                 .build();
     }
 
-    private PushMessage forTransaction(Map<String, Object> params) {
+    /**
+     * @param treatAsSuccess when true (0003 balance change), treat as completed credit/debit without txStatus
+     */
+    private PushMessage forTransaction(Map<String, Object> params, String notificationType, boolean treatAsSuccess) {
+        String txId = firstNonBlank(
+                getString(params, "txId"),
+                getString(params, "batchId"),
+                getString(params, "utilityTxId"));
+        if (txId == null || txId.isBlank()) {
+            return null;
+        }
+
         Integer txStatus = getInt(params, "txStatus");
+        if (treatAsSuccess && txStatus == null) {
+            txStatus = TX_STATUS_SUCCESS;
+        }
         String amount = getString(params, "amount");
         String currency = firstNonBlank(getString(params, "currency"), "KES");
         String amountLabel = formatAmount(amount, currency);
@@ -116,14 +131,12 @@ public class PushMessageFactory {
         }
 
         return PushMessage.builder()
-                .notificationType("0002")
+                .notificationType(notificationType)
                 .pushType(PUSH_TRANSACTION_RESULT)
                 .title(title)
                 .body(body)
-                .putData("txId", firstNonBlank(
-                        getString(params, "txId"),
-                        getString(params, "batchId"),
-                        getString(params, "utilityTxId")))
+                .putData("txId", txId)
+                .putData("externalId", getString(params, "externalId"))
                 .putData("txStatus", txStatus != null ? String.valueOf(txStatus) : null)
                 .putData("amount", amount)
                 .putData("currency", currency)

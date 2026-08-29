@@ -16,7 +16,7 @@ Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 - **One FCM token:** each bind with `fcmToken` replaces all prior tokens for that customer
 - **IMEI binding:** separate table `customer_device` (login device trust) — not the same as FCM
 - **Logout:** `POST /logout` clears all `device_token` rows for the customer
-- **0003 (balance change):** intentionally **no push** — live traffic pairs it with **0002**
+- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists.
 - **Inbox:** `customer_notification` is source of truth; FCM is best-effort delivery
 - **Admin:** list/detail/summary via JDBC; compose (1–100 customers) and resend via internal API (`INTERNAL_API_KEY`)
 
@@ -50,10 +50,12 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 |---------------------------|------------|---------------------|---------------------|
 | **0024** | `KYC_DOCUMENT_CHECK` | body = `params.resultDescription` | `onboardingRequestId` → KYC |
 | **0001** | `KYC_ONBOARDING_RESULT` | status 7 → wallet ready; else rejection | `onboardingRequestId` → KYC |
-| **0002** | `TRANSACTION_RESULT` | amount, txStatus 8/4, `errorMsg`, channel | `txId` → `transaction.customer_id` |
+| **0002** | `TRANSACTION_RESULT` | amount, txStatus 8/4, `errorMsg`, channel | `txId` → transaction (update or inbound upsert) |
+| **0003** | `TRANSACTION_RESULT` | treated as success; Pay Bill / transfer copy | `accountId` → wallet; upsert inbound DEPOSIT if needed |
 | **0015** / **0009** | `STATEMENT_READY` | fixed copy; `fileUrl` + `jobId` in data | statement job |
 | **0021** | `ACCOUNT_STATUS` | mapped status label | `accountId` → wallet |
-| **0003** | — | **No FCM** | — |
+
+**Dedupe:** `customer_notification.dedupe_key = TX:{choiceTxId}` (unique per customer). Whichever of 0002/0003 arrives first wins; the pair is skipped with `ALREADY_NOTIFIED`.
 
 ## FCM payload contract (Android)
 
@@ -78,7 +80,7 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 |----------|-----------------|
 | `KYC_DOCUMENT_CHECK` | `onboardingRequestId`, `resultCode`, `profileCheckStatus` |
 | `KYC_ONBOARDING_RESULT` | `onboardingRequestId`, `accountId`, `status` |
-| `TRANSACTION_RESULT` | `txId`, `txStatus`, `amount`, `currency`, `paymentChannel`, `errorCode` |
+| `TRANSACTION_RESULT` | `txId`, `externalId` (Vyce UUID), `txStatus`, `amount`, `currency`, `paymentChannel`, `errorCode` |
 | `STATEMENT_READY` | `jobId`, `fileUrl` (do not show URL in UI body; prefer API by jobId if URL expired) |
 | `ACCOUNT_STATUS` | `accountId`, `accountStatus`, `statusLabel` |
 

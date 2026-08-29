@@ -185,16 +185,17 @@ public class TransactionController {
     }
 
     /**
-     * Returns full local transaction detail by externalId.
+     * Returns full local transaction detail by Vyce externalId (UUID) or Choice txId (UTRANS...).
      */
     @GetMapping("/{transactionId}")
     public ResponseEntity<TransactionResponse> getDetail(
             @RequestHeader("X-Customer-Id") String externalId,
-            @Parameter(description = "Transaction externalId (UUID) from POST /transactions/send response")
+            @Parameter(description = "Transaction externalId (UUID) or Choice Bank txId (UTRANS...)")
             @PathVariable String transactionId) {
         var customer = customerRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var tx = transactionRepository.findByExternalIdAndCustomerId(transactionId, customer.getId())
+                .or(() -> transactionRepository.findByChoiceTxIdAndCustomerId(transactionId, customer.getId()))
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Transaction not found", HttpStatus.NOT_FOUND));
         return ResponseEntity.ok(toResponse(tx));
     }
@@ -299,6 +300,7 @@ public class TransactionController {
     private TransactionResponse toResponse(Transaction tx) {
         var r = new TransactionResponse();
         r.setExternalId(tx.getExternalId());
+        r.setChoiceTxId(tx.getChoiceTxId());
         r.setType(tx.getType());
         r.setAmount(tx.getAmount());
         r.setCurrency(tx.getCurrency());

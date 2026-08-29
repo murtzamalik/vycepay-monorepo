@@ -157,7 +157,7 @@ vycepay-android/
 - **KYC photos:** Compressed to ≤1MB/1280×1280px JPEG; deleted from disk immediately after Base64 encoding
 - **Polling:** Wallet creation (3s/10min), transaction status (5s/10min), both with 5min warning
 - **FCM:** `VycepayFirebaseMessagingService` + `DeviceTokenSyncWorker` (WorkManager) for background registration
-- Backend push sender: callback-service Firebase Admin (`PushMessageFactory` + handlers for 0024/0001/0002/0015/0009/0021; 0003 skipped). See [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
+- Backend push sender: callback-service Firebase Admin (`PushMessageFactory` + handlers for 0024/0001/0002/0003/0015/0009/0021; money events deduped by `TX:{txId}`). See [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
 - **R8 full mode + ProGuard rules** for release
 - **Unit tests:** JUnit 5 + MockK + Turbine across `core/data`, `core/security`, and 4 feature modules
 

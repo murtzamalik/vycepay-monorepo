@@ -97,7 +97,7 @@
 1. **POST /api/v1/transactions/deposit/mpesa?mobile=...&amount=...**  
    Optional header: `Idempotency-Key`. Resolves customer and wallet; calls Choice `trans/depositFromMpesa` (accountId, mobile, amount). Creates local `transaction` (type DEPOSIT, PENDING). If Idempotency-Key provided and a tx already exists with that key, returns it without calling Choice again.
 
-2. **Callbacks:** 0002 updates transaction status; 0003 updates wallet balance.
+2. **Callbacks:** 0002 updates transaction status (and pushes if first); 0003 updates wallet balance and may push if 0002 has not already notified the same `txId`. Unsolicited inbound Pay Bill credits (0003 only) upsert a local DEPOSIT and push.
 
 ---
 
@@ -132,8 +132,8 @@
 | notificationType | Handler | Effect |
 |------------------|--------|--------|
 | 0001 | OnboardingResultHandler | Update kyc_verification; if status=7 create wallet |
-| 0002 | TransactionResultHandler | Update transaction status, error, completedAt |
-| 0003 | BalanceChangeHandler | Update wallet balance_cache, last_balance_update_at |
+| 0002 | TransactionResultHandler | Update transaction status (or upsert inbound DEPOSIT); TRANSACTION_RESULT push |
+| 0003 | BalanceChangeHandler | Update wallet balance_cache; upsert inbound DEPOSIT if needed; TRANSACTION_RESULT push (deduped by txId) |
 | UNKNOWN / other | UnknownNotificationHandler | Log only |
 
 All callbacks are persisted in `choice_bank_callback` (raw payload, processed flag). Processing is async; HTTP response is 200 "ok" quickly.

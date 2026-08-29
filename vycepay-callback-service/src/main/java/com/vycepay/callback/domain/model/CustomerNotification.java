@@ -53,6 +53,13 @@ public class CustomerNotification {
     @Column(name = "choice_callback_id")
     private Long choiceCallbackId;
 
+    /**
+     * Money-event dedupe key (e.g. TX:{choiceTxId}). Null for KYC/statement/admin compose.
+     * Unique with customer_id (Flyway V10).
+     */
+    @Column(name = "dedupe_key", length = 160)
+    private String dedupeKey;
+
     /** Matches Flyway V9 {@code CHAR(36)} — Hibernate defaults String→VARCHAR. */
     @Column(name = "batch_id", length = 36, columnDefinition = "CHAR(36)")
     private String batchId;
@@ -157,6 +164,14 @@ public class CustomerNotification {
 
     public void setChoiceCallbackId(Long choiceCallbackId) {
         this.choiceCallbackId = choiceCallbackId;
+    }
+
+    public String getDedupeKey() {
+        return dedupeKey;
+    }
+
+    public void setDedupeKey(String dedupeKey) {
+        this.dedupeKey = dedupeKey;
     }
 
     public String getBatchId() {

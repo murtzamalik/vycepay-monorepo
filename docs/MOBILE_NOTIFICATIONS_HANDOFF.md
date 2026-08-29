@@ -37,7 +37,7 @@ Related docs:
 | Soft delete | `DELETE` hides from inbox; does not “unsend” history on server forever for ops |
 | Mark read | Call mark-read when user opens a notification (list tap or detail) |
 | Badge | Poll or refresh `unread-count` on home resume / after push |
-| Balance push | Type `0003` has **no** FCM and **no** inbox row (paired with `0002`) |
+| Balance / inbound credit | Types `0002` and `0003` share `TRANSACTION_RESULT`; deduped by Choice `txId`. Prefer `data.externalId` for detail; fallback Choice `txId` on `GET /transactions/{id}` |
 
 ---
 
@@ -194,7 +194,7 @@ Use **`data.pushType`** (string). Same for FCM tap and inbox tap.
 
 | `pushType` | Open screen | Keys in `data` |
 |------------|-------------|----------------|
-| `TRANSACTION_RESULT` | Transaction detail | `txId`, `txStatus`, `amount`, `currency`, `paymentChannel`, `errorCode` |
+| `TRANSACTION_RESULT` | Transaction detail | Prefer `externalId` (Vyce UUID); fallback `txId` (Choice). Also `txStatus`, `amount`, `currency`, `paymentChannel`, `errorCode` |
 | `STATEMENT_READY` | Statement / download flow | `jobId`, `fileUrl` (prefer refetch by `jobId` if URL expired) |
 | `KYC_DOCUMENT_CHECK` | KYC status / documents | `onboardingRequestId`, `resultCode`, `profileCheckStatus` |
 | `KYC_ONBOARDING_RESULT` | KYC / home (wallet ready if status `7`) | `onboardingRequestId`, `accountId`, `status` |
@@ -207,7 +207,7 @@ Suggested deep links (align with existing app routes):
 
 | pushType | Example |
 |----------|---------|
-| `TRANSACTION_RESULT` | `vycepay://transaction/{txId}` |
+| `TRANSACTION_RESULT` | `vycepay://transaction/{externalId}` (or Choice `txId`) |
 | `STATEMENT_READY` | `vycepay://statement/{jobId}` |
 | `KYC_*` | `vycepay://kyc` |
 | `ACCOUNT_STATUS` | `vycepay://home` |
