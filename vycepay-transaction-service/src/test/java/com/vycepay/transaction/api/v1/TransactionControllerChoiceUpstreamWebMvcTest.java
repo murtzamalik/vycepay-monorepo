@@ -78,7 +78,7 @@ class TransactionControllerChoiceUpstreamWebMvcTest {
         when(customerRepository.findByExternalId("cust-ext-1")).thenReturn(Optional.of(customer));
         when(walletRepository.findByCustomerId(1L)).thenReturn(Optional.of(wallet));
         when(transactionFacade.applyTransfer(anyLong(), anyLong(), anyString(), anyString(), anyString(), any(),
-                any(), any(), anyString()))
+                any(), any(), any(), anyString()))
                 .thenThrow(new ChoiceBankUpstreamException(
                         "CHOICE_ACCOUNT_NOT_FOUND",
                         "Account not found",

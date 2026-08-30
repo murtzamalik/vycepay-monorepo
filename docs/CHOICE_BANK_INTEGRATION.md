@@ -72,7 +72,8 @@ Base URL is configurable (e.g. sandbox `https://baas-pilot.choicebankapi.com`). 
 | `common/resendOtp` | KYC, Transaction | Resend OTP. |
 | `common/confirmOperation` | KYC, Transaction | Confirm OTP (businessId, otpCode). |
 | `account/validateAccount` | Transaction service | Hakikisha title fetch before transfer; also re-called on every send. Blocks frozen / restrict-in. |
-| `trans/v2/applyForTransfer` | Transaction service | Initiate transfer (payerAccountId, payeeBankCode, payeeAccountId, amount, currency, etc.). |
+| `trans/v2/applyForTransfer` | Transaction service | Initiate transfer (payerAccountId, payeeBankCode, payeeAccountId, amount, currency, etc.) for mobile / Choice / PesaLink. |
+| `trans/v2/applyForMpesaBusinessTransfer` | Transaction service | M-Pesa Paybill (`payType=0`) / Till (`payType=1`): payerAccountId, payeeShortCode, payeeReferenNumber (Paybill), amount, description. |
 | `trans/depositFromMpesa` | Transaction service | M-PESA STK Push deposit (accountId, mobile, amount). |
 | `query/getTransResult` | Transaction service | Get transaction result (txId or requestId). |
 | `query/getTransList` | Transaction service | Get transaction list from Choice (time range, pagination). |
@@ -189,7 +190,7 @@ Each KYC, Transaction, and Wallet process has **its own** buffer (not shared acr
 | **ChoiceBankHttpAuditController** | vycepay-common | GET `/internal/choice-bank/http-traces` (unauthenticated); in-memory traces per JVM. |
 | **ChoiceBankHttpTracesBffController** | vycepay-bff | Same path on BFF; aggregates from KYC / Wallet / Transaction via configured base URLs. |
 | **KycOnboardingFacade** | vycepay-kyc-service | Uses BankingProviderPort for submitEasyOnboardingRequest, getOnboardingStatus, sendOtp, resendOtp, confirmOperation. |
-| **TransactionFacade** | vycepay-transaction-service | Uses BankingProviderPort for validateAccount, applyForTransfer, depositFromMpesa, getTransResult, getTransList, getBankCodes, sendOtp, resendOtp, confirmOperation. |
+| **TransactionFacade** | vycepay-transaction-service | Uses BankingProviderPort for validateAccount, applyForTransfer, applyForMpesaBusinessTransfer (Paybill/Till), depositFromMpesa, getTransResult, getTransList, getBankCodes, sendOtp, resendOtp, confirmOperation. |
 | **UtilityPaymentFacade** | vycepay-transaction-service | Utility payment and query endpoints; debits persist transactions. |
 | **AccountManagementFacade** | vycepay-wallet-service | Choice account management and `account/verifyOtp`. |
 | **AccountStatementFacade** | vycepay-wallet-service | `statement/applyAccountStatement`, `statement/queryAccountStatement`; persists `account_statement_job`. |

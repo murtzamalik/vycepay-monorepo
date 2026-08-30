@@ -27,6 +27,10 @@ public class SendMoneyRequest {
     @Schema(description = "Amount in KES", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal amount;
 
+    @Schema(description = "Paybill account / reference number; required when accountType is 1 (M-Pesa Paybill). "
+            + "Mapped to Choice payeeReferenNumber. Omit for Till (accountType 2).")
+    private String payeeReferenceNumber;
+
     @Schema(description = "Optional remark")
     private String remark;
 
@@ -68,6 +72,14 @@ public class SendMoneyRequest {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public String getPayeeReferenceNumber() {
+        return payeeReferenceNumber;
+    }
+
+    public void setPayeeReferenceNumber(String payeeReferenceNumber) {
+        this.payeeReferenceNumber = payeeReferenceNumber;
     }
 
     public String getRemark() {

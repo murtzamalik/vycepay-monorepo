@@ -102,7 +102,7 @@ public class TransactionController {
         var outcome = transactionFacade.applyTransfer(
                 customer.getId(), wallet.getId(), wallet.getChoiceAccountId(),
                 request.getPayeeBankCode(), request.getPayeeAccountId(), request.getAccountType(),
-                request.getAmount(), request.getRemark(), idempotencyKey);
+                request.getAmount(), request.getPayeeReferenceNumber(), request.getRemark(), idempotencyKey);
         return ResponseEntity.ok(toResponse(outcome));
     }
 

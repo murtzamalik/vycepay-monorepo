@@ -113,7 +113,7 @@ class TransactionFacadeTransferFailureTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
-                        new BigDecimal("50.00"), null, "idem-frozen"));
+                        new BigDecimal("50.00"), null, null, "idem-frozen"));
 
         assertEquals("ACCOUNT_FROZEN", ex.getCode());
         verify(bankingProvider, never()).post(eq("trans/v2/applyForTransfer"), any());
@@ -133,7 +133,7 @@ class TransactionFacadeTransferFailureTest {
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
         TransactionChoiceOutcome outcome = facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
-                new BigDecimal("100.00"), "note", "idem-ok");
+                new BigDecimal("100.00"), null, "note", "idem-ok");
 
         assertEquals("CHOICE TITLE", outcome.transaction().getPayeeAccountName());
 
@@ -157,7 +157,7 @@ class TransactionFacadeTransferFailureTest {
 
         ChoiceBankUpstreamException ex = assertThrows(ChoiceBankUpstreamException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "BANK", "254700000000", 3,
-                        new BigDecimal("50.00"), null, "idem-13000"));
+                        new BigDecimal("50.00"), null, null, "idem-13000"));
 
         assertEquals("CHOICE_ACCOUNT_NOT_FOUND", ex.getCode());
         verify(transactionRepository, never()).save(any(Transaction.class));
@@ -176,9 +176,100 @@ class TransactionFacadeTransferFailureTest {
 
         assertThrows(BusinessException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "BANK", "254700000000", 3,
-                        new BigDecimal("10.00"), null, "idem-notx"));
+                        new BigDecimal("10.00"), null, null, "idem-notx"));
 
         verify(transactionRepository, never()).save(any(Transaction.class));
+    }
+
+    @Test
+    void applyTransfer_paybill_usesMpesaBusinessTransferWithReference() {
+        when(transactionRepository.findByIdempotencyKey("idem-paybill")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(successValidate("Equity Paybill Account", 0, 0));
+        ChoiceBankResponse transferResp = new ChoiceBankResponse();
+        transferResp.setCode("00000");
+        transferResp.setRequestId("cb-b2b-1");
+        transferResp.setData(Map.of("txId", "tx-b2b-1"));
+        when(bankingProvider.post(eq("trans/v2/applyForMpesaBusinessTransfer"), any())).thenReturn(transferResp);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TransactionChoiceOutcome outcome = facade.applyTransfer(
+                1L, 2L, "choice-acc", "M-PESA", "247247", 1,
+                new BigDecimal("10.00"), "0820176326076", "optional", "idem-paybill");
+
+        assertEquals("247247", outcome.transaction().getPayeeAccountId());
+        assertEquals("Equity Paybill Account", outcome.transaction().getPayeeAccountName());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(bankingProvider).post(eq("trans/v2/applyForMpesaBusinessTransfer"), paramsCaptor.capture());
+        verify(bankingProvider, never()).post(eq("trans/v2/applyForTransfer"), any());
+        Map<String, Object> params = paramsCaptor.getValue();
+        assertEquals("choice-acc", params.get("payerAccountId"));
+        assertEquals("247247", params.get("payeeShortCode"));
+        assertEquals(0, params.get("payType"));
+        assertEquals("0820176326076", params.get("payeeReferenNumber"));
+        assertEquals(new BigDecimal("10.00"), params.get("amount"));
+        assertEquals("optional", params.get("description"));
+    }
+
+    @Test
+    void applyTransfer_till_usesMpesaBusinessTransferWithoutReference() {
+        when(transactionRepository.findByIdempotencyKey("idem-till")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(successValidate("Till Merchant", 0, 0));
+        ChoiceBankResponse transferResp = new ChoiceBankResponse();
+        transferResp.setCode("00000");
+        transferResp.setRequestId("cb-b2b-2");
+        transferResp.setData(Map.of("txId", "tx-b2b-2"));
+        when(bankingProvider.post(eq("trans/v2/applyForMpesaBusinessTransfer"), any())).thenReturn(transferResp);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        facade.applyTransfer(
+                1L, 2L, "choice-acc", "M-PESA", "987654", 2,
+                new BigDecimal("50.00"), "should-be-ignored", "Buy goods", "idem-till");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(bankingProvider).post(eq("trans/v2/applyForMpesaBusinessTransfer"), paramsCaptor.capture());
+        Map<String, Object> params = paramsCaptor.getValue();
+        assertEquals("987654", params.get("payeeShortCode"));
+        assertEquals(1, params.get("payType"));
+        assertTrue(!params.containsKey("payeeReferenNumber"));
+        assertEquals("Buy goods", params.get("description"));
+    }
+
+    @Test
+    void applyTransfer_paybillMissingReference_throwsBeforeChoice() {
+        when(transactionRepository.findByIdempotencyKey("idem-noref")).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> facade.applyTransfer(1L, 2L, "choice-acc", "M-PESA", "247247", 1,
+                        new BigDecimal("10.00"), null, null, "idem-noref"));
+
+        assertEquals("INVALID_PAYEE_REFERENCE", ex.getCode());
+        verify(bankingProvider, never()).post(any(), any());
+        verify(transactionRepository, never()).save(any(Transaction.class));
+    }
+
+    @Test
+    void applyTransfer_mpesaMobile_stillUsesApplyForTransfer() {
+        when(transactionRepository.findByIdempotencyKey("idem-mobile")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(successValidate("Mobile User", 0, 0));
+        ChoiceBankResponse transferResp = new ChoiceBankResponse();
+        transferResp.setCode("00000");
+        transferResp.setRequestId("cb-mobile");
+        transferResp.setData(Map.of("txId", "tx-mobile"));
+        when(bankingProvider.post(eq("trans/v2/applyForTransfer"), any())).thenReturn(transferResp);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        facade.applyTransfer(
+                1L, 2L, "choice-acc", "M-PESA", "712345678", 3,
+                new BigDecimal("20.00"), null, null, "idem-mobile");
+
+        verify(bankingProvider).post(eq("trans/v2/applyForTransfer"), any());
+        verify(bankingProvider, never()).post(eq("trans/v2/applyForMpesaBusinessTransfer"), any());
     }
 
     @Test

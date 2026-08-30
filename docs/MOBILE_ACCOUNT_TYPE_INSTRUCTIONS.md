@@ -143,7 +143,8 @@ Banks list: `GET /api/v1/transactions/bank-codes` → pick an **external** bank 
   "payeeAccountId": "123456",
   "payeeBankCode": "M-PESA",
   "accountType": 1,
-  "amount": 50.0
+  "amount": 50.0,
+  "payeeReferenceNumber": "001122"
 }
 ```
 
@@ -166,6 +167,8 @@ Banks list: `GET /api/v1/transactions/bank-codes` → pick an **external** bank 
   "amount": 50.0
 }
 ```
+
+> Paybill / Till send pe backend Choice `trans/v2/applyForMpesaBusinessTransfer` call karta hai. Paybill pe `payeeReferenceNumber` **required** hai (`INVALID_PAYEE_REFERENCE` agar missing).
 
 ### 3.5 Choice internal (`accountType = 0`)
 

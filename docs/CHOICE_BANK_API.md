@@ -19,7 +19,8 @@
 | POST /common/sendOtp | Send OTP |
 | POST /common/confirmOperation | Confirm OTP |
 | POST /account/validateAccount | Hakikisha — validate account / title fetch |
-| POST /trans/v2/applyForTransfer | Initiate transfer |
+| POST /trans/v2/applyForTransfer | Initiate transfer (M-Pesa mobile, Choice, PesaLink, etc.) |
+| POST /trans/v2/applyForMpesaBusinessTransfer | M-Pesa Paybill / Till (Buy Goods) B2B |
 | POST /trans/depositFromMpesa | STK Push deposit |
 | POST /query/getTransResult | Query transaction status |
 

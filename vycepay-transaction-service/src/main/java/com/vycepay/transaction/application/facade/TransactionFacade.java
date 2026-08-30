@@ -36,10 +36,20 @@ public class TransactionFacade {
     private static final String STATUS_PENDING = "1";
     private static final String TYPE_TRANSFER = "TRANSFER";
     private static final String TYPE_DEPOSIT = "DEPOSIT";
+    /** Choice Hakikisha / transfer rail: M-Pesa Paybill. */
+    private static final int ACCOUNT_TYPE_PAYBILL = 1;
+    /** Choice Hakikisha / transfer rail: M-Pesa Till (Buy Goods). */
+    private static final int ACCOUNT_TYPE_TILL = 2;
     /** Choice Hakikisha accountType for PesaLink; bankCode is mandatory. */
     private static final int ACCOUNT_TYPE_PESALINK = 4;
     private static final int ACCOUNT_TYPE_MIN = 0;
     private static final int ACCOUNT_TYPE_MAX = 5;
+    private static final String PATH_APPLY_FOR_TRANSFER = "trans/v2/applyForTransfer";
+    private static final String PATH_APPLY_MPESA_BUSINESS = "trans/v2/applyForMpesaBusinessTransfer";
+    /** Choice payType for Paybill on applyForMpesaBusinessTransfer. */
+    private static final int MPESA_PAY_TYPE_PAYBILL = 0;
+    /** Choice payType for Till / Buy Goods on applyForMpesaBusinessTransfer. */
+    private static final int MPESA_PAY_TYPE_TILL = 1;
     private static final int FREEZE_FROZEN = 1;
     private static final int RESTRICT_IN = 1;
 
@@ -76,56 +86,69 @@ public class TransactionFacade {
     }
 
     /**
-     * Initiates transfer. Idempotent - returns existing tx if key matches.
+     * Initiates a transfer. Idempotent: same idempotencyKey returns existing transaction.
      * Always re-validates the payee via Hakikisha and overwrites payeeAccountName from Choice.
+     * Paybill ({@code accountType=1}) and Till ({@code accountType=2}) use Choice
+     * {@code trans/v2/applyForMpesaBusinessTransfer}; other rails use {@code applyForTransfer}.
      *
-     * @param customerId      Our customer ID
-     * @param walletId        Wallet ID
-     * @param choiceAccountId Choice account ID (payer)
-     * @param payeeBankCode   Choice bank code (e.g. M-PESA); used as bankCode for PesaLink validate
-     * @param payeeAccountId  Recipient (M-PESA number or account)
-     * @param accountType     Choice Hakikisha account type (0–5)
-     * @param amount          Amount
-     * @param remark          Optional message to beneficiary (max 100 chars)
-     * @param idempotencyKey  Client-provided key
+     * @param customerId             Our customer ID
+     * @param walletId               Wallet ID
+     * @param choiceAccountId        Choice account ID (payer)
+     * @param payeeBankCode          Choice bank code (e.g. M-PESA); used as bankCode for PesaLink validate
+     * @param payeeAccountId         Recipient (M-PESA number, paybill/till shortcode, or account)
+     * @param accountType            Choice Hakikisha account type (0–5)
+     * @param amount                 Amount
+     * @param payeeReferenceNumber   Paybill account/reference; required when accountType is 1
+     * @param remark                 Optional message to beneficiary (max 100 chars)
+     * @param idempotencyKey         Client-provided key
      * @return Transaction (existing or new)
      */
     @Transactional
     public TransactionChoiceOutcome applyTransfer(Long customerId, Long walletId, String choiceAccountId,
                                      String payeeBankCode, String payeeAccountId, Integer accountType,
-                                     BigDecimal amount, String remark, String idempotencyKey) {
+                                     BigDecimal amount, String payeeReferenceNumber, String remark,
+                                     String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeTransfer(customerId, walletId, choiceAccountId,
-                        payeeBankCode, payeeAccountId, accountType, amount, remark, idempotencyKey));
+                        payeeBankCode, payeeAccountId, accountType, amount, payeeReferenceNumber,
+                        remark, idempotencyKey));
     }
 
     private TransactionChoiceOutcome executeTransfer(Long customerId, Long walletId, String choiceAccountId,
                                         String payeeBankCode, String payeeAccountId, Integer accountType,
-                                        BigDecimal amount, String remark, String idempotencyKey) {
+                                        BigDecimal amount, String payeeReferenceNumber, String remark,
+                                        String idempotencyKey) {
+        if (accountType != null && accountType == ACCOUNT_TYPE_PAYBILL
+                && (payeeReferenceNumber == null || payeeReferenceNumber.isBlank())) {
+            throw new BusinessException(
+                    "INVALID_PAYEE_REFERENCE",
+                    "payeeReferenceNumber is required when accountType is 1 (M-Pesa Paybill)",
+                    HttpStatus.BAD_REQUEST);
+        }
+
         String bankCodeForValidate = (accountType != null && accountType == ACCOUNT_TYPE_PESALINK)
                 ? payeeBankCode
                 : null;
         ValidateAccountResponse validated = doValidateAccount(payeeAccountId, accountType, bankCodeForValidate);
         String payeeAccountName = validated.getAccountName();
 
-        var params = new java.util.HashMap<String, Object>();
-        params.put("payerAccountId", choiceAccountId);
-        params.put("payeeBankCode", payeeBankCode);
-        params.put("payeeAccountId", payeeAccountId);
-        params.put("currency", "KES");
-        params.put("amount", amount);
-        params.put("payeeAccountName", payeeAccountName);
-        if (remark != null && !remark.isBlank()) {
-            params.put("remark", remark.length() > 100 ? remark.substring(0, 100) : remark);
-        }
-        ChoiceBankResponse response = bankingProvider.post("trans/v2/applyForTransfer", Map.copyOf(params));
-        choiceAssessor.requireSuccess(response, "trans/v2/applyForTransfer");
+        boolean mpesaBusiness = accountType != null
+                && (accountType == ACCOUNT_TYPE_PAYBILL || accountType == ACCOUNT_TYPE_TILL);
+        String choicePath = mpesaBusiness ? PATH_APPLY_MPESA_BUSINESS : PATH_APPLY_FOR_TRANSFER;
+        Map<String, Object> params = mpesaBusiness
+                ? buildMpesaBusinessParams(choiceAccountId, payeeAccountId, accountType,
+                        payeeReferenceNumber, amount, remark)
+                : buildGeneralTransferParams(choiceAccountId, payeeBankCode, payeeAccountId,
+                        payeeAccountName, amount, remark);
+
+        ChoiceBankResponse response = bankingProvider.post(choicePath, params);
+        choiceAssessor.requireSuccess(response, choicePath);
         String txId = extractTxId(response.getData());
         if (txId == null || txId.isBlank()) {
             throw new BusinessException(
                     "CHOICE_INVALID_RESPONSE",
-                    "Choice Bank did not return txId for applyForTransfer",
+                    "Choice Bank did not return txId for " + choicePath,
                     HttpStatus.BAD_GATEWAY);
         }
         String requestId = response.getRequestId() != null ? response.getRequestId() : RequestIdGenerator.generate();
@@ -148,6 +171,46 @@ public class TransactionFacade {
         Transaction saved = transactionRepository.save(tx);
         activityRecorder.record(customerId, "TRANSFER_CREATED", "TRANSACTION", saved.getExternalId());
         return new TransactionChoiceOutcome(saved, response.getMsg());
+    }
+
+    /**
+     * Builds Choice general transfer params (mobile, Choice internal, PesaLink, etc.).
+     */
+    private static Map<String, Object> buildGeneralTransferParams(
+            String payerAccountId, String payeeBankCode, String payeeAccountId,
+            String payeeAccountName, BigDecimal amount, String remark) {
+        var params = new java.util.HashMap<String, Object>();
+        params.put("payerAccountId", payerAccountId);
+        params.put("payeeBankCode", payeeBankCode);
+        params.put("payeeAccountId", payeeAccountId);
+        params.put("currency", "KES");
+        params.put("amount", amount);
+        params.put("payeeAccountName", payeeAccountName);
+        if (remark != null && !remark.isBlank()) {
+            params.put("remark", remark.length() > 100 ? remark.substring(0, 100) : remark);
+        }
+        return Map.copyOf(params);
+    }
+
+    /**
+     * Builds Choice M-Pesa Paybill/Till (B2B) params for {@code applyForMpesaBusinessTransfer}.
+     * Choice field name {@code payeeReferenNumber} matches their API spelling.
+     */
+    private static Map<String, Object> buildMpesaBusinessParams(
+            String payerAccountId, String payeeShortCode, int accountType,
+            String payeeReferenceNumber, BigDecimal amount, String remark) {
+        var params = new java.util.HashMap<String, Object>();
+        params.put("payerAccountId", payerAccountId);
+        params.put("payeeShortCode", payeeShortCode);
+        params.put("payType", accountType == ACCOUNT_TYPE_PAYBILL ? MPESA_PAY_TYPE_PAYBILL : MPESA_PAY_TYPE_TILL);
+        params.put("amount", amount);
+        if (accountType == ACCOUNT_TYPE_PAYBILL) {
+            params.put("payeeReferenNumber", payeeReferenceNumber.trim());
+        }
+        if (remark != null && !remark.isBlank()) {
+            params.put("description", remark.length() > 100 ? remark.substring(0, 100) : remark);
+        }
+        return Map.copyOf(params);
     }
 
     /**
