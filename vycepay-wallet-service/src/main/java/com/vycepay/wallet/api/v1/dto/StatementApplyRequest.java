@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 public class StatementApplyRequest {
 
-    @Schema(description = "Destination email for the statement (required). Prefill from profile; user may override.",
+    @Schema(description = "Registered email for the statement (required). Prefill from GET /wallets/account/details email; Choice delivers to registered address only.",
             requiredMode = Schema.RequiredMode.REQUIRED, example = "customer@example.com")
     private String email;
 

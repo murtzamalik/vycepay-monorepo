@@ -21,6 +21,10 @@ public class Customer {
     @Column(name = "external_id", unique = true, nullable = false)
     private String externalId;
 
+    /** Registered email (shared {@code customer} table; used for Choice statement delivery). */
+    @Column(name = "email")
+    private String email;
+
     public Long getId() {
         return id;
     }
@@ -35,5 +39,13 @@ public class Customer {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

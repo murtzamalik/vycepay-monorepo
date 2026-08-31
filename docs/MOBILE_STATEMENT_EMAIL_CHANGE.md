@@ -28,10 +28,10 @@ Mobile still talks **only to BFF**. Do not call Choice paths directly.
 
 | UI behaviour | Detail |
 |--------------|--------|
-| Prefill | Load registered email from **`GET /api/v1/auth/me`** → field `email` |
-| Editable | Customer **may change** the address before submit (any valid email) |
+| Prefill | Load registered email from **`GET /api/v1/wallets/account/details`** → field **`email`** (also on `GET /api/v1/auth/me`) |
+| Editable | Prefer **read-only / display** of registered email — Choice delivers the statement to the **registered** address only |
 | Required | Empty email → block submit (backend also returns `EMAIL_REQUIRED` / `INVALID_EMAIL`) |
-| Profile | Changing the statement destination does **not** update profile email unless you call a separate email-update flow |
+| Profile | To change destination, use the normal email-update / verify flow first; then refresh account details |
 
 Also collect:
 
@@ -66,8 +66,10 @@ Headers: `Authorization: Bearer <token>` (BFF sets `X-Customer-Id`).
 
 ### Prefill source
 
-`GET /api/v1/auth/me`  
-Use response `email` to prefill the statement email input.
+`GET /api/v1/wallets/account/details` → `data.email` (Vyce registered email; Choice `getAccountDetails` does not return it).  
+Fallback: `GET /api/v1/auth/me` → `email`.
+
+Send that same address on apply — Choice emails the statement to the **registered** email only.
 
 ### Apply
 
@@ -109,16 +111,20 @@ Returns local `status` (`PENDING` / `READY` / …), `email`, and `downloadUrl` (
 | Rule / code | UI action |
 |-------------|-----------|
 | Period max **180 days** | Client-side validate; backend `INVALID_STATEMENT_PERIOD` |
+| End date **today** | Cap `statementEndTime` at `min(endOfSelectedDay, now)` — never future midnight |
+| Times | Keep sending **Unix ms** on BFF; backend converts to Choice seconds |
+| Format | Prefer `fileType: 1` (Excel); Choice email statements are Excel-first |
 | Max **10 requests / account / day** (Choice) | Show envelope `message` as-is |
 | `EMAIL_REQUIRED` / `INVALID_EMAIL` | Fix email field |
 | Envelope `message` from Choice / Vyce | Show as-is — no client remapping |
+| `invalid end time` (Choice) | Usually bad/future end on client, or stale app against old backend; retry after backend deploy |
 
 ---
 
 ## Checklist
 
-- [ ] Prefill email from `GET /api/v1/auth/me`
-- [ ] Allow user to edit destination email
+- [ ] Prefill email from `GET /api/v1/wallets/account/details` → `data.email`
+- [ ] Prefer registered email only (read-only input unless profile email was updated)
 - [ ] Send **`email`** on every `POST .../statements/apply`
 - [ ] Enforce max 180-day date range in UI
 - [ ] Success copy = emailed statement (not “tap to download”)
@@ -131,5 +137,4 @@ Returns local `status` (`PENDING` / `READY` / …), `email`, and `downloadUrl` (
 
 - New BFF/wallet endpoint paths  
 - Android/iOS code in this repo (wire against this contract)  
-- Auto-updating customer profile when statement email differs from registered email  
-- Removing legacy Choice callbacks `0009`/`0015` on the backend (harmless if unused)
+- Auto-forcing apply `email` to DB registered email server-side (mobile should send `data.email` from account details)

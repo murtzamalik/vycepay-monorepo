@@ -365,7 +365,7 @@ All routes require **Bearer** auth. Responses use the **success envelope**; Choi
 
 | Method | Path | Notes |
 |--------|------|--------|
-| GET | `/api/v1/wallets/account/details` | `query/getAccountDetails` for the logged-in wallet |
+| GET | `/api/v1/wallets/account/details` | `query/getAccountDetails` for the logged-in wallet; response also includes Vyce **`email`** (registered; for statement prefill) |
 | GET | `/api/v1/wallets/account/list-by-user` | Requires `kyc_verification.choice_user_id` |
 | GET | `/api/v1/wallets/account/abnormal?pageNo=&pageSize=` | Partner-scoped abnormal list (Choice) |
 | POST | `/api/v1/wallets/account/short-code/apply` | |

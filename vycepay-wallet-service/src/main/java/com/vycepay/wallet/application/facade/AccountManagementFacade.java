@@ -44,10 +44,25 @@ public class AccountManagementFacade {
         this.choiceAssessor = choiceAssessor;
     }
 
+    /**
+     * Choice {@code query/getAccountDetails} plus Vyce registered {@code email}
+     * (Choice response does not include email; needed for statement prefill).
+     */
     public ChoiceBankResult getAccountDetails(WalletAccountContext ctx) {
         var params = Map.<String, Object>of("accountId", ctx.choiceAccountId());
-        return choiceAssessor.requireSuccessResult(
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
                 bankingProvider.post(PATH_GET_ACCOUNT_DETAILS, params), PATH_GET_ACCOUNT_DETAILS);
+        Map<String, Object> out = new HashMap<>();
+        if (result.data() instanceof Map<?, ?> d) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> dm = (Map<String, Object>) d;
+            out.putAll(dm);
+        }
+        String registeredEmail = ctx.customer() != null ? ctx.customer().getEmail() : null;
+        out.put("email", registeredEmail != null && !registeredEmail.isBlank()
+                ? registeredEmail.trim()
+                : null);
+        return new ChoiceBankResult(out, result.msg(), result.choiceRequestId());
     }
 
     public ChoiceBankResult queryAccountListByUserId(WalletAccountContext ctx) {

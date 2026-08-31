@@ -65,13 +65,13 @@ public class AccountStatementFacade {
 
         var params = new HashMap<String, Object>();
         params.put("accountId", ctx.choiceAccountId());
-        params.put("startTime", statementStartTime);
-        params.put("endTime", statementEndTime);
+        // Mobile/BFF contract is Unix ms; Choice statement APIs validate against "now" in Unix seconds.
+        // Passing 13-digit ms makes endTime always appear in the future → Choice "invalid end time".
+        params.put("startTime", toChoiceUnixSeconds(statementStartTime));
+        params.put("endTime", toChoiceUnixSeconds(statementEndTime));
         params.put("email", normalizedEmail);
-        String choiceFileType = toChoiceFileType(fileType);
-        if (choiceFileType != null) {
-            params.put("fileType", choiceFileType);
-        }
+        // Choice docs: email statements are Excel-only for now; default to xlsx when omitted.
+        params.put("fileType", toChoiceFileType(fileType));
         ChoiceBankResponse response = bankingProvider.post(PATH_APPLY_BANK_ACCOUNT_STATEMENT, params);
         ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_APPLY_BANK_ACCOUNT_STATEMENT);
         String jobId = extractStatementJobId(response);
@@ -196,11 +196,19 @@ public class AccountStatementFacade {
     }
 
     /**
+     * Converts BFF/mobile Unix milliseconds to Choice statement Unix seconds.
+     */
+    private static long toChoiceUnixSeconds(long unixMs) {
+        return unixMs / 1000L;
+    }
+
+    /**
      * Maps mobile/API fileType (0=PDF, 1=Excel) to Choice Bank string values.
+     * Null defaults to {@code xlsx} (Choice email statements are Excel-only for now).
      */
     private static String toChoiceFileType(Integer fileType) {
         if (fileType == null) {
-            return null;
+            return "xlsx";
         }
         return switch (fileType) {
             case 0 -> "pdf";
