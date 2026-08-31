@@ -380,13 +380,15 @@ All routes require **Bearer** auth. Responses use the **success envelope**; Choi
 | POST | `/api/v1/wallets/account/sub-account-name` | JSON optional `subAccountName` |
 | POST | `/api/v1/wallets/account/verify-otp` | JSON `applicationId`, `otpCode` |
 
-### Periodic account statements (wallet service)
+### Account statements — email delivery (wallet service)
+
+Choice emails an encrypted statement to the address supplied on apply (no in-app download URL). See [MOBILE_STATEMENT_EMAIL_CHANGE.md](MOBILE_STATEMENT_EMAIL_CHANGE.md).
 
 | Method | Path | Body / notes |
 |--------|------|----------------|
-| POST | `/api/v1/wallets/statements/apply` | `statementStartTime`, `statementEndTime` (Unix ms), optional `fileType` |
-| POST | `/api/v1/wallets/statements/query` | `requestId` from apply response |
-| GET | `/api/v1/wallets/statements/jobs/{choiceRequestId}` | Local job row (download URL after callback **0009**) |
+| POST | `/api/v1/wallets/statements/apply` | **`email`** (required), `statementStartTime`, `statementEndTime` (Unix ms; max 180 days), optional `fileType` (`0` PDF / `1` Excel) |
+| POST | `/api/v1/wallets/statements/query` | `requestId` (`jobId`) from apply; returns Choice `status` (`0` waiting / `1` completed) + `email` — **no** `statementUrl` |
+| GET | `/api/v1/wallets/statements/jobs/{choiceRequestId}` | Local job row (`status`, `email`; `downloadUrl` null for new jobs) |
 
 ---
 

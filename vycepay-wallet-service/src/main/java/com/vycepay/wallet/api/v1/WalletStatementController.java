@@ -24,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Periodic account statement apply/query (Choice statement/applyAccountStatement, queryAccountStatement).
+ * Account statement apply/query (Choice {@code statement/applyBankAccountStatement},
+ * {@code queryBankAccountStatement}). Statement is emailed; no in-app download URL.
  * Envelope {@code message} prefers Choice Bank {@code msg} when present.
  */
 @RestController
@@ -49,9 +50,10 @@ public class WalletStatementController {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
         ChoiceBankResult result = statementFacade.applyAccountStatement(ctx,
+                request.getEmail(),
                 request.getStatementStartTime(), request.getStatementEndTime(), request.getFileType());
         return ResponseEntity.ok(ApiSuccessResponses.ok("WALLET_STATEMENT_APPLIED",
-                ChoiceCustomerMessage.prefer(result.msg(), "Statement generation requested."),
+                ChoiceCustomerMessage.prefer(result.msg(), "Statement will be sent to your email."),
                 (Map<String, Object>) result.data()));
     }
 

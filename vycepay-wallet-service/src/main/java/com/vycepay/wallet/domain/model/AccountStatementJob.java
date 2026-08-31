@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * Tracks periodic account statement generation from Choice (apply + query + callback 0009).
+ * Tracks account statement generation from Choice (email delivery apply/query; legacy URL jobs may have download_url).
  */
 @Entity
 @Table(name = "account_statement_job")
@@ -37,6 +37,10 @@ public class AccountStatementJob {
 
     @Column(name = "status", nullable = false, length = 32)
     private String status = STATUS_PENDING;
+
+    /** Destination email for Choice applyBankAccountStatement; null on legacy URL jobs. */
+    @Column(name = "email", length = 255)
+    private String email;
 
     @Column(name = "download_url", length = 1024)
     private String downloadUrl;
@@ -103,6 +107,14 @@ public class AccountStatementJob {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getDownloadUrl() {

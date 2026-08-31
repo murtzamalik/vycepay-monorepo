@@ -8,7 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * Mirror of account_statement_job for webhook 0009 updates.
+ * Mirror of account_statement_job for legacy webhook 0009/0015 updates (URL flow).
+ * Current statements use Choice email delivery; these handlers remain for residual/legacy jobs.
  */
 @Entity
 @Table(name = "account_statement_job")
@@ -33,6 +34,9 @@ public class AccountStatementJob {
 
     @Column(name = "status", nullable = false, length = 32)
     private String status = STATUS_PENDING;
+
+    @Column(name = "email", length = 255)
+    private String email;
 
     @Column(name = "download_url", length = 1024)
     private String downloadUrl;
@@ -81,6 +85,14 @@ public class AccountStatementJob {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getDownloadUrl() {

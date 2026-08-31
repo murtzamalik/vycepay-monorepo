@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Handles 0015 - File job complete (account statement download URL per Choice Bank docs).
+ * Handles 0015 - File job complete (legacy URL-flow account statement download URL).
+ * Primary statements now use Choice email delivery; this handler remains for residual/legacy jobs.
  * Sends STATEMENT_READY push when fileUrl is present.
  */
 @Component

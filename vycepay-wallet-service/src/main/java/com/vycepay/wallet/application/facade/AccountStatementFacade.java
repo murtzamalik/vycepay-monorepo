@@ -15,16 +15,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
- * Periodic account statement apply/query against Choice Bank; persists job rows for callbacks and polling.
+ * Account statement apply/query against Choice Bank email-delivery APIs;
+ * persists job rows for polling (no download URL — statement is emailed).
  */
 @Service
 @ConditionalOnBean(BankingProviderPort.class)
 public class AccountStatementFacade {
 
-    private static final String PATH_APPLY_ACCOUNT_STATEMENT = "statement/applyAccountStatement";
-    private static final String PATH_QUERY_ACCOUNT_STATEMENT = "statement/queryAccountStatement";
+    private static final String PATH_APPLY_BANK_ACCOUNT_STATEMENT = "statement/applyBankAccountStatement";
+    private static final String PATH_QUERY_BANK_ACCOUNT_STATEMENT = "statement/queryBankAccountStatement";
+
+    /** Choice max statement period: 180 days. */
+    private static final long MAX_STATEMENT_PERIOD_MS = TimeUnit.DAYS.toMillis(180);
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final BankingProviderPort bankingProvider;
     private final ChoiceBankResponseAssessor choiceAssessor;
@@ -39,24 +48,32 @@ public class AccountStatementFacade {
     }
 
     /**
-     * Applies for a periodic account statement. Persists Choice {@code jobId} for query and webhook correlation.
+     * Requests an account statement emailed by Choice to {@code email}.
+     * Persists Choice {@code jobId} for query polling.
+     *
+     * @param email Destination address (customer-supplied; may differ from profile email)
+     * @throws BusinessException if email blank/invalid or period exceeds 180 days
      */
     @Transactional
     public ChoiceBankResult applyAccountStatement(WalletAccountContext ctx,
+                                                     String email,
                                                      long statementStartTime,
                                                      long statementEndTime,
                                                      Integer fileType) {
+        String normalizedEmail = requireValidEmail(email);
+        validateStatementPeriod(statementStartTime, statementEndTime);
+
         var params = new HashMap<String, Object>();
         params.put("accountId", ctx.choiceAccountId());
-        // Choice Bank: startTime/endTime (Unix ms), fileType as "pdf" or "xlsx".
         params.put("startTime", statementStartTime);
         params.put("endTime", statementEndTime);
+        params.put("email", normalizedEmail);
         String choiceFileType = toChoiceFileType(fileType);
         if (choiceFileType != null) {
             params.put("fileType", choiceFileType);
         }
-        ChoiceBankResponse response = bankingProvider.post(PATH_APPLY_ACCOUNT_STATEMENT, params);
-        ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_APPLY_ACCOUNT_STATEMENT);
+        ChoiceBankResponse response = bankingProvider.post(PATH_APPLY_BANK_ACCOUNT_STATEMENT, params);
+        ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_APPLY_BANK_ACCOUNT_STATEMENT);
         String jobId = extractStatementJobId(response);
         if (jobId == null || jobId.isBlank()) {
             throw new BusinessException("CHOICE_BANK_ERROR", "Missing statement job id from Choice Bank",
@@ -66,12 +83,14 @@ public class AccountStatementFacade {
         job.setCustomerId(ctx.customerId());
         job.setChoiceRequestId(jobId);
         job.setAccountId(ctx.choiceAccountId());
+        job.setEmail(normalizedEmail);
         job.setStatus(AccountStatementJob.STATUS_PENDING);
         statementJobRepository.save(job);
 
         Map<String, Object> out = new HashMap<>();
         out.put("choiceRequestId", jobId);
         out.put("jobId", jobId);
+        out.put("email", normalizedEmail);
         if (choiceResult.data() instanceof Map<?, ?> d) {
             @SuppressWarnings("unchecked")
             Map<String, Object> dm = (Map<String, Object>) d;
@@ -81,16 +100,17 @@ public class AccountStatementFacade {
     }
 
     /**
-     * Queries statement generation status from Choice Bank and merges local job state when present.
+     * Queries email-statement job status from Choice Bank and merges local job state when present.
      */
+    @Transactional
     public ChoiceBankResult queryAccountStatement(WalletAccountContext ctx, String requestId) {
         statementJobRepository.findByChoiceRequestIdAndCustomerId(requestId, ctx.customerId())
                 .orElseThrow(() -> new BusinessException("STATEMENT_JOB_NOT_FOUND",
                         "Unknown statement request for this customer", HttpStatus.NOT_FOUND));
 
         var params = Map.<String, Object>of("jobId", requestId);
-        ChoiceBankResponse response = bankingProvider.post(PATH_QUERY_ACCOUNT_STATEMENT, params);
-        ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_QUERY_ACCOUNT_STATEMENT);
+        ChoiceBankResponse response = bankingProvider.post(PATH_QUERY_BANK_ACCOUNT_STATEMENT, params);
+        ChoiceBankResult choiceResult = choiceAssessor.requireSuccessResult(response, PATH_QUERY_BANK_ACCOUNT_STATEMENT);
         Map<String, Object> out = new HashMap<>();
         if (choiceResult.data() instanceof Map<?, ?> d) {
             @SuppressWarnings("unchecked")
@@ -100,45 +120,79 @@ public class AccountStatementFacade {
         statementJobRepository.findByChoiceRequestId(requestId).ifPresent(job -> {
             mergeChoiceQueryIntoJob(job, out);
             out.put("localStatus", job.getStatus());
-            if (job.getDownloadUrl() != null) {
-                out.put("localDownloadUrl", job.getDownloadUrl());
+            if (job.getEmail() != null) {
+                out.putIfAbsent("email", job.getEmail());
             }
         });
         return new ChoiceBankResult(out, choiceResult.msg(), choiceResult.choiceRequestId());
     }
 
+    /**
+     * Maps Choice {@code status} 0→PENDING, 1→READY. Email API does not return a download URL.
+     */
     private void mergeChoiceQueryIntoJob(AccountStatementJob job, Map<String, Object> choiceData) {
-        Object url = firstNonNull(choiceData.get("statementUrl"), choiceData.get("fileUrl"),
-                choiceData.get("downloadUrl"));
-        if (url != null && !url.toString().isBlank()) {
-            job.setDownloadUrl(url.toString());
-            job.setStatus(AccountStatementJob.STATUS_READY);
-            statementJobRepository.save(job);
-            return;
+        Object email = choiceData.get("email");
+        if (email != null && !email.toString().isBlank() && job.getEmail() == null) {
+            job.setEmail(email.toString().trim());
         }
         Object status = choiceData.get("status");
-        if (status instanceof Number n && n.intValue() == 1) {
-            job.setStatus(AccountStatementJob.STATUS_READY);
-            statementJobRepository.save(job);
+        if (status instanceof Number n) {
+            if (n.intValue() == 1) {
+                job.setStatus(AccountStatementJob.STATUS_READY);
+                statementJobRepository.save(job);
+            } else if (n.intValue() == 0) {
+                job.setStatus(AccountStatementJob.STATUS_PENDING);
+                statementJobRepository.save(job);
+            }
+            return;
         }
-    }
-
-    private static Object firstNonNull(Object... values) {
-        for (Object v : values) {
-            if (v != null) {
-                return v;
+        if (status != null) {
+            try {
+                int s = Integer.parseInt(status.toString().trim());
+                if (s == 1) {
+                    job.setStatus(AccountStatementJob.STATUS_READY);
+                    statementJobRepository.save(job);
+                } else if (s == 0) {
+                    job.setStatus(AccountStatementJob.STATUS_PENDING);
+                    statementJobRepository.save(job);
+                }
+            } catch (NumberFormatException ignored) {
+                // leave local status unchanged
             }
         }
-        return null;
     }
 
     /**
-     * Local statement job status (updated by callback 0009 or polling).
+     * Local statement job status (updated by query polling; legacy callbacks 0009/0015 may still update old rows).
      */
     public AccountStatementJob getLocalStatementJob(WalletAccountContext ctx, String choiceRequestId) {
         return statementJobRepository.findByChoiceRequestIdAndCustomerId(choiceRequestId, ctx.customerId())
                 .orElseThrow(() -> new BusinessException("STATEMENT_JOB_NOT_FOUND",
                         "Statement job not found", HttpStatus.NOT_FOUND));
+    }
+
+    private static String requireValidEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new BusinessException("EMAIL_REQUIRED", "email is required", HttpStatus.BAD_REQUEST);
+        }
+        String trimmed = email.trim();
+        if (!EMAIL_PATTERN.matcher(trimmed).matches()) {
+            throw new BusinessException("INVALID_EMAIL", "email format is invalid", HttpStatus.BAD_REQUEST);
+        }
+        return trimmed;
+    }
+
+    private static void validateStatementPeriod(long startTime, long endTime) {
+        if (endTime < startTime) {
+            throw new BusinessException("INVALID_STATEMENT_PERIOD",
+                    "statementEndTime must be greater than or equal to statementStartTime",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (endTime - startTime > MAX_STATEMENT_PERIOD_MS) {
+            throw new BusinessException("INVALID_STATEMENT_PERIOD",
+                    "Statement period must not exceed 180 days",
+                    HttpStatus.BAD_REQUEST);
+        }
     }
 
     /**
@@ -157,7 +211,7 @@ public class AccountStatementFacade {
     }
 
     /**
-     * Choice applyAccountStatement returns {@code jobId} in data; falls back to envelope requestId.
+     * Choice applyBankAccountStatement returns {@code jobId} in data; falls back to envelope requestId.
      */
     private static String extractStatementJobId(ChoiceBankResponse response) {
         if (response.getData() instanceof Map<?, ?> data) {

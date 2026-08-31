@@ -11,8 +11,9 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Handles 0009 - Account statement generation result (legacy periodic statement callback).
- * Sends STATEMENT_READY push when a download URL is present.
+ * Handles 0009 - Account statement generation result (legacy URL/callback flow).
+ * Primary statements now use Choice email delivery ({@code applyBankAccountStatement});
+ * this handler remains for residual/legacy jobs. Sends STATEMENT_READY when a download URL is present.
  */
 @Component
 public class AccountStatementResultHandler implements NotificationHandler {

@@ -1,14 +1,21 @@
 package com.vycepay.wallet.api.v1.dto;
 
 import com.vycepay.wallet.domain.model.AccountStatementJob;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
+/**
+ * Local statement job row. Email-delivery jobs have {@code email} and no {@code downloadUrl}.
+ */
 public class StatementJobResponse {
 
     private String choiceRequestId;
     private String accountId;
     private String status;
+    @Schema(description = "Destination email used on apply; null for legacy URL jobs")
+    private String email;
+    @Schema(description = "Download URL for legacy URL-flow jobs only; null for email-delivery jobs")
     private String downloadUrl;
     private String fileName;
     private String errorMsg;
@@ -20,6 +27,7 @@ public class StatementJobResponse {
         r.choiceRequestId = j.getChoiceRequestId();
         r.accountId = j.getAccountId();
         r.status = j.getStatus();
+        r.email = j.getEmail();
         r.downloadUrl = j.getDownloadUrl();
         r.fileName = j.getFileName();
         r.errorMsg = j.getErrorMsg();
@@ -38,6 +46,10 @@ public class StatementJobResponse {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
     public String getDownloadUrl() {

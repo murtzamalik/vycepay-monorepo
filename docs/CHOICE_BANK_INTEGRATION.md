@@ -9,13 +9,13 @@ This document describes **how VycePay integrates with Choice Bank**: authenticat
 - **Choice Bank** provides BaaS (Banking-as-a-Service) in Kenya. VycePay uses their **BaaS API** for:
   - Customer onboarding (KYC) and account opening
   - Account management (details, short codes, dormant activation, email/mobile verification, SME sub-account name)
-  - Periodic account statements (apply/query; file ready via callback **0009**)
+  - Account statements via email (`applyBankAccountStatement` / `queryBankAccountStatement`; no download URL)
   - Transfers (e.g. to M-PESA or bank)
   - Utility payments (airtime, bill query/pay, payment queries)
   - M-PESA STK Push deposits
   - Bank codes, transaction status, transaction list
 - **Authentication:** Every outbound request is **signed**; the signature is sent **inside the JSON request body**. Choice validates it and returns `code: "00000"` on success.
-- **Asynchronous results:** Onboarding completion, transaction result, balance changes, statement file readiness, and account status changes are notified via **HTTP callbacks** (webhooks) to VycePay. VycePay stores and processes them by `notificationType` (0001, 0002, 0003, 0009, 0021).
+- **Asynchronous results:** Onboarding completion, transaction result, balance changes, and account status changes are notified via **HTTP callbacks** (webhooks) to VycePay. VycePay stores and processes them by `notificationType` (0001, 0002, 0003, 0021). Legacy statement URL callbacks (**0009** / **0015**) remain handled but are not used by the current email-delivery statement flow.
 
 ---
 
@@ -79,7 +79,7 @@ Base URL is configurable (e.g. sandbox `https://baas-pilot.choicebankapi.com`). 
 | `query/getTransList` | Transaction service | Get transaction list from Choice (time range, pagination). |
 | `staticData/getBankCodes` | Transaction service | Get bank codes for “send money” UI. |
 | `query/getAccountDetails`, `account/queryAccountListByUserId`, `query/getAbnormalAccountList`, `account/applyForShortCode`, `account/queryForShortCode`, `account/queryAccountByShortCode`, `account/activateAccount`, `user/addOrUpdateEmail`, `account/v2/mobileChange`, `account/confirmMobileChange`, `account/verifyEmailAddress`, `account/verifyEmailOrMobile`, `account/editSubAccountName`, `account/verifyOtp` | Wallet service | Account lifecycle and contact verification (`verifyOtp` is **not** `common/confirmOperation`). |
-| `statement/applyAccountStatement`, `statement/queryAccountStatement` | Wallet service | Periodic statement; local row in `account_statement_job`. |
+| `statement/applyBankAccountStatement`, `statement/queryBankAccountStatement` | Wallet service | Email statement; requires `email`; local row in `account_statement_job` (status via query; no `fileUrl`). |
 | `utilityPayment/v2/airtimePayment`, `utilityPayment/v2/airtimeBulkPayment`, `utilityPayment/billQuery`, `utilityPayment/v2/billPayment`, `utilityPayment/paymentQuery`, `utilityPayment/bulkPaymentQuery` | Transaction service | Utilities; debits create `transaction` rows (`UTILITY_*` types). |
 
 All calls go through the **same** client and signing logic; only `params` and path change.
@@ -113,8 +113,8 @@ All calls go through the **same** client and signing logic; only `params` and pa
 | **0001** | OnboardingResultHandler | Update `kyc_verification` (status, userId, accountId, rejection info). If status = 7 (account opened), create `wallet` for that customer. | `KYC_ONBOARDING_RESULT` |
 | **0002** | TransactionResultHandler | Find transaction by choiceTxId or choiceRequestId; update status, errorCode, errorMsg, completedAt. If missing, upsert inbound DEPOSIT (credit) then push. | `TRANSACTION_RESULT` (deduped by `TX:{txId}`) |
 | **0003** | BalanceChangeHandler | Find wallet by accountId; update balance_cache and last_balance_update_at; upsert inbound DEPOSIT when no local row; push. | `TRANSACTION_RESULT` (deduped with 0002) |
-| **0009** | AccountStatementResultHandler | Find `account_statement_job` by `requestId` (or equivalent in `params`); set `download_url` / status when statement file is ready. | `STATEMENT_READY` when `fileUrl` present |
-| **0015** | AccountStatementFileJobHandler | Same as 0009 for file-job complete (`jobId` + `fileUrl`). | `STATEMENT_READY` |
+| **0009** | AccountStatementResultHandler | Legacy URL-flow only: find `account_statement_job`; set `download_url` / status. Current flow uses email delivery (no callback). | `STATEMENT_READY` when `fileUrl` present |
+| **0015** | AccountStatementFileJobHandler | Legacy URL-flow file-job complete (`jobId` + `fileUrl`). | `STATEMENT_READY` |
 | **0021** | AccountStatusChangeHandler | Find wallet by `accountId`; update `wallet.status` from Choice account status fields. | `ACCOUNT_STATUS` |
 | Other | UnknownNotificationHandler | Log only. | None |
 
@@ -193,7 +193,7 @@ Each KYC, Transaction, and Wallet process has **its own** buffer (not shared acr
 | **TransactionFacade** | vycepay-transaction-service | Uses BankingProviderPort for validateAccount, applyForTransfer, applyForMpesaBusinessTransfer (Paybill/Till), depositFromMpesa, getTransResult, getTransList, getBankCodes, sendOtp, resendOtp, confirmOperation. |
 | **UtilityPaymentFacade** | vycepay-transaction-service | Utility payment and query endpoints; debits persist transactions. |
 | **AccountManagementFacade** | vycepay-wallet-service | Choice account management and `account/verifyOtp`. |
-| **AccountStatementFacade** | vycepay-wallet-service | `statement/applyAccountStatement`, `statement/queryAccountStatement`; persists `account_statement_job`. |
+| **AccountStatementFacade** | vycepay-wallet-service | `statement/applyBankAccountStatement`, `statement/queryBankAccountStatement`; persists `account_statement_job` with destination `email`. |
 | **CallbackService** | vycepay-callback-service | Receives POST, persists callback, routes by notificationType to NotificationHandler implementations. |
 | **OnboardingResultHandler, TransactionResultHandler, BalanceChangeHandler, AccountStatementResultHandler, AccountStatusChangeHandler** | vycepay-callback-service | Update kyc_verification / wallet / transaction / statement job from callback params. |
 
