@@ -9,6 +9,9 @@ import com.vycepay.wallet.application.WalletAccountContext;
 import com.vycepay.wallet.domain.model.Customer;
 import com.vycepay.wallet.domain.model.KycVerification;
 import com.vycepay.wallet.infrastructure.persistence.CustomerRepository;
+import com.vycepay.wallet.infrastructure.persistence.KycVerificationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
@@ -29,6 +32,8 @@ import java.util.regex.Pattern;
 @ConditionalOnBean(BankingProviderPort.class)
 public class AccountManagementFacade {
 
+    private static final Logger log = LoggerFactory.getLogger(AccountManagementFacade.class);
+
     private static final String PATH_GET_ACCOUNT_DETAILS = "query/getAccountDetails";
     private static final String PATH_QUERY_ACCOUNT_LIST = "account/queryAccountListByUserId";
     private static final String PATH_GET_ABNORMAL_ACCOUNT_LIST = "query/getAbnormalAccountList";
@@ -43,6 +48,7 @@ public class AccountManagementFacade {
     private static final String PATH_VERIFY_EMAIL_OR_MOBILE = "account/verifyEmailOrMobile";
     private static final String PATH_EDIT_SUB_ACCOUNT_NAME = "account/editSubAccountName";
     private static final String PATH_VERIFY_ACCOUNT_OTP = "account/verifyOtp";
+    private static final String PATH_GET_USER_KYC = "onboarding/getUserKyc";
 
     private static final String ONBOARD_TYPE_PERSONAL = "personal";
     private static final String DEFAULT_PERSONAL_ID_TYPE = "101";
@@ -53,15 +59,18 @@ public class AccountManagementFacade {
     private final BankingProviderPort bankingProvider;
     private final ChoiceBankResponseAssessor choiceAssessor;
     private final CustomerRepository customerRepository;
+    private final KycVerificationRepository kycVerificationRepository;
     private final SensitiveDataEncryptionPort encryptionPort;
 
     public AccountManagementFacade(BankingProviderPort bankingProvider,
                                    ChoiceBankResponseAssessor choiceAssessor,
                                    CustomerRepository customerRepository,
+                                   KycVerificationRepository kycVerificationRepository,
                                    @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort) {
         this.bankingProvider = bankingProvider;
         this.choiceAssessor = choiceAssessor;
         this.customerRepository = customerRepository;
+        this.kycVerificationRepository = kycVerificationRepository;
         this.encryptionPort = encryptionPort;
     }
 
@@ -213,7 +222,8 @@ public class AccountManagementFacade {
     }
 
     /**
-     * Builds Choice personal-identity params from the latest KYC row. Never taken from the client.
+     * Builds Choice personal-identity params from KYC. Never taken from the client.
+     * If local {@code id_number} is blank (legacy rows), pulls it from Choice {@code getUserKyc}.
      */
     private Map<String, Object> personalIdentityParams(WalletAccountContext ctx) {
         KycVerification kyc = ctx.latestKyc();
@@ -221,17 +231,19 @@ public class AccountManagementFacade {
             throw new BusinessException("KYC_IDENTITY_MISSING",
                     "KYC identity is not on file; complete onboarding first.", HttpStatus.CONFLICT);
         }
-        String storedId = kyc.getIdNumber();
-        if (storedId == null || storedId.isBlank()) {
-            throw new BusinessException("KYC_IDENTITY_MISSING",
-                    "ID number is not on file; complete onboarding first.", HttpStatus.CONFLICT);
+        String documentNumber = decryptIdNumber(kyc.getIdNumber());
+        String idType = kyc.getIdType();
+        if (documentNumber == null) {
+            ChoiceIdentity fromChoice = backfillIdentityFromChoice(kyc);
+            documentNumber = fromChoice.documentNumber();
+            if (idType == null || idType.isBlank()) {
+                idType = fromChoice.idType();
+            }
         }
-        String documentNumber = encryptionPort != null ? encryptionPort.decrypt(storedId) : storedId;
         if (documentNumber == null || documentNumber.isBlank()) {
             throw new BusinessException("KYC_IDENTITY_MISSING",
                     "ID number is not on file; complete onboarding first.", HttpStatus.CONFLICT);
         }
-        String idType = kyc.getIdType();
         if (idType == null || idType.isBlank()) {
             idType = DEFAULT_PERSONAL_ID_TYPE;
         }
@@ -241,6 +253,57 @@ public class AccountManagementFacade {
         params.put("documentNumber", documentNumber.trim());
         return params;
     }
+
+    private String decryptIdNumber(String storedId) {
+        if (storedId == null || storedId.isBlank()) {
+            return null;
+        }
+        String documentNumber = encryptionPort != null ? encryptionPort.decrypt(storedId) : storedId;
+        if (documentNumber == null || documentNumber.isBlank()) {
+            return null;
+        }
+        return documentNumber.trim();
+    }
+
+    /**
+     * Choice {@code onboarding/getUserKyc} for accounts whose local KYC row never stored id_number.
+     */
+    private ChoiceIdentity backfillIdentityFromChoice(KycVerification kyc) {
+        String onboardingRequestId = kyc.getChoiceOnboardingRequestId();
+        if (onboardingRequestId == null || onboardingRequestId.isBlank()) {
+            throw new BusinessException("KYC_IDENTITY_MISSING",
+                    "ID number is not on file; complete onboarding first.", HttpStatus.CONFLICT);
+        }
+        log.info("Local KYC id_number missing; fetching from Choice getUserKyc onboardingRequestId={}",
+                onboardingRequestId);
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
+                bankingProvider.post(PATH_GET_USER_KYC, Map.of("onboardingRequestId", onboardingRequestId)),
+                PATH_GET_USER_KYC);
+        String idNumber = null;
+        String idType = null;
+        if (result.data() instanceof Map<?, ?> data) {
+            Object n = data.get("idNumber");
+            Object t = data.get("idType");
+            if (n != null && !n.toString().isBlank()) {
+                idNumber = n.toString().trim();
+            }
+            if (t != null && !t.toString().isBlank()) {
+                idType = t.toString().trim();
+            }
+        }
+        if (idNumber == null) {
+            throw new BusinessException("KYC_IDENTITY_MISSING",
+                    "ID number is not on file; complete onboarding first.", HttpStatus.CONFLICT);
+        }
+        kyc.setIdNumber(encryptionPort != null ? encryptionPort.encrypt(idNumber) : idNumber);
+        if (idType != null) {
+            kyc.setIdType(idType);
+        }
+        kycVerificationRepository.save(kyc);
+        return new ChoiceIdentity(idNumber, idType);
+    }
+
+    private record ChoiceIdentity(String documentNumber, String idType) {}
 
     private void persistRegisteredEmail(WalletAccountContext ctx, String email) {
         Customer customer = ctx.customer();

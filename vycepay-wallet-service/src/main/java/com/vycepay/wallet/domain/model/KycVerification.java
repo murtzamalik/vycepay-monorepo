@@ -25,6 +25,9 @@ public class KycVerification {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
+    @Column(name = "choice_onboarding_request_id")
+    private String choiceOnboardingRequestId;
+
     @Column(name = "choice_user_id")
     private String choiceUserId;
 
@@ -63,6 +66,14 @@ public class KycVerification {
 
     public void setCustomerId(Long customerId) {
         this.customerId = customerId;
+    }
+
+    public String getChoiceOnboardingRequestId() {
+        return choiceOnboardingRequestId;
+    }
+
+    public void setChoiceOnboardingRequestId(String choiceOnboardingRequestId) {
+        this.choiceOnboardingRequestId = choiceOnboardingRequestId;
     }
 
     public String getChoiceUserId() {

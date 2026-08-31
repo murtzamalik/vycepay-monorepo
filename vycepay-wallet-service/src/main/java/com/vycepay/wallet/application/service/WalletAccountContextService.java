@@ -11,9 +11,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * Loads customer, wallet, and latest KYC for Choice Bank account operations.
- */
+    /**
+     * Loads customer, wallet, and KYC (preferring the wallet's row that has an ID number)
+     * for Choice Bank account operations.
+     */
 @Service
 public class WalletAccountContextService {
 
@@ -38,7 +39,45 @@ public class WalletAccountContextService {
         var wallet = walletRepository.findByCustomerId(customer.getId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Wallet not found", HttpStatus.NOT_FOUND));
         List<KycVerification> list = kycVerificationRepository.findByCustomerIdOrderByCreatedAtDesc(customer.getId());
-        KycVerification latest = list.isEmpty() ? null : list.get(0);
-        return new WalletAccountContext(customer.getId(), customer, wallet, latest);
+        KycVerification kyc = selectKyc(list, wallet.getChoiceAccountId());
+        return new WalletAccountContext(customer.getId(), customer, wallet, kyc);
+    }
+
+    /**
+     * Prefer the KYC row that belongs to this wallet and already has an ID number.
+     * Newest-first list from the repository.
+     */
+    static KycVerification selectKyc(List<KycVerification> list, String walletAccountId) {
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        KycVerification matchingWithId = null;
+        KycVerification anyWithId = null;
+        KycVerification matching = null;
+        for (KycVerification kyc : list) {
+            boolean matchesAccount = walletAccountId != null
+                    && walletAccountId.equals(kyc.getChoiceAccountId());
+            boolean hasId = hasIdNumber(kyc);
+            if (matchesAccount && hasId) {
+                return kyc;
+            }
+            if (anyWithId == null && hasId) {
+                anyWithId = kyc;
+            }
+            if (matching == null && matchesAccount) {
+                matching = kyc;
+            }
+        }
+        if (anyWithId != null) {
+            return anyWithId;
+        }
+        if (matching != null) {
+            return matching;
+        }
+        return list.get(0);
+    }
+
+    private static boolean hasIdNumber(KycVerification kyc) {
+        return kyc.getIdNumber() != null && !kyc.getIdNumber().isBlank();
     }
 }

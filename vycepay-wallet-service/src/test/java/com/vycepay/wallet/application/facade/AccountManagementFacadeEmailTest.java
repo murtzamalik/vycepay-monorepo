@@ -11,6 +11,7 @@ import com.vycepay.wallet.domain.model.Customer;
 import com.vycepay.wallet.domain.model.KycVerification;
 import com.vycepay.wallet.domain.model.Wallet;
 import com.vycepay.wallet.infrastructure.persistence.CustomerRepository;
+import com.vycepay.wallet.infrastructure.persistence.KycVerificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,8 @@ class AccountManagementFacadeEmailTest {
     @Mock
     private CustomerRepository customerRepository;
     @Mock
+    private KycVerificationRepository kycVerificationRepository;
+    @Mock
     private SensitiveDataEncryptionPort encryptionPort;
 
     private AccountManagementFacade facade;
@@ -46,7 +49,7 @@ class AccountManagementFacadeEmailTest {
         ChoiceBankErrorCatalog catalog = new ChoiceBankErrorCatalog();
         catalog.loadFromClasspath();
         facade = new AccountManagementFacade(bankingProvider, new ChoiceBankResponseAssessor(catalog),
-                customerRepository, encryptionPort);
+                customerRepository, kycVerificationRepository, encryptionPort);
     }
 
     @Test
@@ -125,6 +128,23 @@ class AccountManagementFacadeEmailTest {
         verify(bankingProvider, never()).post(any(), any());
     }
 
+    @Test
+    void addOrUpdateEmail_whenLocalIdMissing_backfillsFromChoiceGetUserKyc() {
+        when(encryptionPort.encrypt("12345678")).thenReturn("enc-id");
+        when(bankingProvider.post(eq("onboarding/getUserKyc"), any()))
+                .thenReturn(success(Map.of("idType", "101", "idNumber", "12345678")));
+        when(bankingProvider.post(eq("user/addOrUpdateEmail"), any()))
+                .thenReturn(success(Map.of("applicationId", "app-1")));
+
+        facade.addOrUpdateEmail(ctxWithKycNoId(), "hannanali29@gmail.com");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
+        verify(bankingProvider).post(eq("user/addOrUpdateEmail"), params.capture());
+        assertEquals("12345678", params.getValue().get("documentNumber"));
+        verify(kycVerificationRepository).save(any(KycVerification.class));
+    }
+
     private static WalletAccountContext ctxWithKyc() {
         Customer customer = new Customer();
         customer.setId(10L);
@@ -134,6 +154,18 @@ class AccountManagementFacadeEmailTest {
         KycVerification kyc = new KycVerification();
         kyc.setIdType("101");
         kyc.setIdNumber("enc-id");
+        return new WalletAccountContext(10L, customer, wallet, kyc);
+    }
+
+    private static WalletAccountContext ctxWithKycNoId() {
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setExternalId("cust-ext");
+        Wallet wallet = new Wallet();
+        wallet.setChoiceAccountId("46012001327585");
+        KycVerification kyc = new KycVerification();
+        kyc.setChoiceOnboardingRequestId("ONBRD-1");
+        kyc.setIdType("101");
         return new WalletAccountContext(10L, customer, wallet, kyc);
     }
 
