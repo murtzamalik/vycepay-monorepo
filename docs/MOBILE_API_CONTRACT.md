@@ -192,6 +192,10 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/v1/wallets/me | Returns balance + choiceAccountId (404 until KYC approved) |
+| POST | /api/v1/wallets/account/email | Add or update email — body `{ "email" }` only. Identity from KYC. [MOBILE_EMAIL_UPDATE_HANDOFF.md](MOBILE_EMAIL_UPDATE_HANDOFF.md) |
+| POST | /api/v1/wallets/account/verify-email-address | Verify current email (no body) |
+| POST | /api/v1/wallets/account/verify-email-or-mobile | `{ "verifyType": "email" \| "mobile" }` — identity from KYC |
+| POST | /api/v1/wallets/account/verify-otp | Account-level OTP (`applicationId` + `otpCode`) |
 
 ### Transactions
 
@@ -227,6 +231,10 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | UNAUTHORIZED | 401 | Missing or invalid Bearer token (BFF) |
 | CUSTOMER_NOT_FOUND | 404 | Invalid or missing customer context |
 | WALLET_NOT_FOUND | 404 | No wallet for customer (e.g. KYC not done) |
+| KYC_IDENTITY_MISSING | 409 | KYC ID not on file for email/contact verify |
+| EMAIL_REQUIRED | 400 | Email missing on add/update or statement apply |
+| INVALID_EMAIL | 400 | Email format invalid |
+| INVALID_VERIFY_TYPE | 400 | verifyType must be email or mobile |
 | KYC_NOT_FOUND | 404 | Onboarding request not found |
 | VALIDATION_ERROR | 400 | Request body/query validation failed |
 | INVALID_REQUEST | 400 | Bad request (e.g. invalid argument) |

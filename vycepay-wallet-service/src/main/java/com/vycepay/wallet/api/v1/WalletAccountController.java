@@ -5,11 +5,13 @@ import com.vycepay.common.api.ApiSuccessResponses;
 import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.wallet.api.v1.dto.AddOrUpdateEmailRequest;
 import com.vycepay.wallet.api.v1.dto.ConfirmMobileChangeRequest;
 import com.vycepay.wallet.api.v1.dto.EditSubAccountNameRequest;
 import com.vycepay.wallet.api.v1.dto.MobileChangeV2Request;
 import com.vycepay.wallet.api.v1.dto.ShortCodeResolveRequest;
 import com.vycepay.wallet.api.v1.dto.VerifyAccountOtpRequest;
+import com.vycepay.wallet.api.v1.dto.VerifyEmailOrMobileRequest;
 import com.vycepay.wallet.application.facade.AccountManagementFacade;
 import com.vycepay.wallet.application.service.WalletAccountContextService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +24,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 /**
  * Choice Bank account management APIs (proxied through VycePay with customer scoping).
@@ -107,11 +107,11 @@ public class WalletAccountController {
     @PostMapping("/email")
     public ResponseEntity<ApiSuccessResponse<Object>> addOrUpdateEmail(
             @RequestHeader("X-Customer-Id") String externalId,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody AddOrUpdateEmailRequest request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
         return ok("WALLET_EMAIL_UPDATED", "Email update requested.",
-                accountManagementFacade.addOrUpdateEmail(ctx, body));
+                accountManagementFacade.addOrUpdateEmail(ctx, request.getEmail()));
     }
 
     @PostMapping("/mobile-change")
@@ -138,22 +138,21 @@ public class WalletAccountController {
 
     @PostMapping("/verify-email-address")
     public ResponseEntity<ApiSuccessResponse<Object>> verifyEmailAddress(
-            @RequestHeader("X-Customer-Id") String externalId,
-            @RequestBody Map<String, Object> body) {
+            @RequestHeader("X-Customer-Id") String externalId) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
         return ok("WALLET_VERIFY_EMAIL_REQUESTED", "Email verification requested.",
-                accountManagementFacade.verifyEmailAddress(ctx, body));
+                accountManagementFacade.verifyEmailAddress(ctx));
     }
 
     @PostMapping("/verify-email-or-mobile")
     public ResponseEntity<ApiSuccessResponse<Object>> verifyEmailOrMobile(
             @RequestHeader("X-Customer-Id") String externalId,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody VerifyEmailOrMobileRequest request) {
         requireFacade();
         var ctx = contextService.requireContext(externalId);
         return ok("WALLET_VERIFY_CONTACT_REQUESTED", "Contact verification requested.",
-                accountManagementFacade.verifyEmailOrMobile(ctx, body));
+                accountManagementFacade.verifyEmailOrMobile(ctx, request.getVerifyType()));
     }
 
     @PostMapping("/sub-account-name")

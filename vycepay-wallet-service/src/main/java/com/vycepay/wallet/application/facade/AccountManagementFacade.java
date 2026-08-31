@@ -4,16 +4,25 @@ import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.common.security.port.SensitiveDataEncryptionPort;
 import com.vycepay.wallet.application.WalletAccountContext;
+import com.vycepay.wallet.domain.model.Customer;
+import com.vycepay.wallet.domain.model.KycVerification;
+import com.vycepay.wallet.infrastructure.persistence.CustomerRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Orchestrates Choice Bank account management APIs (query, short code, contact, SME sub-account, verify OTP).
+ * Contact-identity fields for email APIs are taken from KYC, not from the client.
  * Returns {@link ChoiceBankResult} so controllers can prefer Choice {@code msg} for customer display.
  */
 @Service
@@ -35,13 +44,25 @@ public class AccountManagementFacade {
     private static final String PATH_EDIT_SUB_ACCOUNT_NAME = "account/editSubAccountName";
     private static final String PATH_VERIFY_ACCOUNT_OTP = "account/verifyOtp";
 
+    private static final String ONBOARD_TYPE_PERSONAL = "personal";
+    private static final String DEFAULT_PERSONAL_ID_TYPE = "101";
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+
     private final BankingProviderPort bankingProvider;
     private final ChoiceBankResponseAssessor choiceAssessor;
+    private final CustomerRepository customerRepository;
+    private final SensitiveDataEncryptionPort encryptionPort;
 
     public AccountManagementFacade(BankingProviderPort bankingProvider,
-                                   ChoiceBankResponseAssessor choiceAssessor) {
+                                   ChoiceBankResponseAssessor choiceAssessor,
+                                   CustomerRepository customerRepository,
+                                   @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort) {
         this.bankingProvider = bankingProvider;
         this.choiceAssessor = choiceAssessor;
+        this.customerRepository = customerRepository;
+        this.encryptionPort = encryptionPort;
     }
 
     /**
@@ -116,11 +137,19 @@ public class AccountManagementFacade {
                 bankingProvider.post(PATH_ACTIVATE_ACCOUNT, params), PATH_ACTIVATE_ACCOUNT);
     }
 
-    public ChoiceBankResult addOrUpdateEmail(WalletAccountContext ctx, Map<String, Object> body) {
-        var params = new HashMap<String, Object>();
-        params.putAll(body);
-        return choiceAssessor.requireSuccessResult(
+    /**
+     * Choice {@code user/addOrUpdateEmail}. Identity comes from KYC; the client supplies {@code email} only.
+     * On Choice success the address is stored on {@code customer.email} for profile / statement prefill.
+     */
+    @Transactional
+    public ChoiceBankResult addOrUpdateEmail(WalletAccountContext ctx, String email) {
+        String normalizedEmail = requireValidEmail(email);
+        Map<String, Object> params = personalIdentityParams(ctx);
+        params.put("email", normalizedEmail);
+        ChoiceBankResult result = choiceAssessor.requireSuccessResult(
                 bankingProvider.post(PATH_ADD_OR_UPDATE_EMAIL, params), PATH_ADD_OR_UPDATE_EMAIL);
+        persistRegisteredEmail(ctx, normalizedEmail);
+        return result;
     }
 
     public ChoiceBankResult mobileChangeV2(WalletAccountContext ctx, String newMobileCountryCode, String newMobileNumber) {
@@ -142,16 +171,22 @@ public class AccountManagementFacade {
                 bankingProvider.post(PATH_CONFIRM_MOBILE_CHANGE, params), PATH_CONFIRM_MOBILE_CHANGE);
     }
 
-    public ChoiceBankResult verifyEmailAddress(WalletAccountContext ctx, Map<String, Object> body) {
-        var params = new HashMap<String, Object>();
-        params.putAll(body);
+    /**
+     * Choice {@code account/verifyEmailAddress}. Identity from KYC; no client body.
+     */
+    public ChoiceBankResult verifyEmailAddress(WalletAccountContext ctx) {
         return choiceAssessor.requireSuccessResult(
-                bankingProvider.post(PATH_VERIFY_EMAIL_ADDRESS, params), PATH_VERIFY_EMAIL_ADDRESS);
+                bankingProvider.post(PATH_VERIFY_EMAIL_ADDRESS, personalIdentityParams(ctx)),
+                PATH_VERIFY_EMAIL_ADDRESS);
     }
 
-    public ChoiceBankResult verifyEmailOrMobile(WalletAccountContext ctx, Map<String, Object> body) {
-        var params = new HashMap<String, Object>();
-        params.putAll(body);
+    /**
+     * Choice {@code account/verifyEmailOrMobile}. Identity from KYC; client supplies {@code verifyType} only.
+     */
+    public ChoiceBankResult verifyEmailOrMobile(WalletAccountContext ctx, String verifyType) {
+        String normalizedType = requireVerifyType(verifyType);
+        Map<String, Object> params = personalIdentityParams(ctx);
+        params.put("verifyType", normalizedType);
         return choiceAssessor.requireSuccessResult(
                 bankingProvider.post(PATH_VERIFY_EMAIL_OR_MOBILE, params), PATH_VERIFY_EMAIL_OR_MOBILE);
     }
@@ -175,5 +210,68 @@ public class AccountManagementFacade {
         params.put("otpCode", otpCode);
         return choiceAssessor.requireSuccessResult(
                 bankingProvider.post(PATH_VERIFY_ACCOUNT_OTP, params), PATH_VERIFY_ACCOUNT_OTP);
+    }
+
+    /**
+     * Builds Choice personal-identity params from the latest KYC row. Never taken from the client.
+     */
+    private Map<String, Object> personalIdentityParams(WalletAccountContext ctx) {
+        KycVerification kyc = ctx.latestKyc();
+        if (kyc == null) {
+            throw new BusinessException("KYC_IDENTITY_MISSING",
+                    "KYC identity is not on file; complete onboarding first.", HttpStatus.CONFLICT);
+        }
+        String storedId = kyc.getIdNumber();
+        if (storedId == null || storedId.isBlank()) {
+            throw new BusinessException("KYC_IDENTITY_MISSING",
+                    "ID number is not on file; complete onboarding first.", HttpStatus.CONFLICT);
+        }
+        String documentNumber = encryptionPort != null ? encryptionPort.decrypt(storedId) : storedId;
+        if (documentNumber == null || documentNumber.isBlank()) {
+            throw new BusinessException("KYC_IDENTITY_MISSING",
+                    "ID number is not on file; complete onboarding first.", HttpStatus.CONFLICT);
+        }
+        String idType = kyc.getIdType();
+        if (idType == null || idType.isBlank()) {
+            idType = DEFAULT_PERSONAL_ID_TYPE;
+        }
+        Map<String, Object> params = new HashMap<>();
+        params.put("onboardType", ONBOARD_TYPE_PERSONAL);
+        params.put("personalIdType", idType.trim());
+        params.put("documentNumber", documentNumber.trim());
+        return params;
+    }
+
+    private void persistRegisteredEmail(WalletAccountContext ctx, String email) {
+        Customer customer = ctx.customer();
+        if (customer == null) {
+            return;
+        }
+        customer.setEmail(email);
+        customerRepository.save(customer);
+    }
+
+    private static String requireValidEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new BusinessException("EMAIL_REQUIRED", "email is required", HttpStatus.BAD_REQUEST);
+        }
+        String trimmed = email.trim();
+        if (!EMAIL_PATTERN.matcher(trimmed).matches()) {
+            throw new BusinessException("INVALID_EMAIL", "email format is invalid", HttpStatus.BAD_REQUEST);
+        }
+        return trimmed;
+    }
+
+    private static String requireVerifyType(String verifyType) {
+        if (verifyType == null || verifyType.isBlank()) {
+            throw new BusinessException("INVALID_VERIFY_TYPE", "verifyType must be email or mobile",
+                    HttpStatus.BAD_REQUEST);
+        }
+        String normalized = verifyType.trim().toLowerCase(Locale.ROOT);
+        if (!"email".equals(normalized) && !"mobile".equals(normalized)) {
+            throw new BusinessException("INVALID_VERIFY_TYPE", "verifyType must be email or mobile",
+                    HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
     }
 }

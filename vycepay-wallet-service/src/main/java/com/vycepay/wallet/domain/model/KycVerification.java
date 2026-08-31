@@ -11,7 +11,8 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * Read-only slice of kyc_verification for Choice userId resolution. Same table as KYC service.
+ * Read-only slice of kyc_verification for Choice userId and personal-identity resolution.
+ * Same table as KYC service.
  */
 @Entity
 @Table(name = "kyc_verification")
@@ -32,6 +33,13 @@ public class KycVerification {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "id_type")
+    private String idType;
+
+    /** May be encrypted at rest; decrypt before sending to Choice. */
+    @Column(name = "id_number")
+    private String idNumber;
 
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -79,6 +87,22 @@ public class KycVerification {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getIdType() {
+        return idType;
+    }
+
+    public void setIdType(String idType) {
+        this.idType = idType;
+    }
+
+    public String getIdNumber() {
+        return idNumber;
+    }
+
+    public void setIdNumber(String idNumber) {
+        this.idNumber = idNumber;
     }
 
     public Instant getCreatedAt() {

@@ -343,7 +343,7 @@
             "url": "{{baseUrl}}/api/v1/wallets/account/email",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"onboardType\": \"{{onboardType}}\",\n  \"personalIdType\": \"{{personalIdType}}\",\n  \"documentNumber\": \"{{documentNumber}}\",\n  \"email\": \"{{email}}\"\n}"
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
             }
           }
         },
@@ -388,7 +388,7 @@
             "url": "{{baseUrl}}/api/v1/wallets/account/verify-email-address",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"onboardType\": \"{{onboardType}}\",\n  \"personalIdType\": \"{{personalIdType}}\",\n  \"documentNumber\": \"{{documentNumber}}\"\n}"
+              "raw": "{}"
             }
           }
         },
@@ -403,7 +403,7 @@
             "url": "{{baseUrl}}/api/v1/wallets/account/verify-email-or-mobile",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"onboardType\": \"{{onboardType}}\",\n  \"personalIdType\": \"{{personalIdType}}\",\n  \"documentNumber\": \"{{documentNumber}}\",\n  \"verifyType\": \"{{verifyType}}\"\n}"
+              "raw": "{\n  \"verifyType\": \"{{verifyType}}\"\n}"
             }
           }
         },

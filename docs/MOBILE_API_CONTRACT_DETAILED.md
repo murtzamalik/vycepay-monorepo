@@ -372,11 +372,11 @@ All routes require **Bearer** auth. Responses use the **success envelope**; Choi
 | POST | `/api/v1/wallets/account/short-code/query` | |
 | POST | `/api/v1/wallets/account/short-code/resolve` | JSON `{"shortCode":"..."}`; must resolve to caller’s account |
 | POST | `/api/v1/wallets/account/activate` | Dormant activation |
-| POST | `/api/v1/wallets/account/email` | JSON per Choice `user/addOrUpdateEmail` |
+| POST | `/api/v1/wallets/account/email` | Body `{ "email" }` only. KYC identity injected. [MOBILE_EMAIL_UPDATE_HANDOFF.md](MOBILE_EMAIL_UPDATE_HANDOFF.md) |
 | POST | `/api/v1/wallets/account/mobile-change` | JSON `newMobileCountryCode`, `newMobileNumber` |
 | POST | `/api/v1/wallets/account/mobile-change/confirm` | JSON `requestId`, `proveIdCode`, `confirmChangeCode` |
-| POST | `/api/v1/wallets/account/verify-email-address` | JSON per Choice |
-| POST | `/api/v1/wallets/account/verify-email-or-mobile` | JSON per Choice |
+| POST | `/api/v1/wallets/account/verify-email-address` | No body. Identity from KYC. See email handoff. |
+| POST | `/api/v1/wallets/account/verify-email-or-mobile` | `{ "verifyType": "email" \| "mobile" }`. Identity from KYC. |
 | POST | `/api/v1/wallets/account/sub-account-name` | JSON optional `subAccountName` |
 | POST | `/api/v1/wallets/account/verify-otp` | JSON `applicationId`, `otpCode` |
 

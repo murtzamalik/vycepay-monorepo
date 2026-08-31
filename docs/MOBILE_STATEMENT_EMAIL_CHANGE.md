@@ -31,7 +31,7 @@ Mobile still talks **only to BFF**. Do not call Choice paths directly.
 | Prefill | Load registered email from **`GET /api/v1/wallets/account/details`** → field **`email`** (also on `GET /api/v1/auth/me`) |
 | Editable | Prefer **read-only / display** of registered email — Choice delivers the statement to the **registered** address only |
 | Required | Empty email → block submit (backend also returns `EMAIL_REQUIRED` / `INVALID_EMAIL`) |
-| Profile | To change destination, use the normal email-update / verify flow first; then refresh account details |
+| Profile | To change destination, use the email-update / verify flow first ([MOBILE_EMAIL_UPDATE_HANDOFF.md](MOBILE_EMAIL_UPDATE_HANDOFF.md)); then refresh account details |
 
 Also collect:
 
