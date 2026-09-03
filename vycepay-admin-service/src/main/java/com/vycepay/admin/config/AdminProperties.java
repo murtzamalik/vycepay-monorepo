@@ -16,6 +16,7 @@ public class AdminProperties {
     private Bootstrap bootstrap = new Bootstrap();
     private Health health = new Health();
     private String callbackBaseUrl = "http://127.0.0.1:8081";
+    private String authBaseUrl = "http://127.0.0.1:8082";
     private String internalApiKey = "dev-only-internal-api-key-change-me";
     public Jwt getJwt() { return jwt; } public void setJwt(Jwt jwt) { this.jwt = jwt; }
     public Cors getCors() { return cors; } public void setCors(Cors cors) { this.cors = cors; }
@@ -25,6 +26,7 @@ public class AdminProperties {
     public Bootstrap getBootstrap() { return bootstrap; } public void setBootstrap(Bootstrap bootstrap) { this.bootstrap = bootstrap; }
     public Health getHealth() { return health; } public void setHealth(Health health) { this.health = health; }
     public String getCallbackBaseUrl() { return callbackBaseUrl; } public void setCallbackBaseUrl(String callbackBaseUrl) { this.callbackBaseUrl = callbackBaseUrl; }
+    public String getAuthBaseUrl() { return authBaseUrl; } public void setAuthBaseUrl(String authBaseUrl) { this.authBaseUrl = authBaseUrl; }
     public String getInternalApiKey() { return internalApiKey; } public void setInternalApiKey(String internalApiKey) { this.internalApiKey = internalApiKey; }
     public static class Jwt { private String secret; private long expirationMs = 900000; public String getSecret() { return secret; } public void setSecret(String secret) { this.secret = secret; } public long getExpirationMs() { return expirationMs; } public void setExpirationMs(long expirationMs) { this.expirationMs = expirationMs; } }
     public static class Cors { private String allowedOrigins = "http://localhost:3000"; public String getAllowedOrigins() { return allowedOrigins; } public void setAllowedOrigins(String allowedOrigins) { this.allowedOrigins = allowedOrigins; } }

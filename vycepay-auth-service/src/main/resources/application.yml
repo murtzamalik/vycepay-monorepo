@@ -18,6 +18,13 @@ vycepay:
   jwt:
     secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
     expiry-minutes: ${JWT_EXPIRY_MINUTES:10}
+  internal:
+    api-key: ${INTERNAL_API_KEY:dev-only-internal-api-key-change-me}
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    base-url: ${MOBIWAVE_BASE_URL:https://sms.mobiwave.co.ke/api/v3}
+    api-token: ${MOBIWAVE_API_TOKEN:}
+    sender-id: ${MOBIWAVE_SENDER_ID:VycePay}
   otp:
     length: ${OTP_LENGTH:6}
     expiry-minutes: ${OTP_EXPIRY_MINUTES:5}

@@ -90,6 +90,23 @@ export function NotificationResendActions({ id }: { id: string }) {
   )
 }
 
+export function SmsResendActions({ id }: { id: string }) {
+  const refresh = useMutationRefresh([['sms', id], ['/sms']])
+  return (
+    <PermissionGuard permission="sms:resend">
+      <ConfirmDialog
+        title="Resend SMS"
+        description="AUTH_OTP generates a new code. ADMIN_BULK re-sends the same message. Max 5 OTP resends per recipient per hour."
+        actionLabel="Resend SMS"
+        onConfirm={async (reason) => {
+          await apiFetch(`/sms/${id}/resend`, { method: 'POST', body: JSON.stringify({ reason }) })
+          await refresh()
+        }}
+      />
+    </PermissionGuard>
+  )
+}
+
 export function AdminPasswordResetAction({ id }: { id: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()

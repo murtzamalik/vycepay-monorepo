@@ -23,6 +23,11 @@ management:
 vycepay:
   jwt:
     secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    base-url: ${MOBIWAVE_BASE_URL:https://sms.mobiwave.co.ke/api/v3}
+    api-token: ${MOBIWAVE_API_TOKEN:}
+    sender-id: ${MOBIWAVE_SENDER_ID:VycePay}
   admin:
     jwt:
       secret: ${ADMIN_JWT_SECRET:}
@@ -70,4 +75,5 @@ vycepay:
           url: ${ADMIN_HEALTH_ACTIVITY_URL:http://localhost:8086/actuator/health}
       choice-bank-url: ${CHOICE_BANK_BASE_URL:https://baas-pilot.choicebankapi.com}
     callback-base-url: ${ADMIN_CALLBACK_BASE_URL:http://127.0.0.1:8081}
+    auth-base-url: ${ADMIN_AUTH_BASE_URL:http://127.0.0.1:8082}
     internal-api-key: ${INTERNAL_API_KEY:dev-only-internal-api-key-change-me}

@@ -72,6 +72,15 @@ public final class AdminRequests {
             @NotBlank @Size(min = 10, max = 512) String reason) {
     }
 
+    public record SmsResendRequest(@NotBlank @Size(min = 10, max = 512) String reason) {
+    }
+
+    public record SmsBulkRequest(
+            @NotEmpty @Size(max = 100) List<@NotBlank String> recipients,
+            @NotBlank @Size(max = 640) String message,
+            @NotBlank @Size(min = 10, max = 512) String reason) {
+    }
+
     public record MenuRequest(
             @NotBlank @Size(max = 64) String name,
             @NotBlank @Size(max = 128) String route,

@@ -119,6 +119,9 @@ public class AdminReadService {
     private static final Map<String, String> NOTIFICATION_SORT = Map.ofEntries(
             entry("createdAt", "n.created_at"), entry("id", "n.id"), entry("pushType", "n.push_type"),
             entry("source", "n.source"), entry("customerExternalId", "c.external_id"));
+    private static final Map<String, String> SMS_SORT = Map.ofEntries(
+            entry("createdAt", "s.created_at"), entry("id", "s.id"), entry("status", "s.status"),
+            entry("purpose", "s.purpose"), entry("recipient", "s.recipient"));
     private static final Map<String, String> ADMIN_USER_SORT = Map.ofEntries(
             entry("id", "id"), entry("username", "username"), entry("status", "status"),
             entry("lastLoginAt", "last_login_at"), entry("email", "email"), entry("createdAt", "created_at"));
@@ -379,6 +382,83 @@ public class AdminReadService {
                 "SELECT COUNT(*) FROM push_delivery_log WHERE status IN ('SENT','PARTIAL') AND DATE(created_at)=CURRENT_DATE",
                 Long.class));
         return m;
+    }
+
+    public Map<String, Object> smsMessages(Integer pageReq, Integer sizeReq, String status, String purpose,
+                                           String recipient, String batchId, String fromDate, String toDate,
+                                           String sort, String order) {
+        StringBuilder where = new StringBuilder("1=1");
+        List<Object> p = new ArrayList<>();
+        if (status != null && !status.isBlank()) {
+            where.append(" AND s.status=?");
+            p.add(status);
+        }
+        if (purpose != null && !purpose.isBlank()) {
+            where.append(" AND s.purpose=?");
+            p.add(purpose);
+        }
+        if (recipient != null && !recipient.isBlank()) {
+            where.append(" AND s.recipient LIKE ?");
+            p.add("%" + recipient.trim() + "%");
+        }
+        if (batchId != null && !batchId.isBlank()) {
+            where.append(" AND s.batch_id=?");
+            p.add(batchId);
+        }
+        DateRangeQuery.of(fromDate, toDate).apply("s.created_at", where, p);
+        Map<String, Object> result = page(
+                "SELECT s.id, s.public_id publicId, s.batch_id batchId, s.recipient, s.customer_id customerId, "
+                        + "c.external_id customerExternalId, s.purpose, s.otp_purpose otpPurpose, "
+                        + "s.message_redacted messageRedacted, s.provider, s.provider_uid providerUid, "
+                        + "s.status, s.error_message errorMessage, s.created_by_admin_id createdByAdminId, "
+                        + "s.created_at createdAt, s.sent_at sentAt "
+                        + "FROM sms_message s LEFT JOIN customer c ON c.id=s.customer_id WHERE " + where,
+                "SELECT COUNT(*) FROM sms_message s LEFT JOIN customer c ON c.id=s.customer_id WHERE " + where,
+                pageReq, sizeReq, resolveSort(sort, order, SMS_SORT, "ORDER BY s.created_at DESC"), p.toArray());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
+        if (content != null) {
+            for (Map<String, Object> row : content) {
+                row.put("recipientMasked", maskSmsRecipient((String) row.get("recipient")));
+                row.remove("recipient");
+            }
+        }
+        return result;
+    }
+
+    public Map<String, Object> smsDetail(Long id) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT s.id, s.public_id publicId, s.batch_id batchId, s.recipient, s.customer_id customerId, "
+                        + "c.external_id customerExternalId, s.purpose, s.otp_purpose otpPurpose, "
+                        + "s.otp_verification_id otpVerificationId, s.message_body messageBody, "
+                        + "s.message_redacted messageRedacted, s.provider, s.provider_uid providerUid, "
+                        + "s.status, s.error_message errorMessage, s.created_by_admin_id createdByAdminId, "
+                        + "s.created_at createdAt, s.sent_at sentAt "
+                        + "FROM sms_message s LEFT JOIN customer c ON c.id=s.customer_id WHERE s.id=?", id);
+        if (rows.isEmpty()) {
+            throw notFound("SMS_NOT_FOUND");
+        }
+        Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
+        String purpose = (String) row.get("purpose");
+        row.put("recipientMasked", maskSmsRecipient((String) row.get("recipient")));
+        row.remove("recipient");
+        // Never expose raw AUTH_OTP body to admin UI
+        if ("AUTH_OTP".equals(purpose)) {
+            row.remove("messageBody");
+        }
+        row.put("attempts", jdbcTemplate.queryForList(
+                "SELECT id, trigger_source triggerSource, status, provider_uid providerUid, "
+                        + "error_message errorMessage, created_by_admin_id createdByAdminId, created_at createdAt "
+                        + "FROM sms_delivery_attempt WHERE sms_message_id=? ORDER BY created_at DESC",
+                id));
+        return row;
+    }
+
+    private static String maskSmsRecipient(String recipient) {
+        if (recipient == null || recipient.length() < 8) {
+            return "****";
+        }
+        return recipient.substring(0, 3) + "****" + recipient.substring(recipient.length() - 4);
     }
 
     public List<Map<String, Object>> reportVolume(String groupBy, String fromDate, String toDate) {

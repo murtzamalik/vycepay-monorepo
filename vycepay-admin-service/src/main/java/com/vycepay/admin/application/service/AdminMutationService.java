@@ -1,6 +1,9 @@
 package com.vycepay.admin.application.service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.vycepay.admin.api.v1.dto.AdminRequests.AdminPasswordResetRequest;
@@ -12,19 +15,22 @@ import com.vycepay.admin.api.v1.dto.AdminRequests.MenuRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.NotificationComposeRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.NotificationResendRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.RoleRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.SmsBulkRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.SmsResendRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.WalletStatusRequest;
 import com.vycepay.admin.infrastructure.notification.CallbackNotificationClient;
+import com.vycepay.admin.infrastructure.sms.AuthSmsClient;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.common.sms.KenyaPhoneNormalizer;
+import com.vycepay.common.sms.port.SmsPort;
+import com.vycepay.common.sms.port.SmsSendRequest;
+import com.vycepay.common.sms.port.SmsSendResult;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 /** Performs controlled admin mutations with reason capture and immutable audit entries. */
 @Service
@@ -34,15 +40,21 @@ public class AdminMutationService {
     private final AdminAuditService auditService;
     private final PasswordEncoder passwordEncoder;
     private final CallbackNotificationClient notificationClient;
+    private final AuthSmsClient authSmsClient;
+    private final SmsPort smsPort;
 
     public AdminMutationService(JdbcTemplate jdbcTemplate, AdminSecurityContext securityContext,
                                 AdminAuditService auditService, PasswordEncoder passwordEncoder,
-                                CallbackNotificationClient notificationClient) {
+                                CallbackNotificationClient notificationClient,
+                                AuthSmsClient authSmsClient,
+                                SmsPort smsPort) {
         this.jdbcTemplate = jdbcTemplate;
         this.securityContext = securityContext;
         this.auditService = auditService;
         this.passwordEncoder = passwordEncoder;
         this.notificationClient = notificationClient;
+        this.authSmsClient = authSmsClient;
+        this.smsPort = smsPort;
     }
 
     @Transactional public void updateCustomerStatus(String id, CustomerStatusRequest body, HttpServletRequest req){ Long pk=customerPk(id); jdbcTemplate.update("UPDATE customer SET status=? WHERE id=?", body.status(), pk); auditService.log(securityContext.currentAdmin(), body.status()+"_CUSTOMER", "customer", String.valueOf(pk), body.reason(), "{\"status\":\""+body.status()+"\"}", req); }
@@ -65,6 +77,123 @@ public class AdminMutationService {
                 String.valueOf(result.get("batchId")), body.reason(),
                 "{\"accepted\":" + result.get("accepted") + ",\"recipients\":" + body.customerIds().size() + "}", req);
         return result;
+    }
+
+    /**
+     * Resends SMS: AUTH_OTP via auth (new code); ADMIN_BULK re-sends same body.
+     */
+    public Map<String, Object> resendSms(Long id, SmsResendRequest body, HttpServletRequest req) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT id, purpose, recipient, message_body messageBody FROM sms_message WHERE id=?", id);
+        if (rows.isEmpty()) {
+            throw notFound("SMS_NOT_FOUND");
+        }
+        String purpose = (String) rows.get(0).get("purpose");
+        Long adminId = securityContext.currentAdmin().id();
+        Map<String, Object> result;
+        if ("AUTH_OTP".equals(purpose)) {
+            result = authSmsClient.resendAuthOtp(id, adminId);
+        } else if ("ADMIN_BULK".equals(purpose)) {
+            result = resendBulkRow(id, (String) rows.get(0).get("recipient"),
+                    (String) rows.get(0).get("messageBody"), adminId);
+        } else {
+            throw new BusinessException("SMS_UNSUPPORTED_PURPOSE",
+                    "Cannot resend SMS with purpose " + purpose, HttpStatus.BAD_REQUEST);
+        }
+        auditService.log(securityContext.currentAdmin(), "RESEND_SMS", "sms_message",
+                String.valueOf(id), body.reason(),
+                "{\"purpose\":\"" + purpose + "\",\"status\":\"" + result.get("status") + "\"}", req);
+        return result;
+    }
+
+    /**
+     * Bulk SMS to a phone list (max 100). One provider call per recipient; shared batchId.
+     */
+    public Map<String, Object> bulkSms(SmsBulkRequest body, HttpServletRequest req) {
+        List<String> normalized = new ArrayList<>();
+        List<String> invalid = new ArrayList<>();
+        for (String raw : body.recipients()) {
+            KenyaPhoneNormalizer.toRecipient(raw).ifPresentOrElse(normalized::add, () -> invalid.add(raw));
+        }
+        if (!invalid.isEmpty()) {
+            throw new BusinessException("SMS_INVALID_RECIPIENTS",
+                    "Invalid phone numbers: " + String.join(", ", invalid.stream().limit(5).toList()),
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (normalized.isEmpty()) {
+            throw new BusinessException("SMS_NO_RECIPIENTS", "At least one valid recipient is required",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        String batchId = UUID.randomUUID().toString();
+        Long adminId = securityContext.currentAdmin().id();
+        String message = body.message().trim();
+        int sent = 0;
+        int failed = 0;
+        int skipped = 0;
+        List<Long> ids = new ArrayList<>();
+
+        for (String recipient : normalized) {
+            String publicId = UUID.randomUUID().toString();
+            jdbcTemplate.update(
+                    "INSERT INTO sms_message (public_id, batch_id, recipient, purpose, message_body, message_redacted, "
+                            + "provider, status, created_by_admin_id) VALUES (?, ?, ?, 'ADMIN_BULK', ?, ?, 'MOBIWAVE', 'PENDING', ?)",
+                    publicId, batchId, recipient, message, message, adminId);
+            Long smsId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            ids.add(smsId);
+
+            SmsSendResult result = smsPort.send(new SmsSendRequest(recipient, message));
+            applyBulkResult(smsId, result, "BULK", adminId);
+            if (SmsSendResult.SENT.equals(result.status())) {
+                sent++;
+            } else if (SmsSendResult.SKIPPED.equals(result.status())) {
+                skipped++;
+            } else {
+                failed++;
+            }
+        }
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("batchId", batchId);
+        data.put("total", normalized.size());
+        data.put("sent", sent);
+        data.put("failed", failed);
+        data.put("skipped", skipped);
+        data.put("smsMessageIds", ids);
+
+        auditService.log(securityContext.currentAdmin(), "SMS_BULK", "sms_message", batchId, body.reason(),
+                "{\"total\":" + normalized.size() + ",\"sent\":" + sent + ",\"failed\":" + failed + "}", req);
+        return data;
+    }
+
+    private Map<String, Object> resendBulkRow(Long id, String recipient, String messageBody, Long adminId) {
+        if (recipient == null || messageBody == null) {
+            throw new BusinessException("SMS_INVALID", "Missing recipient or body for resend", HttpStatus.BAD_REQUEST);
+        }
+        SmsSendResult result = smsPort.send(new SmsSendRequest(recipient, messageBody));
+        applyBulkResult(id, result, "RESEND", adminId);
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("smsMessageId", id);
+        data.put("status", result.status());
+        data.put("providerUid", result.providerUid());
+        data.put("errorMessage", result.errorMessage());
+        return data;
+    }
+
+    private void applyBulkResult(Long smsId, SmsSendResult result, String triggerSource, Long adminId) {
+        if (result.isSent()) {
+            jdbcTemplate.update(
+                    "UPDATE sms_message SET status=?, provider_uid=?, error_message=NULL, sent_at=CURRENT_TIMESTAMP WHERE id=?",
+                    result.status(), result.providerUid(), smsId);
+        } else {
+            jdbcTemplate.update(
+                    "UPDATE sms_message SET status=?, provider_uid=?, error_message=? WHERE id=?",
+                    result.status(), result.providerUid(), result.errorMessage(), smsId);
+        }
+        jdbcTemplate.update(
+                "INSERT INTO sms_delivery_attempt (sms_message_id, trigger_source, status, provider_uid, error_message, created_by_admin_id) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                smsId, triggerSource, result.status(), result.providerUid(), result.errorMessage(), adminId);
     }
 
     @Transactional public Long createMenu(MenuRequest body, HttpServletRequest req){ jdbcTemplate.update("INSERT INTO admin_menu (name, route, icon, parent_id, sort_order) VALUES (?, ?, ?, ?, ?)", body.name(), body.route(), body.icon(), body.parentId(), intVal(body.sortOrder())); Long id=jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class); auditService.log(securityContext.currentAdmin(), "CREATE_MENU", "admin_menu", String.valueOf(id), null, "{}", req); return id; }

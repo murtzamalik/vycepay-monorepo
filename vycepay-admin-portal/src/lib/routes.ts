@@ -16,6 +16,8 @@ export const navSections = [
       { label: 'Callbacks', href: '/callbacks' },
       { label: 'Notifications', href: '/notifications' },
       { label: 'Notification summary', href: '/notifications/summary', sub: true },
+      { label: 'SMS', href: '/sms' },
+      { label: 'Bulk SMS', href: '/sms/bulk', sub: true },
     ],
   },
   {
