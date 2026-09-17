@@ -352,10 +352,22 @@ until it returns `200` (wallet doesn’t exist yet => `404` while pending).
   "choiceAccountId": "....",
   "balance": 0.00,
   "currency": "KES",
-  "status": "ACTIVE"
+  "status": "ACTIVE",
+  "lastBalanceUpdateAt": "2026-09-17T08:00:00Z"
 }
 ```
 - **Response:** `404` if wallet not created yet
+- **Note:** `balance` is from `balance_cache` (updated by Choice callback `0003` or refresh below).
+
+### 14b) Refresh wallet balance from Choice
+
+- **POST** `/api/v1/wallets/me/refresh-balance`
+- **Auth:** Required (Bearer)
+- **Body:** none
+- **Response (200):** same JSON shape as `GET /me` after updating `balance_cache` via Choice `query/getAccountDetails`
+- **Errors:** Choice/upstream failures leave previous cache unchanged; show envelope `message`
+- **Mobile:** use on pull-to-refresh / Refresh button; prefer `GET /me` for ordinary reads
+- See [MOBILE_KENYA_FEATURE_LOG_HANDOFF.md](MOBILE_KENYA_FEATURE_LOG_HANDOFF.md)
 
 ### Choice account management (wallet service)
 

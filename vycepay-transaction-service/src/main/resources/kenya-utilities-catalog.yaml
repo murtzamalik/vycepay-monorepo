@@ -1,0 +1,72 @@
+# Curated Kenya utility / paybill catalog for mobile UI.
+# Payment: use existing M-Pesa business transfer (accountType=1, paybill as payeeAccountId,
+# customer account/meter/ID as payeeReferenceNumber). See MOBILE_MPESA_MOBILE_PAYBILL_TILL_HANDOFF.md.
+
+categories:
+  - id: ELECTRICITY
+    name: Electricity
+  - id: WATER
+    name: Water
+  - id: HEALTHCARE
+    name: Healthcare & National Insurance
+  - id: INTERNET
+    name: Internet and Telecommunications
+
+billers:
+  - id: kplc-prepaid
+    name: Kenya Power (KPLC) — Prepaid Tokens
+    category: ELECTRICITY
+    paybill: "888880"
+    accountHint: "Meter number"
+    notes: "Use paybill 888880 with your meter number as the account number."
+
+  - id: kplc-postpaid
+    name: Kenya Power (KPLC) — Postpaid Bills
+    category: ELECTRICITY
+    paybill: "888888"
+    accountHint: "KPLC account number"
+    notes: "Use paybill 888888 with your KPLC account number as the account reference."
+
+  - id: nwsc-nairobi
+    name: Nairobi Water (NWSC)
+    category: WATER
+    paybill: "444400"
+    accountHint: "NWSC account number"
+    notes: "Paybill 444400 | Account: Your NWSC Account Number."
+
+  - id: mowassco-mombasa
+    name: Mombasa Water (MOWASSCO)
+    category: WATER
+    paybill: "890500"
+    accountHint: "Water account number"
+    notes: "Paybill 890500 | Account: Your Water Account Number."
+
+  - id: sha
+    name: Social Health Authority (SHA)
+    category: HEALTHCARE
+    paybill: "200222"
+    accountHint: "National ID number of the contributor"
+    notes: "Paybill 200222 | Account: National ID Number of the contributor."
+
+  - id: nssf
+    name: NSSF (National Social Security Fund)
+    category: HEALTHCARE
+    paybill: "333300"
+    accountHint: "NSSF number"
+    notes: "Paybill 333300 | Account: Your NSSF Number."
+
+  - id: faiba
+    name: Faiba Home / Internet
+    category: INTERNET
+    paybill: "330330"
+    alternatePaybills:
+      - "776611"
+    accountHint: "JTLK followed by your account number (e.g. JTLKXXXXXX)"
+    notes: "Business number 330330 (or 776611). Account Number as JTLK followed by your account number."
+
+  - id: zuku
+    name: Zuku Fiber (Internet)
+    category: INTERNET
+    paybill: "320320"
+    accountHint: "Zuku Fiber account number"
+    notes: "Paybill 320320 | Account: Your Zuku Fiber Account Number."

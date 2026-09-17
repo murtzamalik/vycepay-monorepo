@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OtpServiceSmsTest {
@@ -49,6 +50,30 @@ class OtpServiceSmsTest {
 
         OtpService service = new OtpService(otpRepo, unusedSmsRepo(), sms, 6, 5, "123456");
         assertEquals("123456", service.sendOtp("254", "712345678", OtpPurpose.DEVICE_BIND));
+    }
+
+    @Test
+    void sendOtp_emptyFixedCode_generatesRandomSixDigit() {
+        AtomicLong ids = new AtomicLong(1);
+        OtpVerificationRepository otpRepo = new SaveOnlyOtpRepo(ids);
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            SmsMessage m = new SmsMessage();
+            m.setId(1L);
+            m.setStatus("SKIPPED");
+            return m;
+        };
+
+        OtpService service = new OtpService(otpRepo, unusedSmsRepo(), sms, 6, 5, "");
+        String first = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
+        String second = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
+
+        assertEquals(6, first.length());
+        assertTrue(first.chars().allMatch(Character::isDigit));
+        assertNotEquals("123456", first);
+        // Two independent draws should almost never collide; if they do, length/digit checks still hold.
+        if (first.equals(second)) {
+            assertEquals(6, second.length());
+        }
     }
 
     @Test

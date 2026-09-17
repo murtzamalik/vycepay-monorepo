@@ -6,26 +6,32 @@ import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.transaction.api.v1.dto.TransactionResponse;
+import com.vycepay.transaction.api.v1.dto.UtilityBillersResponse;
 import com.vycepay.transaction.application.TransactionChoiceOutcome;
 import com.vycepay.transaction.application.facade.UtilityPaymentFacade;
+import com.vycepay.transaction.application.service.KenyaUtilitiesCatalogService;
 import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.domain.model.TransactionDisplayStatus;
 import com.vycepay.transaction.infrastructure.persistence.CustomerRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Choice Bank utility payment APIs (airtime, bill query/pay, payment queries).
+ * Choice Bank utility payment APIs (airtime, bill query/pay, payment queries)
+ * plus curated Kenya paybill catalog for mobile UI.
  * Envelope {@code message} prefers Choice Bank {@code msg} when present.
  */
 @RestController
@@ -35,14 +41,35 @@ public class UtilityPaymentController {
     private final UtilityPaymentFacade utilityPaymentFacade;
     private final CustomerRepository customerRepository;
     private final WalletRepository walletRepository;
+    private final KenyaUtilitiesCatalogService kenyaUtilitiesCatalogService;
 
     public UtilityPaymentController(
             @Autowired(required = false) UtilityPaymentFacade utilityPaymentFacade,
             CustomerRepository customerRepository,
-            WalletRepository walletRepository) {
+            WalletRepository walletRepository,
+            KenyaUtilitiesCatalogService kenyaUtilitiesCatalogService) {
         this.utilityPaymentFacade = utilityPaymentFacade;
         this.customerRepository = customerRepository;
         this.walletRepository = walletRepository;
+        this.kenyaUtilitiesCatalogService = kenyaUtilitiesCatalogService;
+    }
+
+    /**
+     * Curated Kenya billers (KPLC, water, SHA, NSSF, Faiba, Zuku). No Choice call.
+     * Pay with existing send/paybill flow: accountType=1, paybill as payeeAccountId, user account as payeeReferenceNumber.
+     */
+    @Operation(summary = "List Kenya utility / paybill billers")
+    @GetMapping("/billers")
+    public ResponseEntity<ApiSuccessResponse<UtilityBillersResponse>> listBillers(
+            @RequestHeader("X-Customer-Id") String externalId,
+            @RequestParam(required = false) String category) {
+        // Auth scoped: require known customer (wallet optional for catalog browse)
+        customerRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
+        return ResponseEntity.ok(ApiSuccessResponses.ok(
+                "UTILITY_BILLERS_OK",
+                "Kenya utility billers.",
+                kenyaUtilitiesCatalogService.list(category)));
     }
 
     @PostMapping("/airtime")

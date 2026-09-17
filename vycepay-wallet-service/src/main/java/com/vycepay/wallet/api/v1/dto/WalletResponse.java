@@ -3,6 +3,7 @@ package com.vycepay.wallet.api.v1.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 /**
  * Wallet response for API.
@@ -22,14 +23,23 @@ public class WalletResponse {
     @Schema(description = "Status (ACTIVE, SUSPENDED)")
     private String status;
 
+    @Schema(description = "When balance_cache was last updated (callback 0003 or refresh-balance)")
+    private Instant lastBalanceUpdateAt;
+
     public WalletResponse() {
     }
 
     public WalletResponse(String choiceAccountId, BigDecimal balance, String currency, String status) {
+        this(choiceAccountId, balance, currency, status, null);
+    }
+
+    public WalletResponse(String choiceAccountId, BigDecimal balance, String currency, String status,
+                          Instant lastBalanceUpdateAt) {
         this.choiceAccountId = choiceAccountId;
         this.balance = balance;
         this.currency = currency;
         this.status = status;
+        this.lastBalanceUpdateAt = lastBalanceUpdateAt;
     }
 
     public String getChoiceAccountId() {
@@ -62,5 +72,13 @@ public class WalletResponse {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Instant getLastBalanceUpdateAt() {
+        return lastBalanceUpdateAt;
+    }
+
+    public void setLastBalanceUpdateAt(Instant lastBalanceUpdateAt) {
+        this.lastBalanceUpdateAt = lastBalanceUpdateAt;
     }
 }

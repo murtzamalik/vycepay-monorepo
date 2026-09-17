@@ -73,8 +73,9 @@ class PushMessageFactoryTest {
         assertNotNull(msg);
         assertEquals(PushMessageFactory.PUSH_TRANSACTION_RESULT, msg.getPushType());
         assertEquals("Money received", msg.getTitle());
-        assertEquals("Deposit of KES 50.00 completed", msg.getBody());
+        assertEquals("Deposit of KES 50.00 completed. Ref: UTRANS02880586c4b020018212", msg.getBody());
         assertEquals("UTRANS02880586c4b020018212", msg.getData().get("txId"));
+        assertEquals("UTRANS02880586c4b020018212", msg.getData().get("reference"));
         assertEquals("8", msg.getData().get("txStatus"));
     }
 
@@ -111,7 +112,9 @@ class PushMessageFactoryTest {
 
         assertNotNull(msg);
         assertEquals("Money sent", msg.getTitle());
-        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI", msg.getBody());
+        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI. Ref: UTRANS02880c6f81c020008212", msg.getBody());
+        assertEquals("DERRICK GWEHONA MUDAKI", msg.getData().get("counterparty"));
+        assertEquals("UTRANS02880c6f81c020008212", msg.getData().get("reference"));
     }
 
     @Test
@@ -154,10 +157,14 @@ class PushMessageFactoryTest {
         assertEquals(PushMessageFactory.PUSH_TRANSACTION_RESULT, msg.getPushType());
         assertEquals("0003", msg.getNotificationType());
         assertEquals("Money received", msg.getTitle());
-        assertEquals("Deposit of KES 30.00 completed", msg.getBody());
+        assertEquals(
+                "You received KES 30.00 from ROSE WUGHANGA MWALUKUKU. Ref: a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                msg.getBody());
         assertEquals("UTRANS029874c90bc020008212", msg.getData().get("txId"));
         assertEquals("8", msg.getData().get("txStatus"));
         assertEquals("a1b2c3d4-e5f6-7890-abcd-ef1234567890", msg.getData().get("externalId"));
+        assertEquals("a1b2c3d4-e5f6-7890-abcd-ef1234567890", msg.getData().get("reference"));
+        assertEquals("ROSE WUGHANGA MWALUKUKU", msg.getData().get("counterparty"));
     }
 
     @Test
@@ -182,7 +189,7 @@ class PushMessageFactoryTest {
 
         assertNotNull(msg);
         assertEquals("Money sent", msg.getTitle());
-        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI", msg.getBody());
+        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI. Ref: UTRANS02880c6f81c020008212", msg.getBody());
     }
 
     @Test

@@ -109,16 +109,21 @@ public class PushMessageFactory {
 
         String title;
         String body;
+        String reference = firstNonBlank(getString(params, "externalId"), txId);
         if (txStatus != null && txStatus == TX_STATUS_SUCCESS) {
-            title = isOutbound(amount) ? "Money sent" : "Money received";
-            if (isInternalTransfer(channel) && counterparty != null) {
-                body = isOutbound(amount)
+            boolean outbound = isOutbound(amount);
+            title = outbound ? "Money sent" : "Money received";
+            if (counterparty != null) {
+                body = outbound
                         ? "You sent " + amountLabel + " to " + counterparty
                         : "You received " + amountLabel + " from " + counterparty;
-            } else if (isPayBill(channel)) {
+            } else if (isPayBill(channel) && !outbound) {
                 body = "Deposit of " + amountLabel + " completed";
             } else {
                 body = "Transaction of " + amountLabel + " completed";
+            }
+            if (reference != null) {
+                body = body + ". Ref: " + reference;
             }
         } else if (txStatus != null && txStatus == TX_STATUS_FAILED) {
             title = "Transaction failed";
@@ -137,6 +142,8 @@ public class PushMessageFactory {
                 .body(body)
                 .putData("txId", txId)
                 .putData("externalId", getString(params, "externalId"))
+                .putData("reference", reference)
+                .putData("counterparty", counterparty)
                 .putData("txStatus", txStatus != null ? String.valueOf(txStatus) : null)
                 .putData("amount", amount)
                 .putData("currency", currency)
@@ -200,10 +207,6 @@ public class PushMessageFactory {
 
     private static boolean isPayBill(String channel) {
         return channel != null && channel.equalsIgnoreCase("PAY_BILL");
-    }
-
-    private static boolean isInternalTransfer(String channel) {
-        return channel != null && channel.equalsIgnoreCase("INTERNAL_TRANSFER");
     }
 
     private static boolean isOutbound(String amount) {
