@@ -42,6 +42,12 @@ services:
       # Notification hub: internal compose/resend + BFF mobile inbox routing
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
       BFF_CALLBACK_URL: ${BFF_CALLBACK_URL:-http://127.0.0.1:8081}
+      # OTP SMS (auth-service). Host .env alone is not enough — must be listed here.
+      SMS_ENABLED: ${SMS_ENABLED:-false}
+      MOBIWAVE_BASE_URL: ${MOBIWAVE_BASE_URL:-https://sms.mobiwave.co.ke/api/v3}
+      MOBIWAVE_API_TOKEN: ${MOBIWAVE_API_TOKEN:-}
+      MOBIWAVE_SENDER_ID: ${MOBIWAVE_SENDER_ID:-VycePay}
+      OTP_DEV_FIXED_CODE: ${OTP_DEV_FIXED_CODE:-}
     volumes:
       # Host: /opt/vycepay_firebase/<adminsdk>.json  →  same path inside container
       - /opt/vycepay_firebase:/opt/vycepay_firebase:ro
@@ -88,6 +94,11 @@ services:
       ADMIN_HEALTH_ACTIVITY_URL: http://127.0.0.1:9095/actuator/health
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
       ADMIN_CALLBACK_BASE_URL: ${ADMIN_CALLBACK_BASE_URL:-http://127.0.0.1:8081}
+      # Bulk / resend SMS (admin-service uses same MobiWave adapter)
+      SMS_ENABLED: ${SMS_ENABLED:-false}
+      MOBIWAVE_BASE_URL: ${MOBIWAVE_BASE_URL:-https://sms.mobiwave.co.ke/api/v3}
+      MOBIWAVE_API_TOKEN: ${MOBIWAVE_API_TOKEN:-}
+      MOBIWAVE_SENDER_ID: ${MOBIWAVE_SENDER_ID:-VycePay}
     restart: unless-stopped
 
   admin-portal:
