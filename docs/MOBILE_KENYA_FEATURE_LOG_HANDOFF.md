@@ -20,9 +20,8 @@ Related docs:
 | Kenya log item | Owner | Mobile action |
 |----------------|--------|---------------|
 | OTP still `123456` | Backend (done) + ops | Expect real SMS OTP in staging/prod; do not hardcode `123456` |
-| Wrong username + PIN message | Backend OK | Show envelope `message` for `INVALID_CREDENTIALS` |
-| Read / unread notifications | Backend APIs ready | Call mark-read; stop showing all as unread |
-| Notification content (name + ref) | Backend (done) | Display `title`/`body`; use `data.counterparty` / `data.reference` |
+| Wrong username + PIN message | Backend + mobile | Show `INVALID_CREDENTIALS` message; normalize `07…` phones |
+| Notification content (receipt) | Backend (done) | Display `title`/`body`; use receipt `data.*` |
 | Save beneficiary when already saved | Mobile | Do not prompt if already saved / handle `200 UPDATED` |
 | Utilities catalog (KPLC, water, …) | Backend catalog (done) | `GET .../utilities/billers` + paybill UX |
 | Collapse recent transactions | Mobile only | UI toggle |
@@ -46,9 +45,9 @@ Backend no longer defaults `OTP_DEV_FIXED_CODE` to `123456`. Staging/prod must h
 
 ---
 
-## 2. Login error message
+## 2. Login error message + Kenya mobile normalize
 
-Wrong username or PIN already returns:
+Wrong username or PIN returns:
 
 | Field | Value |
 |-------|--------|
@@ -56,11 +55,26 @@ Wrong username or PIN already returns:
 | `code` | `INVALID_CREDENTIALS` |
 | `message` | `Incorrect username or PIN. Please try again.` |
 
-**Mobile:** Always show API envelope `message` (Choice-message-first / catalog). Do not replace with a generic “Something went wrong”.
+Invalid Kenya mobile format:
+
+| Field | Value |
+|-------|--------|
+| HTTP | `400` |
+| `code` | `INVALID_MOBILE` |
+| `message` | `Enter a valid Kenyan mobile number.` |
+
+**Backend** now normalizes `07XXXXXXXXX` / `2547…` before lookup. **Mobile must** also send national form (`796595339`), not `0796595339`.
+
+**Mobile rules (mandatory):**
+
+1. Always show API envelope `message` when non-blank.  
+2. Do **not** replace with “We couldn't complete this right now…” or “Login failed” when the API returned a message.  
+3. Network/parse failures only: “Check your connection and try again.”  
+4. Optional: append `(Request ID: …)` for support (already in `ApiErrorMapper.displayMessage`).
 
 ---
 
-## 3. Notifications — read/unread + richer copy
+## 3. Notifications — read/unread + receipt copy
 
 ### Mark read (existing APIs)
 
@@ -80,26 +94,35 @@ Wrong username or PIN already returns:
 
 See [MOBILE_NOTIFICATIONS_HANDOFF.md](MOBILE_NOTIFICATIONS_HANDOFF.md).
 
-### Richer money notification body (backend change)
+### Receipt-style money notification (backend)
 
-Success money pushes now prefer counterparty for **all** channels and append a reference.
+Success money pushes use receipt copy and structured `data`:
 
-Examples:
+Example body:
 
-- `You received KES 30.00 from ROSE WUGHANGA MWALUKUKU. Ref: <externalId-or-txId>`
-- `You sent KES 30.00 to DERRICK GWEHONA MUDAKI. Ref: <txId>`
-- No name: `Deposit of KES 50.00 completed. Ref: <txId>`
+`Sent KES 30.00 to DERRICK …. From 4601****7510. To 4601****9999. Ref: …. 21 Sep 2026, 14:05`
 
-Extra FCM / inbox `data` fields:
-
-| Key | Meaning |
-|-----|---------|
-| `counterparty` | Sender/recipient name when Choice sent it |
+| `data` key | Meaning |
+|------------|---------|
+| `fromAccount` | Masked from account |
+| `toAccount` | Masked to account |
+| `toName` / `counterparty` | Counterparty name when known |
+| `amount` / `currency` | Amount fields |
 | `reference` | Prefer Vyce `externalId`, else Choice `txId` |
-| `externalId` | Vyce transaction id (when known) |
-| `txId` | Choice transaction id |
+| `completedAt` | ISO-8601 instant when Choice sent `completeTime` |
 
-**Mobile:** Show `body` as returned. Prefer `data.externalId` for transaction detail deep link.
+**Mobile:** Show `title`/`body` as returned. Detail/receipt screen may bind `data.*`.
+
+---
+
+## 3b. Customer messaging contract (all screens)
+
+| Rule | Detail |
+|------|--------|
+| Source of truth | Envelope `message` from BFF |
+| Choice flows | Prefer Choice `msg` already applied by backend |
+| Never remap | Do not invent client-side copies for `INVALID_CREDENTIALS`, Choice codes, etc. |
+| Empty API message | Only then use a short local fallback |
 
 ---
 

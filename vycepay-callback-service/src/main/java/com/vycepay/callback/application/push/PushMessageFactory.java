@@ -102,37 +102,46 @@ public class PushMessageFactory {
         String currency = firstNonBlank(getString(params, "currency"), "KES");
         String amountLabel = formatAmount(amount, currency);
         String channel = getString(params, "paymentChannel");
-        String counterparty = firstNonBlank(
+        String counterpartyName = firstNonBlank(
                 getString(params, "oppoAccountName"),
                 nestedString(params, "extInfo", "counterpartyName"));
+        String counterpartyAccount = getString(params, "oppoAccountId");
+        String ownAccount = getString(params, "accountId");
         String errorMsg = getString(params, "errorMsg");
+        String reference = firstNonBlank(getString(params, "externalId"), txId);
+        String completedAtIso = formatCompleteTimeIso(params.get("completeTime"));
+        String completedAtDisplay = formatCompleteTimeDisplay(params.get("completeTime"));
+
+        boolean outbound = isOutbound(amount);
+        String fromAccount;
+        String toAccount;
+        String toName;
+        if (outbound) {
+            fromAccount = maskAccount(ownAccount);
+            toAccount = maskAccount(counterpartyAccount);
+            toName = counterpartyName;
+        } else {
+            fromAccount = firstNonBlank(counterpartyName, maskAccount(counterpartyAccount));
+            toAccount = maskAccount(ownAccount);
+            toName = null;
+        }
 
         String title;
         String body;
-        String reference = firstNonBlank(getString(params, "externalId"), txId);
         if (txStatus != null && txStatus == TX_STATUS_SUCCESS) {
-            boolean outbound = isOutbound(amount);
             title = outbound ? "Money sent" : "Money received";
-            if (counterparty != null) {
-                body = outbound
-                        ? "You sent " + amountLabel + " to " + counterparty
-                        : "You received " + amountLabel + " from " + counterparty;
-            } else if (isPayBill(channel) && !outbound) {
-                body = "Deposit of " + amountLabel + " completed";
-            } else {
-                body = "Transaction of " + amountLabel + " completed";
-            }
-            if (reference != null) {
-                body = body + ". Ref: " + reference;
-            }
+            body = buildReceiptBody(outbound, amountLabel, counterpartyName, channel,
+                    fromAccount, toAccount, reference, completedAtDisplay);
         } else if (txStatus != null && txStatus == TX_STATUS_FAILED) {
             title = "Transaction failed";
             body = (errorMsg != null && !errorMsg.isBlank())
                     ? errorMsg
-                    : "Your transaction of " + amountLabel + " failed.";
+                    : "Your transaction of " + amountLabel + " failed."
+                    + (reference != null ? " Ref: " + reference : "");
         } else {
             title = "Transaction update";
-            body = "Your transaction of " + amountLabel + " was updated.";
+            body = "Your transaction of " + amountLabel + " was updated."
+                    + (reference != null ? " Ref: " + reference : "");
         }
 
         return PushMessage.builder()
@@ -143,13 +152,95 @@ public class PushMessageFactory {
                 .putData("txId", txId)
                 .putData("externalId", getString(params, "externalId"))
                 .putData("reference", reference)
-                .putData("counterparty", counterparty)
+                .putData("counterparty", counterpartyName)
+                .putData("fromAccount", fromAccount)
+                .putData("toAccount", toAccount)
+                .putData("toName", toName)
+                .putData("completedAt", completedAtIso)
                 .putData("txStatus", txStatus != null ? String.valueOf(txStatus) : null)
                 .putData("amount", amount)
                 .putData("currency", currency)
                 .putData("paymentChannel", channel)
                 .putData("errorCode", getString(params, "errorCode"))
                 .build();
+    }
+
+    private static String buildReceiptBody(boolean outbound, String amountLabel, String counterpartyName,
+                                           String channel, String fromAccount, String toAccount,
+                                           String reference, String completedAtDisplay) {
+        StringBuilder sb = new StringBuilder();
+        if (counterpartyName != null) {
+            sb.append(outbound ? "Sent " : "Received ")
+                    .append(amountLabel)
+                    .append(outbound ? " to " : " from ")
+                    .append(counterpartyName);
+        } else if (isPayBill(channel) && !outbound) {
+            sb.append("Deposit of ").append(amountLabel).append(" completed");
+        } else {
+            sb.append(outbound ? "Sent " : "Received ").append(amountLabel);
+        }
+        if (fromAccount != null) {
+            sb.append(". From ").append(fromAccount);
+        }
+        if (toAccount != null) {
+            sb.append(". To ").append(toAccount);
+        }
+        if (reference != null) {
+            sb.append(". Ref: ").append(reference);
+        }
+        if (completedAtDisplay != null) {
+            sb.append(". ").append(completedAtDisplay);
+        }
+        return sb.toString();
+    }
+
+    private static String maskAccount(String account) {
+        if (account == null || account.isBlank() || "null".equalsIgnoreCase(account)) {
+            return null;
+        }
+        String a = account.trim();
+        if (a.length() <= 4) {
+            return "****" + a;
+        }
+        if (a.length() <= 8) {
+            return a.substring(0, 2) + "****" + a.substring(a.length() - 2);
+        }
+        return a.substring(0, 4) + "****" + a.substring(a.length() - 4);
+    }
+
+    private static String formatCompleteTimeDisplay(Object completeTime) {
+        Long epochMs = toEpochMillis(completeTime);
+        if (epochMs == null) {
+            return null;
+        }
+        return java.time.Instant.ofEpochMilli(epochMs)
+                .atZone(java.time.ZoneId.of("Africa/Nairobi"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm", java.util.Locale.ENGLISH));
+    }
+
+    private static String formatCompleteTimeIso(Object completeTime) {
+        Long epochMs = toEpochMillis(completeTime);
+        if (epochMs == null) {
+            return null;
+        }
+        return java.time.Instant.ofEpochMilli(epochMs).toString();
+    }
+
+    private static Long toEpochMillis(Object completeTime) {
+        if (completeTime == null) {
+            return null;
+        }
+        if (completeTime instanceof Number n) {
+            long v = n.longValue();
+            // Choice may send seconds; treat small values as seconds
+            return v < 1_000_000_000_000L ? v * 1000L : v;
+        }
+        try {
+            long v = Long.parseLong(completeTime.toString().trim());
+            return v < 1_000_000_000_000L ? v * 1000L : v;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private PushMessage forStatement(String notificationType, Map<String, Object> params) {

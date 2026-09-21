@@ -107,14 +107,23 @@ class PushMessageFactoryTest {
         params.put("txStatus", 8);
         params.put("paymentChannel", "INTERNAL_TRANSFER");
         params.put("oppoAccountName", "DERRICK GWEHONA MUDAKI");
+        params.put("oppoAccountId", "46012001999999");
+        params.put("accountId", "46012001327510");
+        params.put("completeTime", 1726909500000L);
 
         PushMessage msg = factory.create("0002", params);
 
         assertNotNull(msg);
         assertEquals("Money sent", msg.getTitle());
-        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI. Ref: UTRANS02880c6f81c020008212", msg.getBody());
+        assertTrue(msg.getBody().startsWith("Sent KES 30.00 to DERRICK GWEHONA MUDAKI"));
+        assertTrue(msg.getBody().contains("From 4601****7510"));
+        assertTrue(msg.getBody().contains("To 4601****9999"));
+        assertTrue(msg.getBody().contains("Ref: UTRANS02880c6f81c020008212"));
+        assertTrue(msg.getBody().contains("2024")); // completeTime formatted Africa/Nairobi
         assertEquals("DERRICK GWEHONA MUDAKI", msg.getData().get("counterparty"));
         assertEquals("UTRANS02880c6f81c020008212", msg.getData().get("reference"));
+        assertEquals("4601****7510", msg.getData().get("fromAccount"));
+        assertNotNull(msg.getData().get("completedAt"));
     }
 
     @Test
@@ -157,9 +166,8 @@ class PushMessageFactoryTest {
         assertEquals(PushMessageFactory.PUSH_TRANSACTION_RESULT, msg.getPushType());
         assertEquals("0003", msg.getNotificationType());
         assertEquals("Money received", msg.getTitle());
-        assertEquals(
-                "You received KES 30.00 from ROSE WUGHANGA MWALUKUKU. Ref: a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                msg.getBody());
+        assertTrue(msg.getBody().startsWith("Received KES 30.00 from ROSE WUGHANGA MWALUKUKU"));
+        assertTrue(msg.getBody().contains("Ref: a1b2c3d4-e5f6-7890-abcd-ef1234567890"));
         assertEquals("UTRANS029874c90bc020008212", msg.getData().get("txId"));
         assertEquals("8", msg.getData().get("txStatus"));
         assertEquals("a1b2c3d4-e5f6-7890-abcd-ef1234567890", msg.getData().get("externalId"));
@@ -189,7 +197,8 @@ class PushMessageFactoryTest {
 
         assertNotNull(msg);
         assertEquals("Money sent", msg.getTitle());
-        assertEquals("You sent KES 30.00 to DERRICK GWEHONA MUDAKI. Ref: UTRANS02880c6f81c020008212", msg.getBody());
+        assertTrue(msg.getBody().startsWith("Sent KES 30.00 to DERRICK GWEHONA MUDAKI"));
+        assertTrue(msg.getBody().contains("Ref: UTRANS02880c6f81c020008212"));
     }
 
     @Test

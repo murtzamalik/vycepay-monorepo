@@ -7,6 +7,7 @@ import com.vycepay.auth.application.service.AuthRateLimitService;
 import com.vycepay.auth.application.service.CustomerDeviceService;
 import com.vycepay.auth.application.service.DeviceTokenService;
 import com.vycepay.auth.application.service.JwtService;
+import com.vycepay.auth.application.service.MobileNormalizer;
 import com.vycepay.auth.application.service.OtpService;
 import com.vycepay.auth.application.service.PinCredentialsService;
 import com.vycepay.auth.domain.model.Customer;
@@ -23,6 +24,7 @@ import java.util.UUID;
 
 /**
  * Orchestrates signup OTP, PIN login, device binding, credentials, and forgot-PIN.
+ * Kenya mobile numbers are normalized via {@link MobileNormalizer} before lookup/persist.
  */
 @Service
 public class AuthFacade {
@@ -65,8 +67,9 @@ public class AuthFacade {
      */
     @Transactional
     public void sendSignupOtp(String mobileCountryCode, String mobile) {
-        rateLimitService.check("otp_send", mobileCountryCode + mobile);
-        otpService.sendOtp(mobileCountryCode, mobile, OtpPurpose.SIGNUP);
+        MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+        rateLimitService.check("otp_send", n.key());
+        otpService.sendOtp(n.mobileCountryCode(), n.mobile(), OtpPurpose.SIGNUP);
     }
 
     /**
@@ -75,12 +78,13 @@ public class AuthFacade {
     @Transactional
     public AuthResponse verifySignupOtp(String mobileCountryCode, String mobile, String otpCode,
                                         String imei, String fcmToken, String platform) {
-        rateLimitService.check("otp_verify", mobileCountryCode + mobile);
+        MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+        rateLimitService.check("otp_verify", n.key());
         customerDeviceService.requireImei(imei);
-        otpService.verifyOtpOrThrow(mobileCountryCode, mobile, otpCode, OtpPurpose.SIGNUP);
+        otpService.verifyOtpOrThrow(n.mobileCountryCode(), n.mobile(), otpCode, OtpPurpose.SIGNUP);
 
-        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(mobileCountryCode, mobile)
-                .orElseGet(() -> createCustomer(mobileCountryCode, mobile));
+        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(n.mobileCountryCode(), n.mobile())
+                .orElseGet(() -> createCustomer(n.mobileCountryCode(), n.mobile()));
 
         if (customer.getStatus() == null || !STATUS_ACTIVE.equals(customer.getStatus())) {
             customer.setStatus(STATUS_ACTIVE);
@@ -104,7 +108,16 @@ public class AuthFacade {
     public AuthResponse loginWithPin(String username, String mobileCountryCode, String mobile,
                                      String pin, String imei, String fcmToken, String platform) {
         customerDeviceService.requireImei(imei);
-        Customer customer = resolveCustomerForLogin(username, mobileCountryCode, mobile);
+        String cc = mobileCountryCode;
+        String national = mobile;
+        boolean hasUsername = username != null && !username.isBlank();
+        boolean hasMobile = mobile != null && !mobile.isBlank();
+        if (!hasUsername && hasMobile) {
+            MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+            cc = n.mobileCountryCode();
+            national = n.mobile();
+        }
+        Customer customer = resolveCustomerForLogin(username, cc, national);
         String rateKey = customer.getId().toString();
         rateLimitService.check("login", rateKey);
 
@@ -152,12 +165,13 @@ public class AuthFacade {
     @Transactional
     public AuthResponse verifyDeviceOtp(String mobileCountryCode, String mobile, String otpCode,
                                         String imei, String platform) {
-        rateLimitService.check("otp_verify", mobileCountryCode + mobile);
+        MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+        rateLimitService.check("otp_verify", n.key());
         customerDeviceService.requireImei(imei);
-        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(mobileCountryCode, mobile)
+        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(n.mobileCountryCode(), n.mobile())
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_REGISTERED",
                         "Customer not registered", HttpStatus.NOT_FOUND));
-        otpService.verifyOtpOrThrow(mobileCountryCode, mobile, otpCode, OtpPurpose.DEVICE_BIND);
+        otpService.verifyOtpOrThrow(n.mobileCountryCode(), n.mobile(), otpCode, OtpPurpose.DEVICE_BIND);
         customerDeviceService.bindOrReplace(customer.getId(), imei, platform);
         return AuthResponse.deviceBound();
     }
@@ -167,14 +181,15 @@ public class AuthFacade {
      */
     @Transactional
     public AuthResponse verifyMigrateOtp(String mobileCountryCode, String mobile, String otpCode) {
-        rateLimitService.check("otp_verify", mobileCountryCode + mobile);
-        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(mobileCountryCode, mobile)
+        MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+        rateLimitService.check("otp_verify", n.key());
+        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(n.mobileCountryCode(), n.mobile())
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_REGISTERED",
                         "Customer not registered", HttpStatus.NOT_FOUND));
         if (customer.hasCredentials()) {
             throw new BusinessException("CREDENTIALS_ALREADY_SET", "Credentials already set", HttpStatus.CONFLICT);
         }
-        otpService.verifyOtpOrThrow(mobileCountryCode, mobile, otpCode, OtpPurpose.CREDENTIALS_MIGRATE);
+        otpService.verifyOtpOrThrow(n.mobileCountryCode(), n.mobile(), otpCode, OtpPurpose.CREDENTIALS_MIGRATE);
         String token = jwtService.createToken(customer.getId(), customer.getExternalId());
         return AuthResponse.token(token, customer.getExternalId(), jwtService.getValiditySeconds(),
                 customer.getUsername(), customer.getMobileCountryCode(), customer.getMobile());
@@ -202,27 +217,29 @@ public class AuthFacade {
 
     @Transactional
     public void requestForgotPin(String mobileCountryCode, String mobile) {
-        rateLimitService.check("forgot_pin", mobileCountryCode + mobile);
-        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(mobileCountryCode, mobile)
+        MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+        rateLimitService.check("forgot_pin", n.key());
+        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(n.mobileCountryCode(), n.mobile())
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_REGISTERED",
                         "Customer not registered", HttpStatus.NOT_FOUND));
         if (!customer.hasCredentials()) {
             throw new BusinessException("CREDENTIALS_NOT_SET",
                     "Credentials not set. Complete setup first.", HttpStatus.CONFLICT);
         }
-        otpService.sendOtp(mobileCountryCode, mobile, OtpPurpose.PIN_RESET);
+        otpService.sendOtp(n.mobileCountryCode(), n.mobile(), OtpPurpose.PIN_RESET);
         authAuditService.record(customer.getId(), "PIN_RESET", "OTP_SENT",
-                OtpService.maskMobile(mobile), null);
+                OtpService.maskMobile(n.mobile()), null);
     }
 
     @Transactional
     public void confirmForgotPin(String mobileCountryCode, String mobile, String otpCode,
                                  String newPin, String imei, String platform) {
-        rateLimitService.check("otp_verify", mobileCountryCode + mobile);
-        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(mobileCountryCode, mobile)
+        MobileNormalizer.NormalizedMobile n = requireNormalizedMobile(mobileCountryCode, mobile);
+        rateLimitService.check("otp_verify", n.key());
+        Customer customer = customerRepository.findByMobileCountryCodeAndMobile(n.mobileCountryCode(), n.mobile())
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_REGISTERED",
                         "Customer not registered", HttpStatus.NOT_FOUND));
-        otpService.verifyOtpOrThrow(mobileCountryCode, mobile, otpCode, OtpPurpose.PIN_RESET);
+        otpService.verifyOtpOrThrow(n.mobileCountryCode(), n.mobile(), otpCode, OtpPurpose.PIN_RESET);
         pinCredentialsService.resetPin(customer, newPin);
         if (imei != null && !imei.isBlank() && !customerDeviceService.hasDevice(customer.getId())) {
             customerDeviceService.bindOrReplace(customer.getId(), imei, platform);
@@ -233,6 +250,29 @@ public class AuthFacade {
     public void logout(String externalId) {
         Customer customer = requireCustomer(externalId);
         deviceTokenService.clearTokensForCustomer(customer.getId());
+    }
+
+    /**
+     * Normalizes Kenya MSISDN to stored shape (254 + 9-digit national without leading 0).
+     * Accepts mobile alone ({@code 07…}, {@code 254…}, {@code 7…}) or countryCode + national.
+     */
+    static MobileNormalizer.NormalizedMobile requireNormalizedMobile(String mobileCountryCode, String mobile) {
+        if (mobile == null || mobile.isBlank()) {
+            throw new BusinessException("INVALID_MOBILE",
+                    "Enter a valid Kenyan mobile number.", HttpStatus.BAD_REQUEST);
+        }
+        var fromMobile = MobileNormalizer.normalize(mobile.trim());
+        if (fromMobile.isPresent()) {
+            return fromMobile.get();
+        }
+        if (mobileCountryCode != null && !mobileCountryCode.isBlank()) {
+            var combined = MobileNormalizer.normalize(mobileCountryCode.trim() + mobile.trim());
+            if (combined.isPresent()) {
+                return combined.get();
+            }
+        }
+        throw new BusinessException("INVALID_MOBILE",
+                "Enter a valid Kenyan mobile number.", HttpStatus.BAD_REQUEST);
     }
 
     private Customer resolveCustomerForLogin(String username, String mobileCountryCode, String mobile) {

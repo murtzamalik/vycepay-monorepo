@@ -42,6 +42,12 @@ entries:
     userMessage: "The requested API path is invalid."
 
   # Auth / credentials
+  AUTH_FAILED:
+    httpStatus: 401
+    userMessage: "We couldn't sign you in. Check your username/mobile and PIN, then try again."
+  INVALID_MOBILE:
+    httpStatus: 400
+    userMessage: "Enter a valid Kenyan mobile number."
   CUSTOMER_NOT_FOUND:
     httpStatus: 404
     userMessage: "We couldn't find your account."

@@ -116,11 +116,38 @@ public class BffProxyController {
             if (status == null) {
                 status = HttpStatus.BAD_GATEWAY;
             }
-            return errorResponse(status, "UPSTREAM_ERROR");
+            return errorResponse(status, mapEmptyUpstreamCode(status, pathUnderApi));
         } catch (Exception e) {
             log.error("BFF proxy error: {} {}", request.getMethod(), targetUrl, e);
             return errorResponse(HttpStatus.BAD_GATEWAY, "BAD_GATEWAY");
         }
+    }
+
+    /**
+     * When upstream returns a status with an empty body, pick a status-accurate catalog code
+     * instead of always using UPSTREAM_ERROR (which shows a generic system message).
+     */
+    static String mapEmptyUpstreamCode(HttpStatus status, String pathUnderApi) {
+        int code = status.value();
+        if (code == 401) {
+            return "AUTH_FAILED";
+        }
+        if (code == 404) {
+            if (pathUnderApi != null && pathUnderApi.startsWith("auth/")) {
+                return "CUSTOMER_NOT_REGISTERED";
+            }
+            return "NOT_FOUND";
+        }
+        if (code == 423) {
+            return "ACCOUNT_LOCKED";
+        }
+        if (code == 429) {
+            return "RATE_LIMITED";
+        }
+        if (code >= 500) {
+            return code == 502 || code == 503 ? "BAD_GATEWAY" : "UPSTREAM_ERROR";
+        }
+        return "UPSTREAM_ERROR";
     }
 
     private ResponseEntity<byte[]> errorResponse(HttpStatus status, String code) {
