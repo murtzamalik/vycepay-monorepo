@@ -15,14 +15,16 @@ class KenyaPhoneNormalizerTest {
             "712345678,254712345678",
             "0712345678,254712345678",
             "254712345678,254712345678",
-            "+254712345678,254712345678"
+            "+254712345678,254712345678",
+            "0115372786,254115372786",
+            "115372786,254115372786"
     })
     void toRecipient_acceptsKeFormats(String raw, String expected) {
         assertEquals(expected, KenyaPhoneNormalizer.toRecipient(raw).orElseThrow());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {" ", "abc", "812345678", "+255712345678"})
+    @ValueSource(strings = {" ", "abc", "+255712345678", "12345"})
     void toRecipient_rejectsInvalid(String raw) {
         assertTrue(KenyaPhoneNormalizer.toRecipient(raw).isEmpty());
     }

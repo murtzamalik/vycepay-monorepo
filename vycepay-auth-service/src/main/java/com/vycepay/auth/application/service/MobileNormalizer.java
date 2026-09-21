@@ -55,7 +55,7 @@ public final class MobileNormalizer {
             return Optional.empty();
         }
 
-        // XXXXXXXXX (9 digits national starting with 7)
+        // XXXXXXXXX (9 digits national — any digit prefix so registered non-07x can log in)
         if (d.length() == 9 && isKeNational(d)) {
             return Optional.of(new NormalizedMobile(DEFAULT_COUNTRY_CODE, d));
         }
@@ -64,7 +64,10 @@ public final class MobileNormalizer {
     }
 
     private static boolean isKeNational(String national) {
-        return national != null && national.length() == 9 && national.charAt(0) == '7';
+        return national != null
+                && national.length() == 9
+                && national.charAt(0) != '0'
+                && national.chars().allMatch(Character::isDigit);
     }
 
     /**

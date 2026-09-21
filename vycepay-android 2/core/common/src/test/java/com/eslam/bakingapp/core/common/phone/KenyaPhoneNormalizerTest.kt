@@ -22,9 +22,14 @@ class KenyaPhoneNormalizerTest {
     }
 
     @Test
+    fun toNationalMobile_acceptsNon07xLocal() {
+        assertEquals("115372786", KenyaPhoneNormalizer.toNationalMobile("0115372786"))
+    }
+
+    @Test
     fun toNationalMobile_invalid() {
         assertNull(KenyaPhoneNormalizer.toNationalMobile("12345"))
-        assertNull(KenyaPhoneNormalizer.toNationalMobile("0812345678"))
+        assertNull(KenyaPhoneNormalizer.toNationalMobile("081234567"))
     }
 
     @Test

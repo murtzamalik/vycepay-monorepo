@@ -1,6 +1,5 @@
 package com.vycepay.auth.application.service;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -25,7 +24,10 @@ class MobileNormalizerTest {
             "254798765432,254,798765432",
             "+254798765432,254,798765432",
             "' 0712 345 678 ',254,712345678",
-            "+254-712-345-678,254,712345678"
+            "+254-712-345-678,254,712345678",
+            "0115372786,254,115372786",
+            "115372786,254,115372786",
+            "254115372786,254,115372786"
     })
     void normalize_keFormats(String input, String expectedCc, String expectedMobile) {
         var result = MobileNormalizer.normalize(input);
@@ -37,13 +39,8 @@ class MobileNormalizerTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", "abc", "123", "812345678", "0012345678", "+255712345678", "25471234567"})
+    @ValueSource(strings = {" ", "abc", "123", "0012345678", "+255712345678", "25471234567"})
     void normalize_invalid_returnsEmpty(String input) {
         assertTrue(MobileNormalizer.normalize(input).isEmpty());
-    }
-
-    @Test
-    void normalize_rejectsNonKeNationalPrefix() {
-        assertTrue(MobileNormalizer.normalize("612345678").isEmpty());
     }
 }

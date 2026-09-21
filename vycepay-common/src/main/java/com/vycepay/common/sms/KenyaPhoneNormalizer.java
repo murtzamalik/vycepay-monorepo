@@ -75,6 +75,9 @@ public final class KenyaPhoneNormalizer {
     }
 
     private static boolean isKeNational(String national) {
-        return national != null && national.length() == 9 && national.charAt(0) == '7';
+        return national != null
+                && national.length() == 9
+                && national.charAt(0) != '0'
+                && national.chars().allMatch(Character::isDigit);
     }
 }

@@ -2,12 +2,13 @@ package com.eslam.bakingapp.core.common.phone
 
 /**
  * Kenya MSISDN helpers shared by login, signup, and payments.
- * National form (no country code): 9 digits starting with 7 (e.g. 712345678).
+ * National form (no country code): 9 digits (e.g. 712345678 or 0115372786 → 115372786).
  */
 object KenyaPhoneNormalizer {
 
     /**
      * Returns national 9-digit mobile (without leading 0 / 254), or null if invalid.
+     * Accepts any 9-digit national so registered accounts (including non-07x) can log in.
      */
     fun toNationalMobile(raw: String): String? {
         val digits = raw.filter { it.isDigit() }
@@ -34,5 +35,5 @@ object KenyaPhoneNormalizer {
     }
 
     private fun isKeNational(national: String): Boolean =
-        national.length == 9 && national.first() == '7'
+        national.length == 9 && national[0] != '0' && national.all { it.isDigit() }
 }
