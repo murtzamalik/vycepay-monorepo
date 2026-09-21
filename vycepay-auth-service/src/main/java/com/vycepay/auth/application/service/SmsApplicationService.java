@@ -42,7 +42,9 @@ public class SmsApplicationService implements AuthOtpSmsPort {
     public SmsMessage sendAuthOtp(String mobileCountryCode, String mobile, OtpPurpose purpose,
                                   String otpCode, Long otpVerificationId,
                                   String triggerSource, Long adminId) {
-        String recipient = mobileCountryCode + mobile;
+        // MobiWave expects digits only, e.g. 2547XXXXXXXX (no plus / spaces).
+        String recipient = KenyaPhoneNormalizer.toRecipient(mobileCountryCode + mobile)
+                .orElse(mobileCountryCode + mobile);
         String body = buildOtpMessage(purpose, otpCode);
         String redacted = KenyaPhoneNormalizer.redactOtpDigits(body);
 

@@ -1,5 +1,6 @@
 package com.vycepay.common.sms;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vycepay.common.sms.port.SmsSendRequest;
 import com.vycepay.common.sms.port.SmsSendResult;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,11 +19,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MobiWaveSmsAdapterTest {
 
     @Test
-    void send_success_parsesUid() {
+    void send_success_parsesUid_andPostsJsonStringBody() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
         RestTemplate rt = new RestTemplate() {
             @Override
             public <T> ResponseEntity<T> exchange(String url, HttpMethod method, HttpEntity<?> requestEntity,
                                                   Class<T> responseType, Object... uriVariables) {
+                assertEquals(HttpMethod.POST, method);
+                assertTrue(url.endsWith("/sms/send"));
+                assertEquals(MediaType.APPLICATION_JSON, requestEntity.getHeaders().getContentType());
+                assertTrue(requestEntity.getBody() instanceof byte[]);
+                try {
+                    JsonNode body = mapper.readTree((byte[]) requestEntity.getBody());
+                    assertEquals("254712345678", body.get("recipient").asText());
+                    assertEquals("VycePay", body.get("sender_id").asText());
+                    assertEquals("plain", body.get("type").asText());
+                    assertEquals("Hello", body.get("message").asText());
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
                 @SuppressWarnings("unchecked")
                 ResponseEntity<T> response = (ResponseEntity<T>) new ResponseEntity<>(
                         "{\"status\":\"success\",\"data\":{\"uid\":\"msg-123\"}}", HttpStatus.OK);
@@ -30,13 +46,40 @@ class MobiWaveSmsAdapterTest {
         };
         MobiWaveSmsAdapter adapter = new MobiWaveSmsAdapter(
                 "https://sms.mobiwave.co.ke/api/v3", "test-token", "VycePay",
-                rt, new ObjectMapper(), null, null);
+                rt, mapper, null, null);
 
         SmsSendResult result = adapter.send(new SmsSendRequest("254712345678", "Hello"));
 
         assertEquals(SmsSendResult.SENT, result.status());
         assertEquals("msg-123", result.providerUid());
         assertNull(result.errorMessage());
+    }
+
+    @Test
+    void send_normalizesLocalFormatBeforePost() {
+        ObjectMapper mapper = new ObjectMapper();
+        RestTemplate rt = new RestTemplate() {
+            @Override
+            public <T> ResponseEntity<T> exchange(String url, HttpMethod method, HttpEntity<?> requestEntity,
+                                                  Class<T> responseType, Object... uriVariables) {
+                try {
+                    JsonNode body = mapper.readTree((byte[]) requestEntity.getBody());
+                    assertEquals("254712345678", body.get("recipient").asText());
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+                @SuppressWarnings("unchecked")
+                ResponseEntity<T> response = (ResponseEntity<T>) new ResponseEntity<>(
+                        "{\"status\":\"success\",\"data\":{\"uid\":\"x\"}}", HttpStatus.OK);
+                return response;
+            }
+        };
+        MobiWaveSmsAdapter adapter = new MobiWaveSmsAdapter(
+                "https://sms.mobiwave.co.ke/api/v3", "test-token", "VycePay",
+                rt, mapper, null, null);
+
+        SmsSendResult result = adapter.send(new SmsSendRequest("0712345678", "Hello"));
+        assertEquals(SmsSendResult.SENT, result.status());
     }
 
     @Test

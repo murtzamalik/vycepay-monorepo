@@ -17,7 +17,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -61,9 +60,14 @@ public class MobiWaveSmsAdapter implements SmsPort {
         if (apiToken.isBlank()) {
             return SmsSendResult.failed("MobiWave API token is not configured");
         }
-        String masked = KenyaPhoneNormalizer.maskRecipient(request.recipient());
+        String recipient = KenyaPhoneNormalizer.toRecipient(request.recipient())
+                .orElse(null);
+        if (recipient == null) {
+            return SmsSendResult.failed("Invalid recipient phone number");
+        }
+        String masked = KenyaPhoneNormalizer.maskRecipient(recipient);
         try {
-            Supplier<SmsSendResult> supplier = () -> doSend(request);
+            Supplier<SmsSendResult> supplier = () -> doSend(recipient, request.message());
             if (retry != null) {
                 supplier = Retry.decorateSupplier(retry, supplier);
             }
@@ -113,24 +117,31 @@ public class MobiWaveSmsAdapter implements SmsPort {
         }
     }
 
-    private SmsSendResult doSend(SmsSendRequest request) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("recipient", request.recipient());
-        body.put("sender_id", senderId);
-        body.put("type", "plain");
-        body.put("message", request.message());
-
-        HttpHeaders headers = authHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(java.util.List.of(MediaType.APPLICATION_JSON));
-
-        ResponseEntity<String> response = restTemplate.exchange(
-                baseUrl + "/sms/send",
-                HttpMethod.POST,
-                new HttpEntity<>(body, headers),
-                String.class);
-
+    /**
+     * Posts a pre-serialized JSON body so Laravel always receives application/json with Content-Length.
+     * Passing a Map through RestTemplate has been observed to yield empty request bags
+     * ("The recipient field is required. (and 2 more errors)").
+     */
+    private SmsSendResult doSend(String recipient, String message) {
         try {
+            Map<String, String> payload = new LinkedHashMap<>();
+            payload.put("recipient", recipient);
+            payload.put("sender_id", senderId);
+            payload.put("type", "plain");
+            payload.put("message", message);
+            byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
+
+            HttpHeaders headers = authHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(java.util.List.of(MediaType.APPLICATION_JSON));
+            headers.setContentLength(jsonBytes.length);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    baseUrl + "/sms/send",
+                    HttpMethod.POST,
+                    new HttpEntity<>(jsonBytes, headers),
+                    String.class);
+
             JsonNode root = objectMapper.readTree(response.getBody());
             String status = text(root, "status");
             if ("success".equalsIgnoreCase(status)) {
@@ -141,10 +152,10 @@ public class MobiWaveSmsAdapter implements SmsPort {
                 }
                 return SmsSendResult.sent(uid);
             }
-            String message = text(root, "message");
-            return SmsSendResult.failed(message != null ? message : "SMS provider returned error");
+            String errorMessage = text(root, "message");
+            return SmsSendResult.failed(errorMessage != null ? errorMessage : "SMS provider returned error");
         } catch (Exception e) {
-            return SmsSendResult.failed("Invalid SMS provider response");
+            return SmsSendResult.failed(e.getMessage() != null ? e.getMessage() : "SMS provider error");
         }
     }
 
