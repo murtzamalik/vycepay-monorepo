@@ -238,7 +238,7 @@ Validate → show title → amount → send → OTP as in [MOBILE_MPESA_MOBILE_P
 |------|-----|
 | Airtel signup / Airtel Money | Explicitly deferred |
 | KYC poor-image quality gate | Explicitly deferred |
-| SMS to paybill/shortcode **receiver** | Choice / M-Pesa side (Rose). Vyce notifies the Vyce user via FCM only |
+| SMS to paybill/shortcode **receiver** | Choice / M-Pesa side (Rose). Vyce notifies the **Vyce user** via FCM + SMS (0002/0003 money events when `SMS_ENABLED=true`) |
 
 ---
 

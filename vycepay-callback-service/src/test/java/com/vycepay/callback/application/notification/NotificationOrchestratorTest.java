@@ -11,6 +11,9 @@ import com.vycepay.callback.infrastructure.persistence.CustomerNotificationRepos
 import com.vycepay.callback.infrastructure.persistence.CustomerRepository;
 import com.vycepay.callback.infrastructure.persistence.PushDeliveryLogRepository;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.common.sms.port.SmsPort;
+import com.vycepay.common.sms.port.SmsSendRequest;
+import com.vycepay.common.sms.port.SmsSendResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +26,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -37,6 +41,7 @@ class NotificationOrchestratorTest {
     @Mock PushDeliveryLogRepository deliveryLogRepository;
     @Mock CustomerRepository customerRepository;
     @Mock PushNotificationPort pushNotificationPort;
+    @Mock SmsPort smsPort;
 
     NotificationOrchestrator orchestrator;
 
@@ -44,11 +49,11 @@ class NotificationOrchestratorTest {
     void setUp() {
         orchestrator = new NotificationOrchestrator(
                 notificationRepository, deliveryLogRepository, customerRepository,
-                pushNotificationPort, new ObjectMapper());
+                pushNotificationPort, smsPort, new ObjectMapper());
     }
 
     @Test
-    void createAndSendFromCallback_persistsInboxAndDelivery() {
+    void createAndSendFromCallback_persistsInboxAndDelivery_andSendsSms() {
         when(notificationRepository.save(any())).thenAnswer(inv -> {
             CustomerNotification n = inv.getArgument(0);
             n.setId(10L);
@@ -57,9 +62,13 @@ class NotificationOrchestratorTest {
         when(pushNotificationPort.sendToCustomer(eq(1L), any()))
                 .thenReturn(PushSendResult.sent(1, 1, 0));
         when(deliveryLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubCustomerWithMobile(1L, "254", "712345678");
+        when(smsPort.send(any())).thenReturn(SmsSendResult.sent("uid-1"));
 
         PushMessage message = PushMessage.builder()
-                .title("t").body("b").pushType("TRANSACTION_RESULT").notificationType("0002")
+                .title("Money received")
+                .body("Received KES 100.00 from ROSE WUGHANGA MWALUKUKU. Ref: UIMGK7885G")
+                .pushType("TRANSACTION_RESULT").notificationType("0002")
                 .putData("txId", "UTRANS123")
                 .build();
         when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS123"))
@@ -75,10 +84,16 @@ class NotificationOrchestratorTest {
         verify(deliveryLogRepository).save(logCaptor.capture());
         assertEquals(PushSendResult.STATUS_SENT, logCaptor.getValue().getStatus());
         assertEquals(PushDeliveryLog.TRIGGER_AUTO, logCaptor.getValue().getTriggerSource());
+
+        ArgumentCaptor<SmsSendRequest> smsCaptor = ArgumentCaptor.forClass(SmsSendRequest.class);
+        verify(smsPort).send(smsCaptor.capture());
+        assertEquals("254712345678", smsCaptor.getValue().recipient());
+        assertTrue(smsCaptor.getValue().message().contains("KES 100.00"));
+        assertTrue(smsCaptor.getValue().message().contains("ROSE WUGHANGA MWALUKUKU"));
     }
 
     @Test
-    void createAndSendFromCallback_sameTxId_skipsSecondPush() {
+    void createAndSendFromCallback_sameTxId_skipsSecondPushAndSms() {
         CustomerNotification existing = new CustomerNotification();
         existing.setId(9L);
         existing.setDedupeKey("TX:UTRANS123");
@@ -95,10 +110,57 @@ class NotificationOrchestratorTest {
 
         verify(notificationRepository, never()).save(any());
         verify(pushNotificationPort, never()).sendToCustomer(any(), any());
+        verify(smsPort, never()).send(any());
         ArgumentCaptor<PushDeliveryLog> logCaptor = ArgumentCaptor.forClass(PushDeliveryLog.class);
         verify(deliveryLogRepository).save(logCaptor.capture());
         assertEquals(PushSendResult.STATUS_SKIPPED, logCaptor.getValue().getStatus());
         assertEquals(PushSendResult.SKIP_ALREADY_NOTIFIED, logCaptor.getValue().getSkipReason());
+    }
+
+    @Test
+    void createAndSendFromCallback_nonMoneyPush_skipsSms() {
+        when(notificationRepository.save(any())).thenAnswer(inv -> {
+            CustomerNotification n = inv.getArgument(0);
+            n.setId(10L);
+            return n;
+        });
+        when(pushNotificationPort.sendToCustomer(eq(1L), any()))
+                .thenReturn(PushSendResult.sent(1, 1, 0));
+        when(deliveryLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        PushMessage message = PushMessage.builder()
+                .title("Account ready").body("Your VycePay wallet is ready.")
+                .pushType("KYC_ONBOARDING_RESULT").notificationType("0001")
+                .build();
+        orchestrator.createAndSendFromCallback(1L, message, 50L);
+
+        verify(pushNotificationPort).sendToCustomer(eq(1L), any());
+        verify(smsPort, never()).send(any());
+    }
+
+    @Test
+    void createAndSendFromCallback_invalidMobile_skipsSmsWithoutFailing() {
+        when(notificationRepository.save(any())).thenAnswer(inv -> {
+            CustomerNotification n = inv.getArgument(0);
+            n.setId(10L);
+            return n;
+        });
+        when(pushNotificationPort.sendToCustomer(eq(1L), any()))
+                .thenReturn(PushSendResult.sent(1, 1, 0));
+        when(deliveryLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubCustomerWithMobile(1L, "254", "bad");
+
+        PushMessage message = PushMessage.builder()
+                .title("Money received").body("Received KES 30.00 from Alice")
+                .pushType("TRANSACTION_RESULT").notificationType("0003")
+                .putData("txId", "UTRANS999")
+                .build();
+        when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS999"))
+                .thenReturn(java.util.Optional.empty());
+        orchestrator.createAndSendFromCallback(1L, message, 77L);
+
+        verify(pushNotificationPort).sendToCustomer(eq(1L), any());
+        verify(smsPort, never()).send(any());
     }
 
     @Test
@@ -130,6 +192,7 @@ class NotificationOrchestratorTest {
         ArgumentCaptor<CustomerNotification> captor = ArgumentCaptor.forClass(CustomerNotification.class);
         verify(notificationRepository, times(2)).save(captor.capture());
         assertEquals(captor.getAllValues().get(0).getBatchId(), captor.getAllValues().get(1).getBatchId());
+        verify(smsPort, never()).send(any());
     }
 
     @Test
@@ -146,5 +209,13 @@ class NotificationOrchestratorTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () -> orchestrator.resend(5L, 1L));
         assertEquals("RESEND_RATE_LIMITED", ex.getCode());
+    }
+
+    private void stubCustomerWithMobile(Long id, String countryCode, String mobile) {
+        Customer c = new Customer();
+        c.setId(id);
+        c.setMobileCountryCode(countryCode);
+        c.setMobile(mobile);
+        when(customerRepository.findById(id)).thenReturn(java.util.Optional.of(c));
     }
 }

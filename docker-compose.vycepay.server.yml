@@ -42,7 +42,7 @@ services:
       # Notification hub: internal compose/resend + BFF mobile inbox routing
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
       BFF_CALLBACK_URL: ${BFF_CALLBACK_URL:-http://127.0.0.1:8081}
-      # OTP SMS (auth-service). Host .env alone is not enough — must be listed here.
+      # OTP SMS (auth) + money-event SMS (callback 0002/0003). Host .env alone is not enough — must be listed here.
       SMS_ENABLED: ${SMS_ENABLED:-false}
       MOBIWAVE_BASE_URL: ${MOBIWAVE_BASE_URL:-https://sms.mobiwave.co.ke/api/v3}
       MOBIWAVE_API_TOKEN: ${MOBIWAVE_API_TOKEN:-}

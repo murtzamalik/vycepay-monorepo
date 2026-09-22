@@ -6,18 +6,18 @@ End-to-end push: Android binds an FCM token on **signup verify-otp** or **succes
 
 ```
 Android ──POST /api/v1/auth/verify-otp or /login (+ fcmToken)──► auth-service ──► device_token (MySQL)
-Choice Bank webhook ──► handlers ──► NotificationOrchestrator ──► customer_notification + FCM + push_delivery_log
+Choice Bank webhook ──► handlers ──► NotificationOrchestrator ──► customer_notification + FCM + push_delivery_log (+ SMS for money events)
 Admin compose/resend ──► admin-service ──► callback internal API ──► same orchestrator
 Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 ```
 
 - **Registration owner:** `vycepay-auth-service` (optional `fcmToken` on signup verify-otp **or** PIN login success)
-- **Sender / inbox hub:** `vycepay-callback-service` (`NotificationOrchestrator`, `PushNotificationPort` / `FirebasePushAdapter`)
+- **Sender / inbox hub:** `vycepay-callback-service` (`NotificationOrchestrator`, `PushNotificationPort` / `FirebasePushAdapter`, MobiWave `SmsPort` for money events)
 - **One FCM token:** each bind with `fcmToken` replaces all prior tokens for that customer
 - **IMEI binding:** separate table `customer_device` (login device trust) — not the same as FCM
 - **Logout:** `POST /logout` clears all `device_token` rows for the customer
-- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists.
-- **Inbox:** `customer_notification` is source of truth; FCM is best-effort delivery
+- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification, one FCM, and one SMS. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists. SMS body reuses the push receipt body; soft-fail (no ledger).
+- **Inbox:** `customer_notification` is source of truth; FCM and money SMS are best-effort delivery
 - **Admin:** list/detail/summary via JDBC; compose (1–100 customers) and resend via internal API (`INTERNAL_API_KEY`)
 
 ## Backend configuration
@@ -27,6 +27,8 @@ Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 | `vycepay.firebase.enabled` / `FIREBASE_ENABLED` | `true` to send; default `false` (local/dev safe) |
 | `FIREBASE_CREDENTIALS_JSON` | Service account JSON string (preferred secret) |
 | `FIREBASE_CREDENTIALS_PATH` | Path to mounted service account file |
+| `vycepay.sms.enabled` / `SMS_ENABLED` | `true` to send money-event SMS via MobiWave; default `false` (logging adapter) |
+| `MOBIWAVE_API_TOKEN` / `MOBIWAVE_BASE_URL` / `MOBIWAVE_SENDER_ID` | MobiWave credentials (same as auth OTP) |
 | `INTERNAL_API_KEY` | Shared secret for admin → callback compose/resend |
 | `vycepay.bff.callback-url` / `BFF_CALLBACK_URL` | BFF routes `/api/v1/notifications/**` to callback-service |
 | (fallback) | Google Application Default Credentials |
@@ -55,7 +57,7 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 | **0015** / **0009** | `STATEMENT_READY` | fixed copy; `fileUrl` + `jobId` in data | statement job |
 | **0021** | `ACCOUNT_STATUS` | mapped status label | `accountId` → wallet |
 
-**Dedupe:** `customer_notification.dedupe_key = TX:{choiceTxId}` (unique per customer). Whichever of 0002/0003 arrives first wins; the pair is skipped with `ALREADY_NOTIFIED`.
+**Dedupe:** `customer_notification.dedupe_key = TX:{choiceTxId}` (unique per customer). Whichever of 0002/0003 arrives first wins; the pair is skipped with `ALREADY_NOTIFIED` (no second FCM or SMS).
 
 ## FCM payload contract (Android)
 

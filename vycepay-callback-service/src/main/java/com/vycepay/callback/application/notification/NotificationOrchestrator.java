@@ -12,6 +12,10 @@ import com.vycepay.callback.infrastructure.persistence.CustomerNotificationRepos
 import com.vycepay.callback.infrastructure.persistence.CustomerRepository;
 import com.vycepay.callback.infrastructure.persistence.PushDeliveryLogRepository;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.common.sms.KenyaPhoneNormalizer;
+import com.vycepay.common.sms.port.SmsPort;
+import com.vycepay.common.sms.port.SmsSendRequest;
+import com.vycepay.common.sms.port.SmsSendResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,7 +38,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Notification hub: persists inbox rows, sends FCM, and records delivery attempts.
+ * Notification hub: persists inbox rows, sends FCM (and money-event SMS), and records delivery attempts.
  * Failures in persistence/send are logged and must not break Choice Bank webhook processing.
  */
 @Service
@@ -49,29 +53,34 @@ public class NotificationOrchestrator {
     private static final int MAX_RESENDS_PER_HOUR = 5;
     private static final int TITLE_MAX = 128;
     private static final int BODY_MAX = 512;
+    /** MobiWave / SMS gateway practical body limit. */
+    private static final int SMS_BODY_MAX = 640;
 
     private final CustomerNotificationRepository notificationRepository;
     private final PushDeliveryLogRepository deliveryLogRepository;
     private final CustomerRepository customerRepository;
     private final PushNotificationPort pushNotificationPort;
+    private final SmsPort smsPort;
     private final ObjectMapper objectMapper;
 
     public NotificationOrchestrator(CustomerNotificationRepository notificationRepository,
                                     PushDeliveryLogRepository deliveryLogRepository,
                                     CustomerRepository customerRepository,
                                     PushNotificationPort pushNotificationPort,
+                                    SmsPort smsPort,
                                     ObjectMapper objectMapper) {
         this.notificationRepository = notificationRepository;
         this.deliveryLogRepository = deliveryLogRepository;
         this.customerRepository = customerRepository;
         this.pushNotificationPort = pushNotificationPort;
+        this.smsPort = smsPort;
         this.objectMapper = objectMapper;
     }
 
     /**
      * Builds inbox + FCM for a callback-driven push. No-op when message is null.
      * Money events ({@code TRANSACTION_RESULT}) are deduped by Choice {@code txId}
-     * so paired 0002/0003 callbacks produce a single inbox row and FCM send.
+     * so paired 0002/0003 callbacks produce a single inbox row, FCM send, and SMS.
      */
     @Async
     public void createAndSendFromCallback(Long customerId, PushMessage message, Long choiceCallbackId) {
@@ -120,9 +129,50 @@ public class NotificationOrchestrator {
             }
             PushSendResult result = pushNotificationPort.sendToCustomer(customerId, message);
             recordDelivery(notification.getId(), customerId, result, PushDeliveryLog.TRIGGER_AUTO, null);
+            if (PUSH_TRANSACTION_RESULT.equals(message.getPushType())) {
+                sendTransactionSmsBestEffort(customerId, message);
+            }
         } catch (Exception e) {
             log.error("createAndSendFromCallback failed customerId={}: {}", customerId, e.getMessage());
         }
+    }
+
+    /**
+     * Soft-fail SMS for money events. Skips when phone missing/invalid; never throws to callers.
+     */
+    private void sendTransactionSmsBestEffort(Long customerId, PushMessage message) {
+        try {
+            String body = truncate(message.getBody(), SMS_BODY_MAX);
+            if (body == null || body.isBlank()) {
+                log.warn("Transaction SMS skipped customerId={}: empty body", customerId);
+                return;
+            }
+            Optional<Customer> customerOpt = customerRepository.findById(customerId);
+            if (customerOpt.isEmpty()) {
+                log.warn("Transaction SMS skipped customerId={}: customer not found", customerId);
+                return;
+            }
+            Customer customer = customerOpt.get();
+            String dial = nullToEmpty(customer.getMobileCountryCode()) + nullToEmpty(customer.getMobile());
+            Optional<String> recipientOpt = KenyaPhoneNormalizer.toRecipient(dial);
+            if (recipientOpt.isEmpty()) {
+                log.warn("Transaction SMS skipped customerId={}: invalid mobile", customerId);
+                return;
+            }
+            SmsSendResult smsResult = smsPort.send(new SmsSendRequest(recipientOpt.get(), body));
+            if (smsResult.isSent()) {
+                log.info("Transaction SMS sent customerId={} providerUid={}", customerId, smsResult.providerUid());
+            } else {
+                log.warn("Transaction SMS not sent customerId={} status={} error={}",
+                        customerId, smsResult.status(), smsResult.errorMessage());
+            }
+        } catch (Exception e) {
+            log.warn("Transaction SMS failed customerId={}: {}", customerId, e.getMessage());
+        }
+    }
+
+    private static String nullToEmpty(String value) {
+        return value != null ? value : "";
     }
 
     /**

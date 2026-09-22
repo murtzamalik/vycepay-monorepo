@@ -26,6 +26,12 @@ vycepay:
     # Prefer env JSON secret; alternatively set credentials-path to a mounted file.
     credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
     credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  sms:
+    # Money-event SMS (0002/0003). Same MobiWave adapter as auth OTP.
+    enabled: ${SMS_ENABLED:false}
+    base-url: ${MOBIWAVE_BASE_URL:https://sms.mobiwave.co.ke/api/v3}
+    api-token: ${MOBIWAVE_API_TOKEN:}
+    sender-id: ${MOBIWAVE_SENDER_ID:VycePay}
   internal:
     api-key: ${INTERNAL_API_KEY:dev-only-internal-api-key-change-me}
   choice-bank:

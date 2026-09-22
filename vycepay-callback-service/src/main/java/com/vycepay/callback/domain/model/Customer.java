@@ -8,7 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * Minimal customer reference for external_id resolution and compose validation.
+ * Minimal customer reference for external_id resolution, compose validation, and money-event SMS.
  */
 @Entity
 @Table(name = "customer")
@@ -20,6 +20,12 @@ public class Customer {
 
     @Column(name = "external_id", unique = true, nullable = false)
     private String externalId;
+
+    @Column(name = "mobile_country_code", nullable = false)
+    private String mobileCountryCode;
+
+    @Column(name = "mobile", nullable = false)
+    private String mobile;
 
     public Long getId() {
         return id;
@@ -35,5 +41,21 @@ public class Customer {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
+    }
+
+    public String getMobileCountryCode() {
+        return mobileCountryCode;
+    }
+
+    public void setMobileCountryCode(String mobileCountryCode) {
+        this.mobileCountryCode = mobileCountryCode;
+    }
+
+    public String getMobile() {
+        return mobile;
+    }
+
+    public void setMobile(String mobile) {
+        this.mobile = mobile;
     }
 }
