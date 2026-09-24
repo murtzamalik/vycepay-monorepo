@@ -8,6 +8,7 @@ import com.vycepay.callback.domain.model.PushDeliveryLog;
 import com.vycepay.callback.domain.model.PushMessage;
 import com.vycepay.callback.domain.model.PushSendResult;
 import com.vycepay.callback.domain.port.PushNotificationPort;
+import com.vycepay.callback.domain.port.SmsOutboxPort;
 import com.vycepay.callback.infrastructure.persistence.CustomerNotificationRepository;
 import com.vycepay.callback.infrastructure.persistence.CustomerRepository;
 import com.vycepay.callback.infrastructure.persistence.PushDeliveryLogRepository;
@@ -61,6 +62,7 @@ public class NotificationOrchestrator {
     private final CustomerRepository customerRepository;
     private final PushNotificationPort pushNotificationPort;
     private final SmsPort smsPort;
+    private final SmsOutboxPort smsOutboxService;
     private final ObjectMapper objectMapper;
 
     public NotificationOrchestrator(CustomerNotificationRepository notificationRepository,
@@ -68,12 +70,14 @@ public class NotificationOrchestrator {
                                     CustomerRepository customerRepository,
                                     PushNotificationPort pushNotificationPort,
                                     SmsPort smsPort,
+                                    SmsOutboxPort smsOutboxService,
                                     ObjectMapper objectMapper) {
         this.notificationRepository = notificationRepository;
         this.deliveryLogRepository = deliveryLogRepository;
         this.customerRepository = customerRepository;
         this.pushNotificationPort = pushNotificationPort;
         this.smsPort = smsPort;
+        this.smsOutboxService = smsOutboxService;
         this.objectMapper = objectMapper;
     }
 
@@ -130,7 +134,7 @@ public class NotificationOrchestrator {
             PushSendResult result = pushNotificationPort.sendToCustomer(customerId, message);
             recordDelivery(notification.getId(), customerId, result, PushDeliveryLog.TRIGGER_AUTO, null);
             if (PUSH_TRANSACTION_RESULT.equals(message.getPushType())) {
-                sendTransactionSmsBestEffort(customerId, message);
+                sendTransactionSmsBestEffort(customerId, notification.getId(), message, dedupeKey);
             }
         } catch (Exception e) {
             log.error("createAndSendFromCallback failed customerId={}: {}", customerId, e.getMessage());
@@ -138,9 +142,11 @@ public class NotificationOrchestrator {
     }
 
     /**
-     * Soft-fail SMS for money events. Skips when phone missing/invalid; never throws to callers.
+     * Soft-fail SMS for money events. Parks provider FAILED sends in {@code sms_outbox} for retry.
+     * Skips park when phone invalid or SMS disabled (SKIPPED).
      */
-    private void sendTransactionSmsBestEffort(Long customerId, PushMessage message) {
+    private void sendTransactionSmsBestEffort(Long customerId, Long notificationId,
+                                              PushMessage message, String dedupeKey) {
         try {
             String body = truncate(message.getBody(), SMS_BODY_MAX);
             if (body == null || body.isBlank()) {
@@ -159,15 +165,40 @@ public class NotificationOrchestrator {
                 log.warn("Transaction SMS skipped customerId={}: invalid mobile", customerId);
                 return;
             }
-            SmsSendResult smsResult = smsPort.send(new SmsSendRequest(recipientOpt.get(), body));
+            String recipient = recipientOpt.get();
+            SmsSendResult smsResult = smsPort.send(new SmsSendRequest(recipient, body));
             if (smsResult.isSent()) {
                 log.info("Transaction SMS sent customerId={} providerUid={}", customerId, smsResult.providerUid());
-            } else {
-                log.warn("Transaction SMS not sent customerId={} status={} error={}",
-                        customerId, smsResult.status(), smsResult.errorMessage());
+                return;
+            }
+            log.warn("Transaction SMS not sent customerId={} status={} error={}",
+                    customerId, smsResult.status(), smsResult.errorMessage());
+            if (SmsSendResult.FAILED.equals(smsResult.status())) {
+                String key = dedupeKey != null ? dedupeKey : resolveDedupeKey(message);
+                smsOutboxService.parkFailed(
+                        customerId, notificationId, key, recipient, body, smsResult.errorMessage());
             }
         } catch (Exception e) {
             log.warn("Transaction SMS failed customerId={}: {}", customerId, e.getMessage());
+            try {
+                String key = dedupeKey != null ? dedupeKey : resolveDedupeKey(message);
+                Optional<Customer> customerOpt = customerRepository.findById(customerId);
+                if (key != null && customerOpt.isPresent()) {
+                    String dial = nullToEmpty(customerOpt.get().getMobileCountryCode())
+                            + nullToEmpty(customerOpt.get().getMobile());
+                    KenyaPhoneNormalizer.toRecipient(dial).ifPresent(recipient ->
+                            smsOutboxService.parkFailed(
+                                    customerId,
+                                    notificationId,
+                                    key,
+                                    recipient,
+                                    truncate(message.getBody(), SMS_BODY_MAX),
+                                    e.getMessage()));
+                }
+            } catch (Exception parkEx) {
+                log.warn("SMS outbox park after exception failed customerId={}: {}",
+                        customerId, parkEx.getMessage());
+            }
         }
     }
 

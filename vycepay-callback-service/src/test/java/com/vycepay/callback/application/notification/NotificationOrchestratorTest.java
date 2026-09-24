@@ -7,6 +7,7 @@ import com.vycepay.callback.domain.model.PushDeliveryLog;
 import com.vycepay.callback.domain.model.PushMessage;
 import com.vycepay.callback.domain.model.PushSendResult;
 import com.vycepay.callback.domain.port.PushNotificationPort;
+import com.vycepay.callback.domain.port.SmsOutboxPort;
 import com.vycepay.callback.infrastructure.persistence.CustomerNotificationRepository;
 import com.vycepay.callback.infrastructure.persistence.CustomerRepository;
 import com.vycepay.callback.infrastructure.persistence.PushDeliveryLogRepository;
@@ -42,6 +43,7 @@ class NotificationOrchestratorTest {
     @Mock CustomerRepository customerRepository;
     @Mock PushNotificationPort pushNotificationPort;
     @Mock SmsPort smsPort;
+    @Mock SmsOutboxPort smsOutboxService;
 
     NotificationOrchestrator orchestrator;
 
@@ -49,7 +51,7 @@ class NotificationOrchestratorTest {
     void setUp() {
         orchestrator = new NotificationOrchestrator(
                 notificationRepository, deliveryLogRepository, customerRepository,
-                pushNotificationPort, smsPort, new ObjectMapper());
+                pushNotificationPort, smsPort, smsOutboxService, new ObjectMapper());
     }
 
     @Test
@@ -90,6 +92,59 @@ class NotificationOrchestratorTest {
         assertEquals("254712345678", smsCaptor.getValue().recipient());
         assertTrue(smsCaptor.getValue().message().contains("KES 100.00"));
         assertTrue(smsCaptor.getValue().message().contains("ROSE WUGHANGA MWALUKUKU"));
+        verify(smsOutboxService, never()).parkFailed(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void createAndSendFromCallback_smsFailed_parksOutbox() {
+        when(notificationRepository.save(any())).thenAnswer(inv -> {
+            CustomerNotification n = inv.getArgument(0);
+            n.setId(10L);
+            return n;
+        });
+        when(pushNotificationPort.sendToCustomer(eq(1L), any()))
+                .thenReturn(PushSendResult.sent(1, 1, 0));
+        when(deliveryLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubCustomerWithMobile(1L, "254", "712345678");
+        when(smsPort.send(any())).thenReturn(SmsSendResult.failed("Connection refused"));
+        when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS390"))
+                .thenReturn(java.util.Optional.empty());
+
+        PushMessage message = PushMessage.builder()
+                .title("Money sent").body("Sent KES 390.00")
+                .pushType("TRANSACTION_RESULT").notificationType("0002")
+                .putData("txId", "UTRANS390")
+                .build();
+        orchestrator.createAndSendFromCallback(1L, message, 1L);
+
+        verify(smsOutboxService).parkFailed(
+                eq(1L), eq(10L), eq("TX:UTRANS390"), eq("254712345678"),
+                eq("Sent KES 390.00"), eq("Connection refused"));
+    }
+
+    @Test
+    void createAndSendFromCallback_smsSkipped_doesNotPark() {
+        when(notificationRepository.save(any())).thenAnswer(inv -> {
+            CustomerNotification n = inv.getArgument(0);
+            n.setId(10L);
+            return n;
+        });
+        when(pushNotificationPort.sendToCustomer(eq(1L), any()))
+                .thenReturn(PushSendResult.sent(1, 1, 0));
+        when(deliveryLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubCustomerWithMobile(1L, "254", "712345678");
+        when(smsPort.send(any())).thenReturn(SmsSendResult.skipped("SMS_DISABLED"));
+        when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS1"))
+                .thenReturn(java.util.Optional.empty());
+
+        PushMessage message = PushMessage.builder()
+                .title("Money sent").body("Sent KES 10.00")
+                .pushType("TRANSACTION_RESULT").notificationType("0002")
+                .putData("txId", "UTRANS1")
+                .build();
+        orchestrator.createAndSendFromCallback(1L, message, 1L);
+
+        verify(smsOutboxService, never()).parkFailed(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -111,6 +166,7 @@ class NotificationOrchestratorTest {
         verify(notificationRepository, never()).save(any());
         verify(pushNotificationPort, never()).sendToCustomer(any(), any());
         verify(smsPort, never()).send(any());
+        verify(smsOutboxService, never()).parkFailed(any(), any(), any(), any(), any(), any());
         ArgumentCaptor<PushDeliveryLog> logCaptor = ArgumentCaptor.forClass(PushDeliveryLog.class);
         verify(deliveryLogRepository).save(logCaptor.capture());
         assertEquals(PushSendResult.STATUS_SKIPPED, logCaptor.getValue().getStatus());
@@ -136,6 +192,7 @@ class NotificationOrchestratorTest {
 
         verify(pushNotificationPort).sendToCustomer(eq(1L), any());
         verify(smsPort, never()).send(any());
+        verify(smsOutboxService, never()).parkFailed(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -161,6 +218,7 @@ class NotificationOrchestratorTest {
 
         verify(pushNotificationPort).sendToCustomer(eq(1L), any());
         verify(smsPort, never()).send(any());
+        verify(smsOutboxService, never()).parkFailed(any(), any(), any(), any(), any(), any());
     }
 
     @Test

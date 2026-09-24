@@ -16,7 +16,7 @@ Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 - **One FCM token:** each bind with `fcmToken` replaces all prior tokens for that customer
 - **IMEI binding:** separate table `customer_device` (login device trust) — not the same as FCM
 - **Logout:** `POST /logout` clears all `device_token` rows for the customer
-- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification, one FCM, and one SMS. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists. SMS body reuses the push receipt body; soft-fail (no ledger).
+- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification, one FCM, and one SMS. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists. SMS body reuses the push receipt body; soft-fail. Provider **FAILED** sends are parked in `sms_outbox` and retried by a callback-service job (OTP / admin bulk still use `sms_message` only).
 - **Inbox:** `customer_notification` is source of truth; FCM and money SMS are best-effort delivery
 - **Admin:** list/detail/summary via JDBC; compose (1–100 customers) and resend via internal API (`INTERNAL_API_KEY`)
 
@@ -29,6 +29,9 @@ Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 | `FIREBASE_CREDENTIALS_PATH` | Path to mounted service account file |
 | `vycepay.sms.enabled` / `SMS_ENABLED` | `true` to send money-event SMS via MobiWave; default `false` (logging adapter) |
 | `MOBIWAVE_API_TOKEN` / `MOBIWAVE_BASE_URL` / `MOBIWAVE_SENDER_ID` | MobiWave credentials (same as auth OTP) |
+| `vycepay.sms.outbox.poll-interval-ms` / `SMS_OUTBOX_POLL_MS` | Outbox retry poll delay (default 60000) |
+| `vycepay.sms.outbox.batch-size` / `SMS_OUTBOX_BATCH_SIZE` | Max rows per poll (default 50) |
+| `vycepay.sms.outbox.max-attempts` / `SMS_OUTBOX_MAX_ATTEMPTS` | Attempts before DEAD (default 10) |
 | `INTERNAL_API_KEY` | Shared secret for admin → callback compose/resend |
 | `vycepay.bff.callback-url` / `BFF_CALLBACK_URL` | BFF routes `/api/v1/notifications/**` to callback-service |
 | (fallback) | Google Application Default Credentials |
@@ -58,6 +61,10 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 | **0021** | `ACCOUNT_STATUS` | mapped status label | `accountId` → wallet |
 
 **Dedupe:** `customer_notification.dedupe_key = TX:{choiceTxId}` (unique per customer). Whichever of 0002/0003 arrives first wins; the pair is skipped with `ALREADY_NOTIFIED` (no second FCM or SMS).
+
+### Money-event SMS outbox
+
+When MobiWave returns **FAILED** on a money SMS, callback-service inserts/updates `sms_outbox` keyed by `TX:{txId}` and a scheduled job retries with exponential backoff (max attempts then `DEAD`). `SMS_DISABLED` / invalid mobile are **not** parked. This does **not** change OTP or admin bulk SMS (`sms_message`).
 
 ## FCM payload contract (Android)
 

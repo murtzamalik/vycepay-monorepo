@@ -32,6 +32,11 @@ vycepay:
     base-url: ${MOBIWAVE_BASE_URL:https://sms.mobiwave.co.ke/api/v3}
     api-token: ${MOBIWAVE_API_TOKEN:}
     sender-id: ${MOBIWAVE_SENDER_ID:VycePay}
+    outbox:
+      # Retry parked provider failures (sms_outbox). Does not affect OTP / admin bulk.
+      poll-interval-ms: ${SMS_OUTBOX_POLL_MS:60000}
+      batch-size: ${SMS_OUTBOX_BATCH_SIZE:50}
+      max-attempts: ${SMS_OUTBOX_MAX_ATTEMPTS:10}
   internal:
     api-key: ${INTERNAL_API_KEY:dev-only-internal-api-key-change-me}
   choice-bank:
