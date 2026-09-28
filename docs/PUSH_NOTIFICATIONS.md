@@ -66,6 +66,8 @@ Use the **same Firebase project** as the Android app (`com.vycepay`). Never comm
 
 When MobiWave returns **FAILED** on a money SMS, callback-service inserts/updates `sms_outbox` keyed by `TX:{txId}` and a scheduled job retries with exponential backoff (max attempts then `DEAD`). `SMS_DISABLED` / invalid mobile are **not** parked. This does **not** change OTP or admin bulk SMS (`sms_message`).
 
+**Admin UI:** `/sms/outbox` (list + detail) under SMS; requires `sms:view`. Manual **Requeue** uses `sms:resend` and sets the row to `PENDING` for the next job poll. API: `GET /api/admin/v1/sms/outbox`, `GET /api/admin/v1/sms/outbox/{id}`, `POST /api/admin/v1/sms/outbox/{id}/retry`.
+
 ## FCM payload contract (Android)
 
 ```json

@@ -107,6 +107,40 @@ public class AdminMutationService {
     }
 
     /**
+     * Re-queues a money-event SMS outbox row for the callback retry job (PENDING, next_attempt_at=now).
+     * SENT rows cannot be requeued.
+     */
+    @Transactional
+    public Map<String, Object> retrySmsOutbox(Long id, SmsResendRequest body, HttpServletRequest req) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT id, status, dedupe_key dedupeKey FROM sms_outbox WHERE id=?", id);
+        if (rows.isEmpty()) {
+            throw notFound("SMS_OUTBOX_NOT_FOUND");
+        }
+        String status = (String) rows.get(0).get("status");
+        if ("SENT".equals(status)) {
+            throw new BusinessException("SMS_OUTBOX_ALREADY_SENT",
+                    "Outbox row already SENT; cannot requeue", HttpStatus.BAD_REQUEST);
+        }
+        int updated = jdbcTemplate.update(
+                "UPDATE sms_outbox SET status='PENDING', next_attempt_at=CURRENT_TIMESTAMP, "
+                        + "last_error=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'SENT'",
+                id);
+        if (updated == 0) {
+            throw notFound("SMS_OUTBOX_NOT_FOUND");
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", id);
+        data.put("status", "PENDING");
+        data.put("dedupeKey", rows.get(0).get("dedupeKey"));
+        data.put("queued", true);
+        auditService.log(securityContext.currentAdmin(), "RETRY_SMS_OUTBOX", "sms_outbox",
+                String.valueOf(id), body.reason(),
+                "{\"previousStatus\":\"" + status + "\",\"queued\":true}", req);
+        return data;
+    }
+
+    /**
      * Bulk SMS to a phone list (max 100). One provider call per recipient; shared batchId.
      */
     public Map<String, Object> bulkSms(SmsBulkRequest body, HttpServletRequest req) {

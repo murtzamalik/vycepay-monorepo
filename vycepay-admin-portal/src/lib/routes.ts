@@ -18,6 +18,7 @@ export const navSections = [
       { label: 'Notification summary', href: '/notifications/summary', sub: true },
       { label: 'SMS', href: '/sms' },
       { label: 'Bulk SMS', href: '/sms/bulk', sub: true },
+      { label: 'SMS outbox', href: '/sms/outbox', sub: true },
     ],
   },
   {

@@ -122,6 +122,10 @@ public class AdminReadService {
     private static final Map<String, String> SMS_SORT = Map.ofEntries(
             entry("createdAt", "s.created_at"), entry("id", "s.id"), entry("status", "s.status"),
             entry("purpose", "s.purpose"), entry("recipient", "s.recipient"));
+    private static final Map<String, String> SMS_OUTBOX_SORT = Map.ofEntries(
+            entry("createdAt", "o.created_at"), entry("id", "o.id"), entry("status", "o.status"),
+            entry("nextAttemptAt", "o.next_attempt_at"), entry("attemptCount", "o.attempt_count"),
+            entry("dedupeKey", "o.dedupe_key"));
     private static final Map<String, String> ADMIN_USER_SORT = Map.ofEntries(
             entry("id", "id"), entry("username", "username"), entry("status", "status"),
             entry("lastLoginAt", "last_login_at"), entry("email", "email"), entry("createdAt", "created_at"));
@@ -451,6 +455,83 @@ public class AdminReadService {
                         + "error_message errorMessage, created_by_admin_id createdByAdminId, created_at createdAt "
                         + "FROM sms_delivery_attempt WHERE sms_message_id=? ORDER BY created_at DESC",
                 id));
+        return row;
+    }
+
+    /**
+     * Money-event SMS outbox (callback retries). Separate from {@code sms_message} OTP/bulk ledger.
+     */
+    public Map<String, Object> smsOutbox(Integer pageReq, Integer sizeReq, String status, String recipient,
+                                         String dedupeKey, String customerId, String fromDate, String toDate,
+                                         String sort, String order) {
+        StringBuilder where = new StringBuilder("1=1");
+        List<Object> p = new ArrayList<>();
+        if (status != null && !status.isBlank()) {
+            where.append(" AND o.status=?");
+            p.add(status);
+        }
+        if (recipient != null && !recipient.isBlank()) {
+            where.append(" AND o.recipient LIKE ?");
+            p.add("%" + recipient.trim() + "%");
+        }
+        if (dedupeKey != null && !dedupeKey.isBlank()) {
+            where.append(" AND o.dedupe_key LIKE ?");
+            p.add("%" + dedupeKey.trim() + "%");
+        }
+        if (customerId != null && !customerId.isBlank()) {
+            where.append(" AND (c.external_id=? OR o.customer_id=?)");
+            p.add(customerId.trim());
+            try {
+                p.add(Long.parseLong(customerId.trim()));
+            } catch (NumberFormatException e) {
+                p.add(-1L);
+            }
+        }
+        DateRangeQuery.of(fromDate, toDate).apply("o.created_at", where, p);
+        Map<String, Object> result = page(
+                "SELECT o.id, o.public_id publicId, o.customer_id customerId, c.external_id customerExternalId, "
+                        + "o.notification_id notificationId, o.dedupe_key dedupeKey, o.recipient, "
+                        + "o.message_body messageBody, o.status, o.attempt_count attemptCount, "
+                        + "o.max_attempts maxAttempts, o.next_attempt_at nextAttemptAt, "
+                        + "o.last_error lastError, o.provider_uid providerUid, "
+                        + "o.created_at createdAt, o.updated_at updatedAt, o.sent_at sentAt "
+                        + "FROM sms_outbox o LEFT JOIN customer c ON c.id=o.customer_id WHERE " + where,
+                "SELECT COUNT(*) FROM sms_outbox o LEFT JOIN customer c ON c.id=o.customer_id WHERE " + where,
+                pageReq, sizeReq, resolveSort(sort, order, SMS_OUTBOX_SORT, "ORDER BY o.created_at DESC"),
+                p.toArray());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
+        if (content != null) {
+            for (Map<String, Object> row : content) {
+                row.put("recipientMasked", maskSmsRecipient((String) row.get("recipient")));
+                row.remove("recipient");
+                String body = (String) row.get("messageBody");
+                if (body != null && body.length() > 80) {
+                    row.put("messagePreview", body.substring(0, 80) + "…");
+                } else {
+                    row.put("messagePreview", body);
+                }
+                row.remove("messageBody");
+            }
+        }
+        return result;
+    }
+
+    public Map<String, Object> smsOutboxDetail(Long id) {
+        var rows = jdbcTemplate.queryForList(
+                "SELECT o.id, o.public_id publicId, o.customer_id customerId, c.external_id customerExternalId, "
+                        + "o.notification_id notificationId, o.dedupe_key dedupeKey, o.recipient, "
+                        + "o.message_body messageBody, o.status, o.attempt_count attemptCount, "
+                        + "o.max_attempts maxAttempts, o.next_attempt_at nextAttemptAt, "
+                        + "o.last_error lastError, o.provider_uid providerUid, "
+                        + "o.created_at createdAt, o.updated_at updatedAt, o.sent_at sentAt "
+                        + "FROM sms_outbox o LEFT JOIN customer c ON c.id=o.customer_id WHERE o.id=?", id);
+        if (rows.isEmpty()) {
+            throw notFound("SMS_OUTBOX_NOT_FOUND");
+        }
+        Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
+        row.put("recipientMasked", maskSmsRecipient((String) row.get("recipient")));
+        row.remove("recipient");
         return row;
     }
 

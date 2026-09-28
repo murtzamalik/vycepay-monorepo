@@ -72,6 +72,40 @@ public class SmsController {
         return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_BALANCE_OK", "SMS balance", data));
     }
 
+    @GetMapping("/outbox")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> outboxList(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String recipient,
+            @RequestParam(required = false) String dedupeKey,
+            @RequestParam(required = false) String customerId,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String order) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_OUTBOX_LIST_OK", "SMS outbox",
+                readService.smsOutbox(page, size, status, recipient, dedupeKey, customerId,
+                        fromDate, toDate, sort, order)));
+    }
+
+    @GetMapping("/outbox/{id}")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> outboxDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_OUTBOX_OK", "SMS outbox row",
+                readService.smsOutboxDetail(id)));
+    }
+
+    @PostMapping("/outbox/{id}/retry")
+    @PreAuthorize("hasAuthority('PERM_sms:resend')")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> outboxRetry(
+            @PathVariable Long id,
+            @Valid @RequestBody SmsResendRequest body,
+            HttpServletRequest req) {
+        rateLimitService.check("mutation", req);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_OUTBOX_QUEUED", "SMS outbox requeued",
+                mutationService.retrySmsOutbox(id, body, req)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> detail(@PathVariable Long id) {
         return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_OK", "SMS message",

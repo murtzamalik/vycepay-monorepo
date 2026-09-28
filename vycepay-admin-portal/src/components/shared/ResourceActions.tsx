@@ -107,6 +107,23 @@ export function SmsResendActions({ id }: { id: string }) {
   )
 }
 
+export function SmsOutboxRetryActions({ id }: { id: string }) {
+  const refresh = useMutationRefresh([['sms-outbox', id], ['/sms/outbox']])
+  return (
+    <PermissionGuard permission="sms:resend">
+      <ConfirmDialog
+        title="Requeue outbox SMS"
+        description="Sets this row back to PENDING so the callback retry job will send it on the next poll (about 1 minute)."
+        actionLabel="Requeue now"
+        onConfirm={async (reason) => {
+          await apiFetch(`/sms/outbox/${id}/retry`, { method: 'POST', body: JSON.stringify({ reason }) })
+          await refresh()
+        }}
+      />
+    </PermissionGuard>
+  )
+}
+
 export function AdminPasswordResetAction({ id }: { id: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()
