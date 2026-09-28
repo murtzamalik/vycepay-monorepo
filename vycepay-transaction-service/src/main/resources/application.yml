@@ -2,7 +2,9 @@ spring:
   application:
     name: vycepay-transaction-service
   config:
-    import: optional:classpath:META-INF/application-resilience.yml
+    import:
+      - optional:classpath:META-INF/application-resilience.yml
+      - optional:classpath:META-INF/application-hikari.yml
   datasource:
     url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
     username: ${DB_USERNAME:vycepay}

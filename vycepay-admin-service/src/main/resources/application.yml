@@ -1,6 +1,8 @@
 spring:
   application:
     name: vycepay-admin-service
+  config:
+    import: optional:classpath:META-INF/application-hikari.yml
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC}
     username: ${DB_USERNAME:vycepay}

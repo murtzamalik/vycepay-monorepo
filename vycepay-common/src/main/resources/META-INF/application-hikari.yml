@@ -1,0 +1,14 @@
+# Shared HikariCP sizing for multi-JVM single-host deploy (auth, callback, kyc,
+# wallet, transaction, activity, admin). Default Hikari (10) × 7 ≈ 70 connections
+# and exhausts small MySQL max_connections during sequential boot.
+#
+# Override per env: HIKARI_MAXIMUM_POOL_SIZE / HIKARI_MINIMUM_IDLE
+# Budget: 7 services × 5 = 35 max (comfortably under MySQL default 151).
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:5}
+      minimum-idle: ${HIKARI_MINIMUM_IDLE:1}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT_MS:30000}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${HIKARI_MAX_LIFETIME_MS:1800000}

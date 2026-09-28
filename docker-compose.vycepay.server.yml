@@ -48,6 +48,9 @@ services:
       MOBIWAVE_API_TOKEN: ${MOBIWAVE_API_TOKEN:-}
       MOBIWAVE_SENDER_ID: ${MOBIWAVE_SENDER_ID:-VycePay}
       OTP_DEV_FIXED_CODE: ${OTP_DEV_FIXED_CODE:-}
+      # HikariCP (shared META-INF/application-hikari.yml). Keep small: 7 JVMs × pool.
+      HIKARI_MAXIMUM_POOL_SIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-5}
+      HIKARI_MINIMUM_IDLE: ${HIKARI_MINIMUM_IDLE:-1}
     volumes:
       # Host: /opt/vycepay_firebase/<adminsdk>.json  →  same path inside container
       - /opt/vycepay_firebase:/opt/vycepay_firebase:ro
@@ -99,6 +102,8 @@ services:
       MOBIWAVE_BASE_URL: ${MOBIWAVE_BASE_URL:-https://sms.mobiwave.co.ke/api/v3}
       MOBIWAVE_API_TOKEN: ${MOBIWAVE_API_TOKEN:-}
       MOBIWAVE_SENDER_ID: ${MOBIWAVE_SENDER_ID:-VycePay}
+      HIKARI_MAXIMUM_POOL_SIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-5}
+      HIKARI_MINIMUM_IDLE: ${HIKARI_MINIMUM_IDLE:-1}
     restart: unless-stopped
 
   admin-portal:

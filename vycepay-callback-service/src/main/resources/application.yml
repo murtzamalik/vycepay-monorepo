@@ -1,6 +1,8 @@
 spring:
   application:
     name: vycepay-callback-service
+  config:
+    import: optional:classpath:META-INF/application-hikari.yml
   datasource:
     url: jdbc:mysql://localhost:3306/vycepay?useSSL=false&serverTimezone=UTC
     username: ${DB_USERNAME:vycepay}
