@@ -11,6 +11,8 @@ import static java.util.Map.entry;
 
 import com.vycepay.admin.config.AdminProperties;
 import com.vycepay.common.exception.BusinessException;
+import com.vycepay.common.sms.template.SmsTemplateDefaults;
+import com.vycepay.common.sms.template.SmsTemplatePlaceholders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -532,6 +534,48 @@ public class AdminReadService {
         Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
         row.put("recipientMasked", maskSmsRecipient((String) row.get("recipient")));
         row.remove("recipient");
+        return row;
+    }
+
+    /**
+     * System SMS templates (OTP + money events). Optional category / active filters.
+     */
+    public List<Map<String, Object>> smsTemplates(String category, Boolean active) {
+        StringBuilder where = new StringBuilder("1=1");
+        List<Object> p = new ArrayList<>();
+        if (category != null && !category.isBlank()) {
+            where.append(" AND category=?");
+            p.add(category.trim().toUpperCase());
+        }
+        if (active != null) {
+            where.append(" AND active=?");
+            p.add(active ? 1 : 0);
+        }
+        return jdbcTemplate.queryForList(
+                "SELECT id, template_key templateKey, category, name, body, active, "
+                        + "updated_by_admin_id updatedByAdminId, created_at createdAt, updated_at updatedAt "
+                        + "FROM sms_template WHERE " + where + " ORDER BY category, template_key",
+                p.toArray());
+    }
+
+    public Map<String, Object> smsTemplateDetail(String templateKey) {
+        if (templateKey == null || templateKey.isBlank()) {
+            throw notFound("SMS_TEMPLATE_NOT_FOUND");
+        }
+        var rows = jdbcTemplate.queryForList(
+                "SELECT id, template_key templateKey, category, name, body, active, "
+                        + "updated_by_admin_id updatedByAdminId, created_at createdAt, updated_at updatedAt "
+                        + "FROM sms_template WHERE template_key=?",
+                templateKey.trim());
+        if (rows.isEmpty()) {
+            throw notFound("SMS_TEMPLATE_NOT_FOUND");
+        }
+        Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
+        String category = (String) row.get("category");
+        String key = (String) row.get("templateKey");
+        row.put("placeholders", SmsTemplatePlaceholders.forCategory(category));
+        row.put("defaultBody", SmsTemplateDefaults.bodyFor(key));
+        row.put("sampleVars", SmsTemplatePlaceholders.sampleVars(category));
         return row;
     }
 

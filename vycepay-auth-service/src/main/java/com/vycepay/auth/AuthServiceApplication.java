@@ -2,6 +2,7 @@ package com.vycepay.auth;
 
 import com.vycepay.auth.config.AuthProperties;
 import com.vycepay.common.config.SmsClientConfig;
+import com.vycepay.common.config.SmsTemplateConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -15,7 +16,7 @@ import org.springframework.context.annotation.Import;
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.vycepay.auth", "com.vycepay.common.exception"})
 @EnableConfigurationProperties(AuthProperties.class)
-@Import(SmsClientConfig.class)
+@Import({SmsClientConfig.class, SmsTemplateConfig.class})
 public class AuthServiceApplication {
 
     public static void main(String[] args) {

@@ -81,6 +81,18 @@ public final class AdminRequests {
             @NotBlank @Size(min = 10, max = 512) String reason) {
     }
 
+    public record SmsTemplateUpdateRequest(
+            @NotBlank @Size(max = 128) String name,
+            @NotBlank @Size(max = 640) String body,
+            @NotNull Boolean active,
+            @NotBlank @Size(min = 10, max = 512) String reason) {
+    }
+
+    public record SmsTemplatePreviewRequest(
+            @NotBlank @Size(max = 640) String body,
+            Map<String, String> vars) {
+    }
+
     public record MenuRequest(
             @NotBlank @Size(max = 64) String name,
             @NotBlank @Size(max = 128) String route,

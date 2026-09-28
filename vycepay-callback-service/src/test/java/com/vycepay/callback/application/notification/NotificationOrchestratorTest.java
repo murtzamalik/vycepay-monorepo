@@ -15,6 +15,7 @@ import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.sms.port.SmsPort;
 import com.vycepay.common.sms.port.SmsSendRequest;
 import com.vycepay.common.sms.port.SmsSendResult;
+import com.vycepay.common.sms.template.SmsTemplateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,9 +51,10 @@ class NotificationOrchestratorTest {
 
     @BeforeEach
     void setUp() {
+        SmsTemplateService templates = new SmsTemplateService(key -> Optional.empty());
         orchestrator = new NotificationOrchestrator(
                 notificationRepository, deliveryLogRepository, customerRepository,
-                pushNotificationPort, smsPort, smsOutboxService, new ObjectMapper());
+                pushNotificationPort, smsPort, smsOutboxService, templates, new ObjectMapper());
     }
 
     @Test
@@ -72,6 +75,13 @@ class NotificationOrchestratorTest {
                 .body("Received KES 100.00 from ROSE WUGHANGA MWALUKUKU. Ref: UIMGK7885G")
                 .pushType("TRANSACTION_RESULT").notificationType("0002")
                 .putData("txId", "UTRANS123")
+                .putData("amount", "100.00")
+                .putData("currency", "KES")
+                .putData("counterparty", "ROSE WUGHANGA MWALUKUKU")
+                .putData("externalTxId", "UIMGK7885G")
+                .putData("txStatus", "8")
+                .putData("fromAccount", "****1111")
+                .putData("toAccount", "****2222")
                 .build();
         when(notificationRepository.findByCustomerIdAndDedupeKey(1L, "TX:UTRANS123"))
                 .thenReturn(java.util.Optional.empty());
@@ -90,13 +100,15 @@ class NotificationOrchestratorTest {
         ArgumentCaptor<SmsSendRequest> smsCaptor = ArgumentCaptor.forClass(SmsSendRequest.class);
         verify(smsPort).send(smsCaptor.capture());
         assertEquals("254712345678", smsCaptor.getValue().recipient());
+        // SMS uses TX_* template, not push body
         assertTrue(smsCaptor.getValue().message().contains("KES 100.00"));
         assertTrue(smsCaptor.getValue().message().contains("ROSE WUGHANGA MWALUKUKU"));
+        assertTrue(smsCaptor.getValue().message().contains("UIMGK7885G"));
         verify(smsOutboxService, never()).parkFailed(any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void createAndSendFromCallback_smsFailed_parksOutbox() {
+    void createAndSendFromCallback_smsFailed_parksOutboxWithRenderedTemplate() {
         when(notificationRepository.save(any())).thenAnswer(inv -> {
             CustomerNotification n = inv.getArgument(0);
             n.setId(10L);
@@ -114,12 +126,21 @@ class NotificationOrchestratorTest {
                 .title("Money sent").body("Sent KES 390.00")
                 .pushType("TRANSACTION_RESULT").notificationType("0002")
                 .putData("txId", "UTRANS390")
+                .putData("amount", "-390.00")
+                .putData("currency", "KES")
+                .putData("paymentChannel", "PAY_TILL")
+                .putData("txStatus", "8")
+                .putData("fromAccount", "****1111")
+                .putData("toAccount", "****9999")
                 .build();
         orchestrator.createAndSendFromCallback(1L, message, 1L);
 
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(smsOutboxService).parkFailed(
                 eq(1L), eq(10L), eq("TX:UTRANS390"), eq("254712345678"),
-                eq("Sent KES 390.00"), eq("Connection refused"));
+                bodyCaptor.capture(), eq("Connection refused"));
+        assertTrue(bodyCaptor.getValue().contains("KES 390.00"));
+        assertTrue(bodyCaptor.getValue().startsWith("Sent "));
     }
 
     @Test

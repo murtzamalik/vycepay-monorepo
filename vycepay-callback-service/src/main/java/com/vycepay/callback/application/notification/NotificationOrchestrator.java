@@ -17,6 +17,7 @@ import com.vycepay.common.sms.KenyaPhoneNormalizer;
 import com.vycepay.common.sms.port.SmsPort;
 import com.vycepay.common.sms.port.SmsSendRequest;
 import com.vycepay.common.sms.port.SmsSendResult;
+import com.vycepay.common.sms.template.SmsTemplateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -63,6 +64,7 @@ public class NotificationOrchestrator {
     private final PushNotificationPort pushNotificationPort;
     private final SmsPort smsPort;
     private final SmsOutboxPort smsOutboxService;
+    private final SmsTemplateService smsTemplateService;
     private final ObjectMapper objectMapper;
 
     public NotificationOrchestrator(CustomerNotificationRepository notificationRepository,
@@ -71,6 +73,7 @@ public class NotificationOrchestrator {
                                     PushNotificationPort pushNotificationPort,
                                     SmsPort smsPort,
                                     SmsOutboxPort smsOutboxService,
+                                    SmsTemplateService smsTemplateService,
                                     ObjectMapper objectMapper) {
         this.notificationRepository = notificationRepository;
         this.deliveryLogRepository = deliveryLogRepository;
@@ -78,6 +81,7 @@ public class NotificationOrchestrator {
         this.pushNotificationPort = pushNotificationPort;
         this.smsPort = smsPort;
         this.smsOutboxService = smsOutboxService;
+        this.smsTemplateService = smsTemplateService;
         this.objectMapper = objectMapper;
     }
 
@@ -142,13 +146,18 @@ public class NotificationOrchestrator {
     }
 
     /**
-     * Soft-fail SMS for money events. Parks provider FAILED sends in {@code sms_outbox} for retry.
-     * Skips park when phone invalid or SMS disabled (SKIPPED).
+     * Soft-fail SMS for money events using admin templates (not push body).
+     * Parks provider FAILED sends in {@code sms_outbox} for retry.
      */
     private void sendTransactionSmsBestEffort(Long customerId, Long notificationId,
                                               PushMessage message, String dedupeKey) {
         try {
-            String body = truncate(message.getBody(), SMS_BODY_MAX);
+            Map<String, String> data = message.getData() != null ? message.getData() : Map.of();
+            boolean outbound = TxSmsVariableFactory.isOutboundAmount(data.get("amount"));
+            boolean success = TxSmsVariableFactory.isSuccessStatus(data.get("txStatus"));
+            String templateKey = TxTemplateKeyResolver.resolve(data.get("paymentChannel"), outbound, success);
+            Map<String, String> vars = TxSmsVariableFactory.fromPushMessage(message);
+            String body = truncate(smsTemplateService.render(templateKey, vars), SMS_BODY_MAX);
             if (body == null || body.isBlank()) {
                 log.warn("Transaction SMS skipped customerId={}: empty body", customerId);
                 return;
@@ -168,7 +177,8 @@ public class NotificationOrchestrator {
             String recipient = recipientOpt.get();
             SmsSendResult smsResult = smsPort.send(new SmsSendRequest(recipient, body));
             if (smsResult.isSent()) {
-                log.info("Transaction SMS sent customerId={} providerUid={}", customerId, smsResult.providerUid());
+                log.info("Transaction SMS sent customerId={} template={} providerUid={}",
+                        customerId, templateKey, smsResult.providerUid());
                 return;
             }
             log.warn("Transaction SMS not sent customerId={} status={} error={}",
@@ -184,16 +194,18 @@ public class NotificationOrchestrator {
                 String key = dedupeKey != null ? dedupeKey : resolveDedupeKey(message);
                 Optional<Customer> customerOpt = customerRepository.findById(customerId);
                 if (key != null && customerOpt.isPresent()) {
+                    Map<String, String> data = message.getData() != null ? message.getData() : Map.of();
+                    boolean outbound = TxSmsVariableFactory.isOutboundAmount(data.get("amount"));
+                    boolean success = TxSmsVariableFactory.isSuccessStatus(data.get("txStatus"));
+                    String templateKey = TxTemplateKeyResolver.resolve(data.get("paymentChannel"), outbound, success);
+                    String body = truncate(
+                            smsTemplateService.render(templateKey, TxSmsVariableFactory.fromPushMessage(message)),
+                            SMS_BODY_MAX);
                     String dial = nullToEmpty(customerOpt.get().getMobileCountryCode())
                             + nullToEmpty(customerOpt.get().getMobile());
                     KenyaPhoneNormalizer.toRecipient(dial).ifPresent(recipient ->
                             smsOutboxService.parkFailed(
-                                    customerId,
-                                    notificationId,
-                                    key,
-                                    recipient,
-                                    truncate(message.getBody(), SMS_BODY_MAX),
-                                    e.getMessage()));
+                                    customerId, notificationId, key, recipient, body, e.getMessage()));
                 }
             } catch (Exception parkEx) {
                 log.warn("SMS outbox park after exception failed customerId={}: {}",

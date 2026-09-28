@@ -16,9 +16,20 @@ Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 - **One FCM token:** each bind with `fcmToken` replaces all prior tokens for that customer
 - **IMEI binding:** separate table `customer_device` (login device trust) — not the same as FCM
 - **Logout:** `POST /logout` clears all `device_token` rows for the customer
-- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification, one FCM, and one SMS. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists. SMS body reuses the push receipt body; soft-fail. Provider **FAILED** sends are parked in `sms_outbox` and retried by a callback-service job (OTP / admin bulk still use `sms_message` only).
+- **Money events (0002 / 0003):** both can send `TRANSACTION_RESULT`; inbox is deduped by `TX:{txId}` so paired callbacks produce one notification, one FCM, and one SMS. Unsolicited inbound credits (Pay Bill) are covered by **0003** when no local tx exists. **FCM body** still comes from `PushMessageFactory`; **SMS body** is rendered from admin-editable `sms_template` rows (`TX_*` keys) via `SmsTemplateService` (soft-fail). Provider **FAILED** sends are parked in `sms_outbox` and retried by a callback-service job (OTP / admin bulk still use `sms_message` only).
 - **Inbox:** `customer_notification` is source of truth; FCM and money SMS are best-effort delivery
 - **Admin:** list/detail/summary via JDBC; compose (1–100 customers) and resend via internal API (`INTERNAL_API_KEY`)
+
+### SMS templates vs FCM
+
+System-triggered SMS (auth OTP + money events) uses seeded `sms_template` rows — one active body per key. Ops edit body/name/active in admin (`/sms/templates`); keys are not created/deleted in v1. Render chain: active DB body → compile-time `SmsTemplateDefaults` → generic fallback. **FCM/push copy is unchanged** (still `PushMessageFactory`). Admin **bulk SMS** remains freeform and is not in the template catalog.
+
+| Key prefix | Service | Examples |
+|------------|---------|----------|
+| `OTP_*` | auth-service | `OTP_SIGNUP`, `OTP_DEVICE_BIND`, `OTP_PIN_RESET`, `OTP_CREDENTIALS_MIGRATE` |
+| `TX_*` | callback-service | `TX_PAY_TILL_SUCCESS`, `TX_INBOUND_SUCCESS`, `TX_FAILED`, `TX_DEFAULT_SUCCESS`, … |
+
+API: `GET/PUT /api/admin/v1/sms/templates/{key}`, `POST .../preview` (`sms:view` / `sms:template:edit`).
 
 ## Backend configuration
 

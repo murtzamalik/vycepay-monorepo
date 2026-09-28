@@ -151,6 +151,9 @@ public class PushMessageFactory {
                 .body(body)
                 .putData("txId", txId)
                 .putData("externalId", getString(params, "externalId"))
+                .putData("externalTxId", firstNonBlank(
+                        getString(params, "externalTxId"),
+                        nestedString(params, "extInfo", "externalTxId")))
                 .putData("reference", reference)
                 .putData("counterparty", counterpartyName)
                 .putData("fromAccount", fromAccount)
@@ -162,6 +165,7 @@ public class PushMessageFactory {
                 .putData("currency", currency)
                 .putData("paymentChannel", channel)
                 .putData("errorCode", getString(params, "errorCode"))
+                .putData("errorMsg", errorMsg)
                 .build();
     }
 

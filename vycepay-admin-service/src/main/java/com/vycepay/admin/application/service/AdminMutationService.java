@@ -17,6 +17,8 @@ import com.vycepay.admin.api.v1.dto.AdminRequests.NotificationResendRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.RoleRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.SmsBulkRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.SmsResendRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.SmsTemplatePreviewRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.SmsTemplateUpdateRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.WalletStatusRequest;
 import com.vycepay.admin.infrastructure.notification.CallbackNotificationClient;
 import com.vycepay.admin.infrastructure.sms.AuthSmsClient;
@@ -25,6 +27,9 @@ import com.vycepay.common.sms.KenyaPhoneNormalizer;
 import com.vycepay.common.sms.port.SmsPort;
 import com.vycepay.common.sms.port.SmsSendRequest;
 import com.vycepay.common.sms.port.SmsSendResult;
+import com.vycepay.common.sms.template.SmsTemplateDefaults;
+import com.vycepay.common.sms.template.SmsTemplatePlaceholders;
+import com.vycepay.common.sms.template.SmsTemplateRenderer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -137,6 +142,64 @@ public class AdminMutationService {
         auditService.log(securityContext.currentAdmin(), "RETRY_SMS_OUTBOX", "sms_outbox",
                 String.valueOf(id), body.reason(),
                 "{\"previousStatus\":\"" + status + "\",\"queued\":true}", req);
+        return data;
+    }
+
+    /**
+     * Updates name/body/active for a seeded SMS template key (no create/delete).
+     */
+    @Transactional
+    public Map<String, Object> updateSmsTemplate(String templateKey, SmsTemplateUpdateRequest body,
+                                                 HttpServletRequest req) {
+        if (templateKey == null || templateKey.isBlank() || !SmsTemplateDefaults.isKnownKey(templateKey.trim())) {
+            throw new BusinessException("SMS_TEMPLATE_UNKNOWN_KEY",
+                    "Unknown SMS template key", HttpStatus.BAD_REQUEST);
+        }
+        String key = templateKey.trim();
+        Long adminId = securityContext.currentAdmin().id();
+        int rows = jdbcTemplate.update(
+                "UPDATE sms_template SET name=?, body=?, active=?, updated_by_admin_id=?, "
+                        + "updated_at=CURRENT_TIMESTAMP WHERE template_key=?",
+                body.name().trim(), body.body().trim(), Boolean.TRUE.equals(body.active()) ? 1 : 0,
+                adminId, key);
+        if (rows == 0) {
+            throw notFound("SMS_TEMPLATE_NOT_FOUND");
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("templateKey", key);
+        data.put("name", body.name().trim());
+        data.put("body", body.body().trim());
+        data.put("active", Boolean.TRUE.equals(body.active()));
+        auditService.log(securityContext.currentAdmin(), "UPDATE_SMS_TEMPLATE", "sms_template", key,
+                body.reason(),
+                "{\"active\":" + Boolean.TRUE.equals(body.active()) + "}", req);
+        return data;
+    }
+
+    /**
+     * Renders a template body with sample or provided vars (no send).
+     */
+    public Map<String, Object> previewSmsTemplate(String templateKey, SmsTemplatePreviewRequest body) {
+        if (templateKey == null || templateKey.isBlank() || !SmsTemplateDefaults.isKnownKey(templateKey.trim())) {
+            throw new BusinessException("SMS_TEMPLATE_UNKNOWN_KEY",
+                    "Unknown SMS template key", HttpStatus.BAD_REQUEST);
+        }
+        String key = templateKey.trim();
+        var rows = jdbcTemplate.queryForList(
+                "SELECT category FROM sms_template WHERE template_key=?", key);
+        String category = rows.isEmpty() ? null : (String) rows.get(0).get("category");
+        if (category == null) {
+            category = key.startsWith("OTP_") ? "OTP" : "TRANSACTION";
+        }
+        Map<String, String> vars = body.vars() != null && !body.vars().isEmpty()
+                ? body.vars()
+                : SmsTemplatePlaceholders.sampleVars(category);
+        String rendered = SmsTemplateRenderer.render(body.body(), vars);
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("templateKey", key);
+        data.put("rendered", rendered);
+        data.put("length", rendered != null ? rendered.length() : 0);
+        data.put("vars", vars);
         return data;
     }
 

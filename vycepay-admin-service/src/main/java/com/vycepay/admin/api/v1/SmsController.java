@@ -1,9 +1,9 @@
 package com.vycepay.admin.api.v1;
 
-import java.util.Map;
-
 import com.vycepay.admin.api.v1.dto.AdminRequests.SmsBulkRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.SmsResendRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.SmsTemplatePreviewRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.SmsTemplateUpdateRequest;
 import com.vycepay.admin.application.service.AdminMutationService;
 import com.vycepay.admin.application.service.AdminReadService;
 import com.vycepay.admin.application.service.RateLimitService;
@@ -18,10 +18,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * Admin SMS ledger visibility, resend, bulk send, and balance APIs.
@@ -104,6 +108,40 @@ public class SmsController {
         rateLimitService.check("mutation", req);
         return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_OUTBOX_QUEUED", "SMS outbox requeued",
                 mutationService.retrySmsOutbox(id, body, req)));
+    }
+
+    @GetMapping("/templates")
+    public ResponseEntity<ApiSuccessResponse<List<Map<String, Object>>>> templates(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Boolean active) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_TEMPLATES_OK", "SMS templates",
+                readService.smsTemplates(category, active)));
+    }
+
+    @GetMapping("/templates/{key}")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> templateDetail(@PathVariable String key) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_TEMPLATE_OK", "SMS template",
+                readService.smsTemplateDetail(key)));
+    }
+
+    @PutMapping("/templates/{key}")
+    @PreAuthorize("hasAuthority('PERM_sms:template:edit')")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> templateUpdate(
+            @PathVariable String key,
+            @Valid @RequestBody SmsTemplateUpdateRequest body,
+            HttpServletRequest req) {
+        rateLimitService.check("mutation", req);
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_TEMPLATE_UPDATED", "SMS template updated",
+                mutationService.updateSmsTemplate(key, body, req)));
+    }
+
+    @PostMapping("/templates/{key}/preview")
+    @PreAuthorize("hasAuthority('PERM_sms:view')")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> templatePreview(
+            @PathVariable String key,
+            @Valid @RequestBody SmsTemplatePreviewRequest body) {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_TEMPLATE_PREVIEW_OK", "SMS template preview",
+                mutationService.previewSmsTemplate(key, body)));
     }
 
     @GetMapping("/{id}")

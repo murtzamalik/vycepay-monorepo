@@ -89,6 +89,7 @@ export function SmsList() {
       hideSearch
       headerActions={
         <div style={{ display: 'flex', gap: 8 }}>
+          <Link className="btn secondary" href="/sms/templates">Templates</Link>
           <Link className="btn secondary" href="/sms/outbox">SMS outbox</Link>
           <PermissionGuard permission="sms:bulk">
             <Link className="btn" href="/sms/bulk">Bulk SMS</Link>
