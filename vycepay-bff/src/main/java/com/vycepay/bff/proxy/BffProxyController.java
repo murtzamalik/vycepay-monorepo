@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -28,6 +29,7 @@ import java.util.UUID;
 /**
  * Proxies /api/v1/** to backend services by path prefix. Injects X-Customer-Id from JWT when present.
  * Always returns a customer-safe error envelope when upstream body is missing.
+ * Outbound client must support PATCH (see {@code bffProxyRestTemplate}).
  */
 @RestController
 @RequestMapping
@@ -39,11 +41,14 @@ public class BffProxyController {
 
     private final BffBackendProperties backend;
     private final VyceErrorCatalog catalog;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
-    public BffProxyController(BffBackendProperties backend, VyceErrorCatalog catalog) {
+    public BffProxyController(BffBackendProperties backend,
+                              VyceErrorCatalog catalog,
+                              @Qualifier("bffProxyRestTemplate") RestTemplate restTemplate) {
         this.backend = backend;
         this.catalog = catalog;
+        this.restTemplate = restTemplate;
     }
 
     @RequestMapping("/api/v1/**")

@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
@@ -31,10 +30,10 @@ class BffProxyControllerErrorTest {
         catalog.loadFromClasspath();
         BffBackendProperties backend = new BffBackendProperties();
         backend.setAuthUrl("http://localhost:8082");
-        controller = new BffProxyController(backend, catalog);
+        backend.setCallbackUrl("http://localhost:8081");
         RestTemplate restTemplate = new RestTemplate();
         server = MockRestServiceServer.createServer(restTemplate);
-        ReflectionTestUtils.setField(controller, "restTemplate", restTemplate);
+        controller = new BffProxyController(backend, catalog, restTemplate);
     }
 
     @Test
@@ -113,5 +112,24 @@ class BffProxyControllerErrorTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(body).contains("\"code\":\"NOT_FOUND\"");
         assertThat(body).contains("\"requestId\":");
+    }
+
+    @Test
+    void patchNotificationRead_proxiesToCallback() {
+        server.expect(requestTo(
+                        "http://localhost:8081/api/v1/notifications/3fc24bbf-241a-431d-92b6-46ce5e5e0d2e/read"))
+                .andExpect(method(HttpMethod.PATCH))
+                .andRespond(withStatus(HttpStatus.OK)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"success\":true,\"code\":\"NOTIFICATION_READ_OK\"}"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "PATCH", "/api/v1/notifications/3fc24bbf-241a-431d-92b6-46ce5e5e0d2e/read");
+        ResponseEntity<byte[]> response = controller.proxy(request, null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(new String(response.getBody(), StandardCharsets.UTF_8))
+                .contains("NOTIFICATION_READ_OK");
+        server.verify();
     }
 }
