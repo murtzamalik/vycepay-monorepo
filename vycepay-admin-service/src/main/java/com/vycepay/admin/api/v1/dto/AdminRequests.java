@@ -75,10 +75,38 @@ public final class AdminRequests {
     public record SmsResendRequest(@NotBlank @Size(min = 10, max = 512) String reason) {
     }
 
+    /**
+     * Bulk SMS: {@code MANUAL} (phone list, max 100) or {@code ALL_CUSTOMERS}
+     * (ACTIVE/PENDING/SUSPENDED from DB; recipients ignored).
+     */
     public record SmsBulkRequest(
-            @NotEmpty @Size(max = 100) List<@NotBlank String> recipients,
+            String audience,
+            List<@NotBlank String> recipients,
             @NotBlank @Size(max = 640) String message,
             @NotBlank @Size(min = 10, max = 512) String reason) {
+
+        private static final Set<String> SMS_BULK_AUDIENCES = Set.of("MANUAL", "ALL_CUSTOMERS");
+
+        /** Defaults blank/null audience to MANUAL for backward compatibility. */
+        public String resolvedAudience() {
+            if (audience == null || audience.isBlank()) {
+                return "MANUAL";
+            }
+            return audience.trim().toUpperCase();
+        }
+
+        @AssertTrue(message = "audience must be MANUAL or ALL_CUSTOMERS")
+        public boolean isAudienceAllowed() {
+            return SMS_BULK_AUDIENCES.contains(resolvedAudience());
+        }
+
+        @AssertTrue(message = "recipients required for MANUAL audience (1–100)")
+        public boolean isRecipientsValidForAudience() {
+            if ("ALL_CUSTOMERS".equals(resolvedAudience())) {
+                return true;
+            }
+            return recipients != null && !recipients.isEmpty() && recipients.size() <= 100;
+        }
     }
 
     public record SmsTemplateUpdateRequest(

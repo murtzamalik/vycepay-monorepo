@@ -24,6 +24,15 @@ Mobile inbox ──► BFF /api/v1/notifications/** ──► callback-service
 
 System-triggered SMS (auth OTP + money events) uses seeded `sms_template` rows — one active body per key. Ops edit body/name/active in admin (`/sms/templates`); keys are not created/deleted in v1. Render chain: active DB body → compile-time `SmsTemplateDefaults` → generic fallback. **FCM/push copy is unchanged** (still `PushMessageFactory`). Admin **bulk SMS** remains freeform and is not in the template catalog.
 
+**Admin bulk SMS audiences** (`POST /api/admin/v1/sms/bulk`, permission `sms:bulk`):
+
+| Audience | Recipients | Delivery |
+|----------|------------|----------|
+| `MANUAL` (default) | Phone list in body (max 100) | Synchronous send; response includes sent/failed counts |
+| `ALL_CUSTOMERS` | DB customers with status `ACTIVE` / `PENDING` / `SUSPENDED` (not `DEACTIVATED`), valid Kenya mobile; max 10_000 | Enqueue `sms_message` rows (`customer_id` set), return `status: ACCEPTED`, then async provider send |
+
+Preview counts: `GET /api/admin/v1/sms/bulk/audience-preview` → `{ totalCustomers, withValidMobile, skippedInvalid }`. Track progress on SMS list filtered by `batchId` (PENDING → SENT/FAILED).
+
 | Key prefix | Service | Examples |
 |------------|---------|----------|
 | `OTP_*` | auth-service | `OTP_SIGNUP`, `OTP_DEVICE_BIND`, `OTP_PIN_RESET`, `OTP_CREDENTIALS_MIGRATE` |

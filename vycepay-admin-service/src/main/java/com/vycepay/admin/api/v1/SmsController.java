@@ -161,6 +161,16 @@ public class SmsController {
                 mutationService.resendSms(id, body, req)));
     }
 
+    /**
+     * Preview eligible ALL_CUSTOMERS counts (ACTIVE/PENDING/SUSPENDED with valid Kenya mobile).
+     */
+    @GetMapping("/bulk/audience-preview")
+    @PreAuthorize("hasAuthority('PERM_sms:bulk')")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> bulkAudiencePreview() {
+        return ResponseEntity.ok(ApiSuccessResponses.ok("SMS_BULK_AUDIENCE_PREVIEW",
+                "Bulk SMS audience preview", mutationService.bulkSmsAudiencePreview()));
+    }
+
     @PostMapping("/bulk")
     @PreAuthorize("hasAuthority('PERM_sms:bulk')")
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> bulk(
