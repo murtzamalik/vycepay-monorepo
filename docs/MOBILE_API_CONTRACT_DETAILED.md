@@ -431,6 +431,7 @@ Choice emails an encrypted statement to the address supplied on apply (no in-app
 }
 ```
 - Errors include `ACCOUNT_FROZEN`, `ACCOUNT_RESTRICT_IN`, `BANK_CODE_REQUIRED`, `INVALID_ACCOUNT_TYPE`, plus Choice upstream codes.
+- Soft title-fetch (Choice `10000`/`10001` on M-Pesa types 1–3): HTTP `200` with `valid=false`, `titleFetchUnavailable=true`, `skipAllowed=true`, `choiceCode` — see [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md).
 - Full mobile guide: [MOBILE_VALIDATE_ACCOUNT_HANDOFF.md](MOBILE_VALIDATE_ACCOUNT_HANDOFF.md).
 
 ### 16) Send money (transfer)
@@ -451,7 +452,8 @@ Choice emails an encrypted statement to the address supplied on apply (no in-app
 ```
 - **`accountType` is required** (same value used in validate-account). For PesaLink (`4`), `payeeBankCode` is used as Choice `bankCode` on re-validation.
 - `payeeAccountName` is optional and **overwritten** by the server from Choice Hakikisha; do not rely on a client-typed name.
-- Server always re-validates before `applyForTransfer` (frozen / restrict-in blocked).
+- `skipTitleFetchConfirmed` (boolean, default false): set `true` only after user consent on soft title-fetch — [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md).
+- Server always re-validates before transfer; soft-skip only if Choice still returns `10000`/`10001` and flag is true on types 1–3.
 - **Response:** `200 OK` with `TransactionResponse` JSON (fields below)
 
 If OTP is required by Choice Bank:

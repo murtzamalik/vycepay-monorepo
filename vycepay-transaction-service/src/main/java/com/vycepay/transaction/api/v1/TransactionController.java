@@ -87,7 +87,8 @@ public class TransactionController {
 
     /**
      * Initiates transfer. Idempotency-Key header required.
-     * Re-validates payee via Hakikisha and stores Choice-returned accountName.
+     * Re-validates payee via Hakikisha; stores Choice accountName when available.
+     * Optional {@code skipTitleFetchConfirmed} allows M-Pesa send after soft title-fetch failure.
      */
     @PostMapping("/send")
     public ResponseEntity<TransactionResponse> send(
@@ -99,10 +100,12 @@ public class TransactionController {
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         var wallet = walletRepository.findByCustomerId(customer.getId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Wallet not found", HttpStatus.NOT_FOUND));
+        // skipTitleFetchConfirmed: only honored after soft title-fetch failure (Choice 10000/10001).
         var outcome = transactionFacade.applyTransfer(
                 customer.getId(), wallet.getId(), wallet.getChoiceAccountId(),
                 request.getPayeeBankCode(), request.getPayeeAccountId(), request.getAccountType(),
-                request.getAmount(), request.getPayeeReferenceNumber(), request.getRemark(), idempotencyKey);
+                request.getAmount(), request.getPayeeReferenceNumber(), request.getRemark(),
+                idempotencyKey, request.isSkipTitleFetchConfirmed());
         return ResponseEntity.ok(toResponse(outcome));
     }
 

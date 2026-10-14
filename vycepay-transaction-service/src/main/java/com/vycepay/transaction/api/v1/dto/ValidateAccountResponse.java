@@ -29,6 +29,17 @@ public class ValidateAccountResponse {
     @Schema(description = "Customer-facing message from Choice Bank when present")
     private String message;
 
+    @Schema(description = "True when Choice Hakikisha returned system error/busy (10000/10001) "
+            + "and title could not be fetched")
+    private boolean titleFetchUnavailable;
+
+    @Schema(description = "True when mobile may prompt user consent and continue send with "
+            + "skipTitleFetchConfirmed (M-Pesa accountType 1–3 only)")
+    private boolean skipAllowed;
+
+    @Schema(description = "Choice Bank code when title fetch was unavailable (e.g. 10000, 10001)")
+    private String choiceCode;
+
     public String getAccountId() {
         return accountId;
     }
@@ -83,5 +94,29 @@ public class ValidateAccountResponse {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public boolean isTitleFetchUnavailable() {
+        return titleFetchUnavailable;
+    }
+
+    public void setTitleFetchUnavailable(boolean titleFetchUnavailable) {
+        this.titleFetchUnavailable = titleFetchUnavailable;
+    }
+
+    public boolean isSkipAllowed() {
+        return skipAllowed;
+    }
+
+    public void setSkipAllowed(boolean skipAllowed) {
+        this.skipAllowed = skipAllowed;
+    }
+
+    public String getChoiceCode() {
+        return choiceCode;
+    }
+
+    public void setChoiceCode(String choiceCode) {
+        this.choiceCode = choiceCode;
     }
 }

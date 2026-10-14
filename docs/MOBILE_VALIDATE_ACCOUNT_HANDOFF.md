@@ -16,6 +16,7 @@
 | Title source | Always from `POST /validate-account` (Choice Bank). Never let the user type the beneficiary name as source of truth. |
 | Send re-check | Backend **re-validates** on every `POST /send` and overwrites payee name. Client-typed `payeeAccountName` is ignored. |
 | Frozen / restrict | If validate returns error `ACCOUNT_FROZEN` or `ACCOUNT_RESTRICT_IN`, block Continue / Send. |
+| Soft title-fetch | If Choice returns **10000/10001** on M-Pesa types 1–3, HTTP 200 with `titleFetchUnavailable` / `skipAllowed` — see [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md). Do **not** treat that as a hard block after user consent. |
 | PesaLink | When paying another bank (`accountType = 4`), `bankCode` / `payeeBankCode` is mandatory (from bank-codes list). |
 
 ---
@@ -55,10 +56,11 @@ On **send** for PesaLink (`4`), set `payeeBankCode` to the same bank code used a
 2. User picks bank / rail → map to `accountType` (+ `bankCode` if 4)
 3. User enters account / mobile / shortcode
 4. Call validate (debounce on “Continue” or after account field blur — prefer explicit Continue)
-5. Show confirmation: **Paying: {accountName}**
-6. If `valid != true` or HTTP error → show message; do not go to amount
-7. Amount + optional remark → `POST /send` with **same** `accountType` and account/bank values
-8. Existing OTP / status / history flow
+5. Show confirmation: **Paying: {accountName}** when `valid=true`
+6. If soft title-fetch (`titleFetchUnavailable` + `skipAllowed`) → warning + user Okay → continue per [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md)
+7. If other `valid != true` or HTTP error → show message; do not go to amount
+8. Amount + optional remark → `POST /send` with **same** `accountType` and account/bank values (`skipTitleFetchConfirmed` when soft path)
+9. Existing OTP / status / history flow
 
 ---
 
@@ -103,6 +105,9 @@ On **send** for PesaLink (`4`), set `payeeBankCode` to the same bank code used a
 | `restrictStatus` | `0` normal, `1` restrict in (cannot receive), `2` restrict out |
 | `valid` | `true` only when receivable |
 | `message` | Optional; Choice Bank text when present — prefer for toasts |
+| `titleFetchUnavailable` | `true` when Choice returned 10000/10001 on M-Pesa rails (soft path) |
+| `skipAllowed` | `true` when user may consent and send with `skipTitleFetchConfirmed` |
+| `choiceCode` | Choice code when soft-unavailable (e.g. `10000`, `10001`) |
 
 ### Error codes (handle in UI)
 
@@ -143,6 +148,7 @@ On **send** for PesaLink (`4`), set `payeeBankCode` to the same bank code used a
 | `amount` | Yes | KES |
 | `remark` | No | Max 100 chars server-side |
 | `payeeAccountName` | No | Optional; **server overwrites** from Choice |
+| `skipTitleFetchConfirmed` | Soft path only | `true` after user Okay when validate returned `skipAllowed` — see [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md) |
 
 ### Response
 
@@ -213,6 +219,7 @@ Content-Type: application/json
 
 ## 9. Related docs
 
+- [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md) — soft-skip when Choice 10000/10001
 - [MOBILE_API_CONTRACT.md](MOBILE_API_CONTRACT.md)
 - [MOBILE_API_CONTRACT_DETAILED.md](MOBILE_API_CONTRACT_DETAILED.md) — sections 15–16
 - [BUSINESS_LOGIC_AND_FLOWS.md](BUSINESS_LOGIC_AND_FLOWS.md) — Send Money

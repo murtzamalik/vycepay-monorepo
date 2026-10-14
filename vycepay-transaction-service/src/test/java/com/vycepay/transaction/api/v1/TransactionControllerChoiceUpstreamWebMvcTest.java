@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -77,8 +78,9 @@ class TransactionControllerChoiceUpstreamWebMvcTest {
 
         when(customerRepository.findByExternalId("cust-ext-1")).thenReturn(Optional.of(customer));
         when(walletRepository.findByCustomerId(1L)).thenReturn(Optional.of(wallet));
+        // applyTransfer now takes skipTitleFetchConfirmed (boolean)
         when(transactionFacade.applyTransfer(anyLong(), anyLong(), anyString(), anyString(), anyString(), any(),
-                any(), any(), any(), anyString()))
+                any(), any(), any(), anyString(), anyBoolean()))
                 .thenThrow(new ChoiceBankUpstreamException(
                         "CHOICE_ACCOUNT_NOT_FOUND",
                         "Account not found",

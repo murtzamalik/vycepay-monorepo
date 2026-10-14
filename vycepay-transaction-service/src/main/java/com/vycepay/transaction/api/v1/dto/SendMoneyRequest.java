@@ -34,6 +34,11 @@ public class SendMoneyRequest {
     @Schema(description = "Optional remark")
     private String remark;
 
+    @Schema(description = "Set true only after user consents to continue when validate-account returned "
+            + "titleFetchUnavailable/skipAllowed (Choice 10000/10001 on M-Pesa types 1–3). "
+            + "Server re-validates; skip only if Choice still returns those codes.")
+    private boolean skipTitleFetchConfirmed;
+
     public String getPayeeBankCode() {
         return payeeBankCode;
     }
@@ -88,5 +93,13 @@ public class SendMoneyRequest {
 
     public void setRemark(String remark) {
         this.remark = remark;
+    }
+
+    public boolean isSkipTitleFetchConfirmed() {
+        return skipTitleFetchConfirmed;
+    }
+
+    public void setSkipTitleFetchConfirmed(boolean skipTitleFetchConfirmed) {
+        this.skipTitleFetchConfirmed = skipTitleFetchConfirmed;
     }
 }

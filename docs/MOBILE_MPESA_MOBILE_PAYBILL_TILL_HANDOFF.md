@@ -8,6 +8,7 @@ Related:
 
 - [MOBILE_MPESA_PAYBILL_TILL_B2B_CHANGE.md](MOBILE_MPESA_PAYBILL_TILL_B2B_CHANGE.md) — **what changed for mobile** (Paybill `payeeReferenceNumber`)
 - [MOBILE_VALIDATE_ACCOUNT_HANDOFF.md](MOBILE_VALIDATE_ACCOUNT_HANDOFF.md) — validate + send rules
+- [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md) — soft-skip when Choice title fetch returns 10000/10001
 - [MOBILE_ACCOUNT_TYPE_INSTRUCTIONS.md](MOBILE_ACCOUNT_TYPE_INSTRUCTIONS.md) — `accountType` 0–5
 - [MOBILE_BENEFICIARIES_HANDOFF.md](MOBILE_BENEFICIARIES_HANDOFF.md) — save / search beneficiaries
 - [MOBILE_API_CONTRACT.md](MOBILE_API_CONTRACT.md) — full transaction contract
@@ -36,6 +37,7 @@ Related:
 |------|--------|
 | Order | Enter number → **validate** → show name → amount → send → OTP (if Choice requires) |
 | Title | Sirf `POST /validate-account` se `accountName`. User-typed name source of truth nahi. |
+| Soft title-fetch | Choice `10000`/`10001` → warning + user Okay → send with `skipTitleFetchConfirmed` — [MOBILE_TITLE_FETCH_SKIP_HANDOFF.md](MOBILE_TITLE_FETCH_SKIP_HANDOFF.md) |
 | Re-validate | Backend har `POST /send` pe dubara validate karta hai; client `payeeAccountName` ignore hota hai. |
 | Frozen / restrict | `ACCOUNT_FROZEN` / `ACCOUNT_RESTRICT_IN` → Continue / Send block. |
 | Idempotency | Har send attempt pe **naya** `Idempotency-Key` (UUID). |
@@ -72,9 +74,9 @@ Related:
 2. Optional: Search beneficiaries / contacts (pre-fill number)
 3. User enters payee identifier
 4. Tap Continue → POST /api/v1/transactions/validate-account
-5. Show “Paying: {accountName}” (agar valid)
+5. Show “Paying: {accountName}” (agar valid); soft title-fetch pe warning + Okay (see title-fetch skip handoff)
 6. Enter amount (KES) + optional remark
-7. Next → POST /api/v1/transactions/send  (+ Idempotency-Key)
+7. Next → POST /api/v1/transactions/send  (+ Idempotency-Key; `skipTitleFetchConfirmed` if soft path)
 8. If OTP required:
      POST /send-otp?transactionId=<externalId>&otpType=SMS
      POST /confirm-otp?transactionId=<externalId>&otpCode=<code>

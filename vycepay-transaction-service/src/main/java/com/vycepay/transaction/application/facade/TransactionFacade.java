@@ -1,7 +1,10 @@
 package com.vycepay.transaction.application.facade;
 
+import com.vycepay.common.choicebank.errors.ChoiceBankErrorCatalog;
+import com.vycepay.common.choicebank.errors.ChoiceBankErrorMapping;
 import com.vycepay.common.choicebank.errors.ChoiceBankResult;
 import com.vycepay.common.choicebank.errors.ChoiceBankResponseAssessor;
+import com.vycepay.common.choicebank.errors.ChoiceCustomerMessage;
 import com.vycepay.common.choicebank.port.BankingProviderPort;
 import com.vycepay.common.exception.BusinessException;
 import com.vycepay.common.choicebank.RequestIdGenerator;
@@ -22,11 +25,14 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Orchestrates transfers and deposits. Idempotent via idempotencyKey.
  * Re-validates payee via Choice Hakikisha ({@code account/validateAccount}) before every transfer.
+ * On M-Pesa rails, Choice codes 10000/10001 may soft-fail title fetch so the client can continue
+ * after explicit user consent ({@code skipTitleFetchConfirmed}).
  */
 @Service
 @ConditionalOnBean(BankingProviderPort.class)
@@ -40,10 +46,17 @@ public class TransactionFacade {
     private static final int ACCOUNT_TYPE_PAYBILL = 1;
     /** Choice Hakikisha / transfer rail: M-Pesa Till (Buy Goods). */
     private static final int ACCOUNT_TYPE_TILL = 2;
+    /** Choice Hakikisha / transfer rail: M-Pesa Mobile. */
+    private static final int ACCOUNT_TYPE_MPESA_MOBILE = 3;
     /** Choice Hakikisha accountType for PesaLink; bankCode is mandatory. */
     private static final int ACCOUNT_TYPE_PESALINK = 4;
     private static final int ACCOUNT_TYPE_MIN = 0;
     private static final int ACCOUNT_TYPE_MAX = 5;
+    /** M-Pesa rails where title-fetch soft-skip is allowed (name optional at Choice). */
+    private static final Set<Integer> TITLE_FETCH_SKIP_ACCOUNT_TYPES = Set.of(
+            ACCOUNT_TYPE_PAYBILL, ACCOUNT_TYPE_TILL, ACCOUNT_TYPE_MPESA_MOBILE);
+    private static final Set<String> TITLE_FETCH_SOFT_CHOICE_CODES = Set.of("10000", "10001");
+    private static final String PATH_VALIDATE_ACCOUNT = "account/validateAccount";
     private static final String PATH_APPLY_FOR_TRANSFER = "trans/v2/applyForTransfer";
     private static final String PATH_APPLY_MPESA_BUSINESS = "trans/v2/applyForMpesaBusinessTransfer";
     /** Choice payType for Paybill on applyForMpesaBusinessTransfer. */
@@ -57,17 +70,20 @@ public class TransactionFacade {
     private final TransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
     private final ChoiceBankResponseAssessor choiceAssessor;
+    private final ChoiceBankErrorCatalog choiceErrorCatalog;
     private final CustomerActivityRecorder activityRecorder;
 
     public TransactionFacade(BankingProviderPort bankingProvider,
                              TransactionRepository transactionRepository,
                              WalletRepository walletRepository,
                              ChoiceBankResponseAssessor choiceAssessor,
+                             ChoiceBankErrorCatalog choiceErrorCatalog,
                              CustomerActivityRecorder activityRecorder) {
         this.bankingProvider = bankingProvider;
         this.transactionRepository = transactionRepository;
         this.walletRepository = walletRepository;
         this.choiceAssessor = choiceAssessor;
+        this.choiceErrorCatalog = choiceErrorCatalog;
         this.activityRecorder = activityRecorder;
     }
 
@@ -87,7 +103,9 @@ public class TransactionFacade {
 
     /**
      * Initiates a transfer. Idempotent: same idempotencyKey returns existing transaction.
-     * Always re-validates the payee via Hakikisha and overwrites payeeAccountName from Choice.
+     * Always re-validates the payee via Hakikisha; on success overwrites payeeAccountName from Choice.
+     * When Hakikisha returns Choice {@code 10000}/{@code 10001} on M-Pesa types 1–3 and
+     * {@code skipTitleFetchConfirmed} is true, proceeds without payeeAccountName.
      * Paybill ({@code accountType=1}) and Till ({@code accountType=2}) use Choice
      * {@code trans/v2/applyForMpesaBusinessTransfer}; other rails use {@code applyForTransfer}.
      *
@@ -99,26 +117,27 @@ public class TransactionFacade {
      * @param accountType            Choice Hakikisha account type (0–5)
      * @param amount                 Amount
      * @param payeeReferenceNumber   Paybill account/reference; required when accountType is 1
-     * @param remark                 Optional message to beneficiary (max 100 chars)
-     * @param idempotencyKey         Client-provided key
+     * @param remark                   Optional message to beneficiary (max 100 chars)
+     * @param idempotencyKey           Client-provided key
+     * @param skipTitleFetchConfirmed  User consented to continue after title-fetch soft failure
      * @return Transaction (existing or new)
      */
     @Transactional
     public TransactionChoiceOutcome applyTransfer(Long customerId, Long walletId, String choiceAccountId,
                                      String payeeBankCode, String payeeAccountId, Integer accountType,
                                      BigDecimal amount, String payeeReferenceNumber, String remark,
-                                     String idempotencyKey) {
+                                     String idempotencyKey, boolean skipTitleFetchConfirmed) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeTransfer(customerId, walletId, choiceAccountId,
                         payeeBankCode, payeeAccountId, accountType, amount, payeeReferenceNumber,
-                        remark, idempotencyKey));
+                        remark, idempotencyKey, skipTitleFetchConfirmed));
     }
 
     private TransactionChoiceOutcome executeTransfer(Long customerId, Long walletId, String choiceAccountId,
                                         String payeeBankCode, String payeeAccountId, Integer accountType,
                                         BigDecimal amount, String payeeReferenceNumber, String remark,
-                                        String idempotencyKey) {
+                                        String idempotencyKey, boolean skipTitleFetchConfirmed) {
         if (accountType != null && accountType == ACCOUNT_TYPE_PAYBILL
                 && (payeeReferenceNumber == null || payeeReferenceNumber.isBlank())) {
             throw new BusinessException(
@@ -126,12 +145,37 @@ public class TransactionFacade {
                     "payeeReferenceNumber is required when accountType is 1 (M-Pesa Paybill)",
                     HttpStatus.BAD_REQUEST);
         }
+        if (skipTitleFetchConfirmed && !isTitleFetchSkipAccountType(accountType)) {
+            throw new BusinessException(
+                    "TITLE_FETCH_SKIP_NOT_ALLOWED",
+                    "Recipient name confirmation cannot be skipped for this payment type",
+                    HttpStatus.BAD_REQUEST);
+        }
 
         String bankCodeForValidate = (accountType != null && accountType == ACCOUNT_TYPE_PESALINK)
                 ? payeeBankCode
                 : null;
         ValidateAccountResponse validated = doValidateAccount(payeeAccountId, accountType, bankCodeForValidate);
-        String payeeAccountName = validated.getAccountName();
+        String payeeAccountName;
+        if (validated.isValid()) {
+            payeeAccountName = validated.getAccountName();
+        } else if (validated.isTitleFetchUnavailable() && validated.isSkipAllowed()
+                && skipTitleFetchConfirmed) {
+            payeeAccountName = null;
+            log.info("title_fetch_skipped customerId={} accountType={} choiceCode={}",
+                    customerId, accountType, validated.getChoiceCode());
+        } else if (validated.isTitleFetchUnavailable()) {
+            throw choiceErrorCatalog.toException(
+                    validated.getChoiceCode(),
+                    validated.getMessage(),
+                    null,
+                    PATH_VALIDATE_ACCOUNT);
+        } else {
+            throw new BusinessException(
+                    "CHOICE_INVALID_RESPONSE",
+                    "Account validation did not succeed",
+                    HttpStatus.BAD_GATEWAY);
+        }
 
         boolean mpesaBusiness = accountType != null
                 && (accountType == ACCOUNT_TYPE_PAYBILL || accountType == ACCOUNT_TYPE_TILL);
@@ -185,7 +229,9 @@ public class TransactionFacade {
         params.put("payeeAccountId", payeeAccountId);
         params.put("currency", "KES");
         params.put("amount", amount);
-        params.put("payeeAccountName", payeeAccountName);
+        if (payeeAccountName != null && !payeeAccountName.isBlank()) {
+            params.put("payeeAccountName", payeeAccountName);
+        }
         if (remark != null && !remark.isBlank()) {
             params.put("remark", remark.length() > 100 ? remark.substring(0, 100) : remark);
         }
@@ -240,9 +286,16 @@ public class TransactionFacade {
             params.put("bankCode", bankCode.trim());
         }
 
-        ChoiceBankResponse response = bankingProvider.post("account/validateAccount", Map.copyOf(params));
-        choiceAssessor.requireSuccess(response, "account/validateAccount");
-        Map<String, Object> data = requireMapData(response.getData(), "account/validateAccount");
+        ChoiceBankResponse response = bankingProvider.post(PATH_VALIDATE_ACCOUNT, Map.copyOf(params));
+        if (!response.isSuccess()) {
+            String choiceCode = response.getCode();
+            if (isTitleFetchSoftChoiceCode(choiceCode) && isTitleFetchSkipAccountType(accountType)) {
+                return softTitleFetchUnavailable(accountId.trim(), accountType, choiceCode, response.getMsg());
+            }
+            throw choiceErrorCatalog.toException(
+                    choiceCode, response.getMsg(), response.getRequestId(), PATH_VALIDATE_ACCOUNT);
+        }
+        Map<String, Object> data = requireMapData(response.getData(), PATH_VALIDATE_ACCOUNT);
 
         String accountName = stringVal(data.get("accountName"));
         if (accountName == null || accountName.isBlank()) {
@@ -280,9 +333,44 @@ public class TransactionFacade {
         result.setFreezeStatus(freezeStatus != null ? freezeStatus : 0);
         result.setRestrictStatus(restrictStatus != null ? restrictStatus : 0);
         result.setValid(true);
+        result.setTitleFetchUnavailable(false);
+        result.setSkipAllowed(false);
         result.setMessage(response.getMsg());
         log.info("Account validated: accountId={}, accountType={}", result.getAccountId(), result.getAccountType());
         return result;
+    }
+
+    /**
+     * Soft response when Choice title fetch is temporarily unavailable on an M-Pesa rail.
+     */
+    private ValidateAccountResponse softTitleFetchUnavailable(
+            String accountId, int accountType, String choiceCode, String choiceMsg) {
+        ChoiceBankErrorMapping mapping = choiceErrorCatalog.resolve(choiceCode);
+        String fallback = mapping.getUserMessage() != null && !mapping.getUserMessage().isBlank()
+                ? mapping.getUserMessage()
+                : "The banking service is temporarily unavailable. Please try again shortly.";
+        ValidateAccountResponse result = new ValidateAccountResponse();
+        result.setAccountId(accountId);
+        result.setAccountType(accountType);
+        result.setAccountName(null);
+        result.setFreezeStatus(0);
+        result.setRestrictStatus(0);
+        result.setValid(false);
+        result.setTitleFetchUnavailable(true);
+        result.setSkipAllowed(true);
+        result.setChoiceCode(choiceCode);
+        result.setMessage(ChoiceCustomerMessage.prefer(choiceMsg, fallback));
+        log.info("Title fetch unavailable (soft): accountId={} accountType={} choiceCode={}",
+                accountId, accountType, choiceCode);
+        return result;
+    }
+
+    private static boolean isTitleFetchSkipAccountType(Integer accountType) {
+        return accountType != null && TITLE_FETCH_SKIP_ACCOUNT_TYPES.contains(accountType);
+    }
+
+    private static boolean isTitleFetchSoftChoiceCode(String choiceCode) {
+        return choiceCode != null && TITLE_FETCH_SOFT_CHOICE_CODES.contains(choiceCode.trim());
     }
 
     private static String stringVal(Object value) {

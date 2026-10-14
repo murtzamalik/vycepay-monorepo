@@ -138,6 +138,9 @@ entries:
   INVALID_ACCOUNT_ID:
     httpStatus: 400
     userMessage: "Please enter a valid account number."
+  TITLE_FETCH_SKIP_NOT_ALLOWED:
+    httpStatus: 400
+    userMessage: "Recipient name confirmation cannot be skipped for this payment type. Please try again later."
   CALLBACK_NOT_FOUND:
     httpStatus: 404
     userMessage: "We couldn't find that callback record."

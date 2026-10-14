@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,10 +55,12 @@ class TransactionFacadeTransferFailureTest {
 
     @BeforeEach
     void setUp() throws IOException {
+        // catalog also injected into facade for soft 10000/10001 title-fetch mapping
         ChoiceBankErrorCatalog catalog = new ChoiceBankErrorCatalog();
         catalog.loadFromClasspath();
         ChoiceBankResponseAssessor assessor = new ChoiceBankResponseAssessor(catalog);
-        facade = new TransactionFacade(bankingProvider, transactionRepository, walletRepository, assessor, activityRecorder);
+        facade = new TransactionFacade(
+                bankingProvider, transactionRepository, walletRepository, assessor, catalog, activityRecorder);
     }
 
     @Test
@@ -113,7 +117,7 @@ class TransactionFacadeTransferFailureTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
-                        new BigDecimal("50.00"), null, null, "idem-frozen"));
+                        new BigDecimal("50.00"), null, null, "idem-frozen", false));
 
         assertEquals("ACCOUNT_FROZEN", ex.getCode());
         verify(bankingProvider, never()).post(eq("trans/v2/applyForTransfer"), any());
@@ -133,7 +137,7 @@ class TransactionFacadeTransferFailureTest {
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
         TransactionChoiceOutcome outcome = facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
-                new BigDecimal("100.00"), null, "note", "idem-ok");
+                new BigDecimal("100.00"), null, "note", "idem-ok", false);
 
         assertEquals("CHOICE TITLE", outcome.transaction().getPayeeAccountName());
 
@@ -157,7 +161,7 @@ class TransactionFacadeTransferFailureTest {
 
         ChoiceBankUpstreamException ex = assertThrows(ChoiceBankUpstreamException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "BANK", "254700000000", 3,
-                        new BigDecimal("50.00"), null, null, "idem-13000"));
+                        new BigDecimal("50.00"), null, null, "idem-13000", false));
 
         assertEquals("CHOICE_ACCOUNT_NOT_FOUND", ex.getCode());
         verify(transactionRepository, never()).save(any(Transaction.class));
@@ -176,7 +180,7 @@ class TransactionFacadeTransferFailureTest {
 
         assertThrows(BusinessException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "BANK", "254700000000", 3,
-                        new BigDecimal("10.00"), null, null, "idem-notx"));
+                        new BigDecimal("10.00"), null, null, "idem-notx", false));
 
         verify(transactionRepository, never()).save(any(Transaction.class));
     }
@@ -195,7 +199,7 @@ class TransactionFacadeTransferFailureTest {
 
         TransactionChoiceOutcome outcome = facade.applyTransfer(
                 1L, 2L, "choice-acc", "M-PESA", "247247", 1,
-                new BigDecimal("10.00"), "0820176326076", "optional", "idem-paybill");
+                new BigDecimal("10.00"), "0820176326076", "optional", "idem-paybill", false);
 
         assertEquals("247247", outcome.transaction().getPayeeAccountId());
         assertEquals("Equity Paybill Account", outcome.transaction().getPayeeAccountName());
@@ -227,7 +231,7 @@ class TransactionFacadeTransferFailureTest {
 
         facade.applyTransfer(
                 1L, 2L, "choice-acc", "M-PESA", "987654", 2,
-                new BigDecimal("50.00"), "should-be-ignored", "Buy goods", "idem-till");
+                new BigDecimal("50.00"), "should-be-ignored", "Buy goods", "idem-till", false);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
@@ -245,7 +249,7 @@ class TransactionFacadeTransferFailureTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> facade.applyTransfer(1L, 2L, "choice-acc", "M-PESA", "247247", 1,
-                        new BigDecimal("10.00"), null, null, "idem-noref"));
+                        new BigDecimal("10.00"), null, null, "idem-noref", false));
 
         assertEquals("INVALID_PAYEE_REFERENCE", ex.getCode());
         verify(bankingProvider, never()).post(any(), any());
@@ -266,10 +270,143 @@ class TransactionFacadeTransferFailureTest {
 
         facade.applyTransfer(
                 1L, 2L, "choice-acc", "M-PESA", "712345678", 3,
-                new BigDecimal("20.00"), null, null, "idem-mobile");
+                new BigDecimal("20.00"), null, null, "idem-mobile", false);
 
         verify(bankingProvider).post(eq("trans/v2/applyForTransfer"), any());
         verify(bankingProvider, never()).post(eq("trans/v2/applyForMpesaBusinessTransfer"), any());
+    }
+
+    @Test
+    void validateAccount_when10000OnMpesaMobile_returnsSoftUnavailable() {
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(choiceError("10000", null));
+
+        ValidateAccountResponse result = facade.validateAccount("712345678", 3, null);
+
+        assertFalse(result.isValid());
+        assertTrue(result.isTitleFetchUnavailable());
+        assertTrue(result.isSkipAllowed());
+        assertEquals("10000", result.getChoiceCode());
+        assertNull(result.getAccountName());
+        assertEquals("712345678", result.getAccountId());
+    }
+
+    @Test
+    void validateAccount_when10001OnMpesaMobile_returnsSoftUnavailable() {
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(choiceError("10001", "System is busy, please retry later"));
+
+        ValidateAccountResponse result = facade.validateAccount("712345678", 3, null);
+
+        assertTrue(result.isTitleFetchUnavailable());
+        assertTrue(result.isSkipAllowed());
+        assertEquals("10001", result.getChoiceCode());
+        assertEquals("System is busy, please retry later", result.getMessage());
+    }
+
+    @Test
+    void validateAccount_when10000OnPesalink_throwsUpstream() {
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(choiceError("10000", null));
+
+        ChoiceBankUpstreamException ex = assertThrows(ChoiceBankUpstreamException.class,
+                () -> facade.validateAccount("0123456789", 4, "01"));
+
+        assertEquals("CHOICE_SYSTEM_ERROR", ex.getCode());
+        assertEquals("10000", ex.getChoiceCode());
+    }
+
+    @Test
+    void applyTransfer_skipConfirmed_whenValidate10000_omitsPayeeAccountName() {
+        when(transactionRepository.findByIdempotencyKey("idem-skip")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(choiceError("10000", null));
+        ChoiceBankResponse transferResp = new ChoiceBankResponse();
+        transferResp.setCode("00000");
+        transferResp.setRequestId("cb-skip");
+        transferResp.setData(Map.of("txId", "tx-skip"));
+        when(bankingProvider.post(eq("trans/v2/applyForTransfer"), any())).thenReturn(transferResp);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TransactionChoiceOutcome outcome = facade.applyTransfer(
+                1L, 2L, "choice-acc", "M-PESA", "712345678", 3,
+                new BigDecimal("20.00"), null, null, "idem-skip", true);
+
+        assertNull(outcome.transaction().getPayeeAccountName());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(bankingProvider).post(eq("trans/v2/applyForTransfer"), paramsCaptor.capture());
+        assertFalse(paramsCaptor.getValue().containsKey("payeeAccountName"));
+    }
+
+    @Test
+    void applyTransfer_skipFalse_whenValidate10000_throwsAndDoesNotPersist() {
+        when(transactionRepository.findByIdempotencyKey("idem-noskip")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(choiceError("10000", null));
+
+        ChoiceBankUpstreamException ex = assertThrows(ChoiceBankUpstreamException.class,
+                () -> facade.applyTransfer(1L, 2L, "choice-acc", "M-PESA", "712345678", 3,
+                        new BigDecimal("20.00"), null, null, "idem-noskip", false));
+
+        assertEquals("CHOICE_SYSTEM_ERROR", ex.getCode());
+        verify(bankingProvider, never()).post(eq("trans/v2/applyForTransfer"), any());
+        verify(transactionRepository, never()).save(any(Transaction.class));
+    }
+
+    @Test
+    void applyTransfer_skipTrue_whenValidateSucceeds_usesAccountName() {
+        when(transactionRepository.findByIdempotencyKey("idem-skip-ok")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(successValidateMobile("REAL NAME"));
+        ChoiceBankResponse transferResp = new ChoiceBankResponse();
+        transferResp.setCode("00000");
+        transferResp.setRequestId("cb-skip-ok");
+        transferResp.setData(Map.of("txId", "tx-skip-ok"));
+        when(bankingProvider.post(eq("trans/v2/applyForTransfer"), any())).thenReturn(transferResp);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TransactionChoiceOutcome outcome = facade.applyTransfer(
+                1L, 2L, "choice-acc", "M-PESA", "712345678", 3,
+                new BigDecimal("20.00"), null, null, "idem-skip-ok", true);
+
+        assertEquals("REAL NAME", outcome.transaction().getPayeeAccountName());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(bankingProvider).post(eq("trans/v2/applyForTransfer"), paramsCaptor.capture());
+        assertEquals("REAL NAME", paramsCaptor.getValue().get("payeeAccountName"));
+    }
+
+    @Test
+    void applyTransfer_skipTrueOnPesalink_throwsNotAllowed() {
+        when(transactionRepository.findByIdempotencyKey("idem-skip-4")).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> facade.applyTransfer(1L, 2L, "choice-acc", "01", "0123456789", 4,
+                        new BigDecimal("50.00"), null, null, "idem-skip-4", true));
+
+        assertEquals("TITLE_FETCH_SKIP_NOT_ALLOWED", ex.getCode());
+        verify(bankingProvider, never()).post(any(), any());
+    }
+
+    @Test
+    void applyTransfer_skipConfirmed_paybill_whenValidate10001_stillUsesB2bPath() {
+        when(transactionRepository.findByIdempotencyKey("idem-skip-pb")).thenReturn(Optional.empty());
+        when(bankingProvider.post(eq("account/validateAccount"), any()))
+                .thenReturn(choiceError("10001", "System is busy, please retry later"));
+        ChoiceBankResponse transferResp = new ChoiceBankResponse();
+        transferResp.setCode("00000");
+        transferResp.setRequestId("cb-skip-pb");
+        transferResp.setData(Map.of("txId", "tx-skip-pb"));
+        when(bankingProvider.post(eq("trans/v2/applyForMpesaBusinessTransfer"), any())).thenReturn(transferResp);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        facade.applyTransfer(
+                1L, 2L, "choice-acc", "M-PESA", "247247", 1,
+                new BigDecimal("10.00"), "0820176326076", null, "idem-skip-pb", true);
+
+        verify(bankingProvider).post(eq("trans/v2/applyForMpesaBusinessTransfer"), any());
+        verify(bankingProvider, never()).post(eq("trans/v2/applyForTransfer"), any());
     }
 
     @Test
@@ -295,6 +432,28 @@ class TransactionFacadeTransferFailureTest {
                 "accountName", accountName,
                 "freezeStatus", freeze,
                 "restrictStatus", restrict));
+        return resp;
+    }
+
+    private static ChoiceBankResponse successValidateMobile(String accountName) {
+        ChoiceBankResponse resp = new ChoiceBankResponse();
+        resp.setCode("00000");
+        resp.setRequestId("cb-val-m");
+        resp.setData(Map.of(
+                "accountType", 3,
+                "accountId", "712345678",
+                "accountName", accountName,
+                "freezeStatus", 0,
+                "restrictStatus", 0));
+        return resp;
+    }
+
+    private static ChoiceBankResponse choiceError(String code, String msg) {
+        ChoiceBankResponse resp = new ChoiceBankResponse();
+        resp.setCode(code);
+        resp.setMsg(msg);
+        resp.setRequestId("cb-err");
+        resp.setData(Map.of());
         return resp;
     }
 }
