@@ -48,6 +48,9 @@ entries:
   INVALID_MOBILE:
     httpStatus: 400
     userMessage: "Enter a valid Kenyan mobile number."
+  CUSTOMER_DEACTIVATED:
+    httpStatus: 403
+    userMessage: "This account has been deactivated. Contact support."
   CUSTOMER_NOT_FOUND:
     httpStatus: 404
     userMessage: "We couldn't find your account."

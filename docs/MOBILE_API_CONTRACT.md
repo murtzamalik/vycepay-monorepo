@@ -277,7 +277,7 @@ Choice Bank–specific codes may appear in message or details when the backend r
 | (none) | `NOT_STARTED` | No KYC submitted yet |
 | `1` | `PENDING` | Submitted, awaiting Choice Bank review |
 | `7` | `APPROVED` | KYC approved, wallet created |
-| other | `REJECTED` | Rejected — restart KYC flow |
+| other | `REJECTED` | Rejected — Sign Up / KYC submit again; backend overwrites credentials and tags a new Choice onboarding id (no app contract change) |
 
 ## OTP
 

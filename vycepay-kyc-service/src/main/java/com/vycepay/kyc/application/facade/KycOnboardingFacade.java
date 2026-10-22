@@ -1,6 +1,7 @@
 package com.vycepay.kyc.application.facade;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import com.vycepay.kyc.application.KycSubmitOutcome;
 import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.service.OnboardingCredentialsService;
 import com.vycepay.kyc.domain.model.Customer;
+import com.vycepay.kyc.domain.model.KycDisplayStatus;
 import com.vycepay.kyc.domain.model.KycVerification;
 import com.vycepay.kyc.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
@@ -37,6 +39,10 @@ public class KycOnboardingFacade {
 
     private static final Logger log = LoggerFactory.getLogger(KycOnboardingFacade.class);
     private static final String STATUS_SUBMITTED = "1";
+    private static final String STATUS_APPROVED = "7";
+    private static final String CUSTOMER_STATUS_ACTIVE = "ACTIVE";
+    private static final String CUSTOMER_STATUS_SUSPENDED = "SUSPENDED";
+    private static final String CUSTOMER_STATUS_DEACTIVATED = "DEACTIVATED";
     private static final String PATH_SUBMIT_EASY_ONBOARDING = "onboarding/v3/submitEasyOnboardingRequest";
     private static final String PATH_SEND_OTP = "common/sendOtp";
     private static final String PATH_RESEND_OTP = "common/resendOtp";
@@ -83,10 +89,21 @@ public class KycOnboardingFacade {
                                    KycProfileCommand profile, String username, String pin) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
-        onboardingCredentialsService.ensureCredentials(customer, username, pin);
+        if (CUSTOMER_STATUS_DEACTIVATED.equals(customer.getStatus())) {
+            throw new BusinessException("CUSTOMER_DEACTIVATED",
+                    "This account has been deactivated. Contact support.", HttpStatus.FORBIDDEN);
+        }
+
+        boolean allowOverwrite = isRejectedKycRetryEligible(customerId);
+        onboardingCredentialsService.ensureCredentialsForSubmit(customer, username, pin, allowOverwrite);
 
         if (profile != null) {
             syncCustomerProfile(customer, profile);
+        }
+
+        if (allowOverwrite && CUSTOMER_STATUS_SUSPENDED.equals(customer.getStatus())) {
+            customer.setStatus(CUSTOMER_STATUS_ACTIVE);
+            customerRepository.save(customer);
         }
 
         ChoiceBankResponse response = bankingProvider.post(PATH_SUBMIT_EASY_ONBOARDING, params);
@@ -104,9 +121,25 @@ public class KycOnboardingFacade {
             applyKycProfile(kyc, profile);
         }
         kycRepository.save(kyc);
-        activityRecorder.record(customerId, "KYC_SUBMITTED", "KYC", onboardingRequestId);
-        log.info("Onboarding submitted: customerId={} onboardingRequestId={}", customerId, onboardingRequestId);
+        String activityType = allowOverwrite ? "KYC_RESUBMITTED" : "KYC_SUBMITTED";
+        activityRecorder.record(customerId, activityType, "KYC", onboardingRequestId);
+        log.info("Onboarding submitted: customerId={} onboardingRequestId={} resubmit={}",
+                customerId, onboardingRequestId, allowOverwrite);
         return new KycSubmitOutcome(onboardingRequestId, response.getMsg());
+    }
+
+    /**
+     * Rejected KYC retry: latest verification is REJECTED and customer never approved.
+     */
+    private boolean isRejectedKycRetryEligible(Long customerId) {
+        if (kycRepository.existsByCustomerIdAndStatus(customerId, STATUS_APPROVED)) {
+            return false;
+        }
+        List<KycVerification> list = kycRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+        if (list.isEmpty()) {
+            return false;
+        }
+        return KycDisplayStatus.fromRawStatus(list.get(0).getStatus()) == KycDisplayStatus.REJECTED;
     }
 
     private void syncCustomerProfile(Customer customer, KycProfileCommand profile) {

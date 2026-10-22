@@ -35,6 +35,12 @@ public class Customer {
     @Column(name = "pin_hash", length = 100)
     private String pinHash;
 
+    @Column(name = "pin_failed_attempts", nullable = false)
+    private int pinFailedAttempts = 0;
+
+    @Column(name = "pin_locked_until")
+    private Instant pinLockedUntil;
+
     @Column(name = "credentials_set_at")
     private Instant credentialsSetAt;
 
@@ -46,6 +52,9 @@ public class Customer {
 
     @Column(name = "email")
     private String email;
+
+    @Column(name = "status")
+    private String status;
 
     /**
      * @return true when both username and PIN hash are present
@@ -110,6 +119,22 @@ public class Customer {
         this.pinHash = pinHash;
     }
 
+    public int getPinFailedAttempts() {
+        return pinFailedAttempts;
+    }
+
+    public void setPinFailedAttempts(int pinFailedAttempts) {
+        this.pinFailedAttempts = pinFailedAttempts;
+    }
+
+    public Instant getPinLockedUntil() {
+        return pinLockedUntil;
+    }
+
+    public void setPinLockedUntil(Instant pinLockedUntil) {
+        this.pinLockedUntil = pinLockedUntil;
+    }
+
     public Instant getCredentialsSetAt() {
         return credentialsSetAt;
     }
@@ -140,5 +165,13 @@ public class Customer {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

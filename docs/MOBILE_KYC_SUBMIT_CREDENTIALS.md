@@ -89,9 +89,21 @@ These are the **app login** username/PIN — not `kraPin` (tax).
 | `USERNAME_INVALID` | 400 | Bad format / reserved name | Fix username |
 | `USERNAME_TAKEN` | 409 | Someone else has this username | Ask for another |
 | `INVALID_CREDENTIALS` | 400 | PIN not 4 digits | Fix PIN |
-| `CREDENTIALS_ALREADY_SET` | 409 | User already has a **different** username | Rare after this fix; show support / login |
+| `CREDENTIALS_ALREADY_SET` | 409 | User already has a **different** username (and KYC is not a rejected retry) | Show support / login |
+| `CUSTOMER_DEACTIVATED` | 403 | Account deactivated | Contact support |
 
 Same username on retry after a failed Choice call → **OK** (backend no-op).
+
+### Rejected KYC resubmit (Sign Up again)
+
+When latest KYC is `REJECTED` and the customer was never approved (`status` never `7`):
+
+1. User may Sign Up again with the **same mobile** (same customer row / JWT after OTP).
+2. `POST /kyc/submit` **overwrites** username + PIN with the values in the request (no `CREDENTIALS_ALREADY_SET`).
+3. If customer status was `SUSPENDED`, backend sets it to `ACTIVE`.
+4. Backend creates a **new** Choice onboarding request id (new `kyc_verification` row).
+
+Pending or approved KYC still uses the normal credential rules (same username no-op; different username → `CREDENTIALS_ALREADY_SET`).
 
 ---
 

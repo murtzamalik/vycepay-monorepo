@@ -13,4 +13,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Optional<Customer> findByExternalId(String externalId);
 
     boolean existsByUsernameNormalized(String usernameNormalized);
+
+    /**
+     * True when another customer already owns the normalized username.
+     */
+    boolean existsByUsernameNormalizedAndIdNot(String usernameNormalized, Long id);
 }

@@ -14,4 +14,6 @@ public interface KycVerificationRepository extends JpaRepository<KycVerification
     Optional<KycVerification> findByChoiceOnboardingRequestId(String choiceOnboardingRequestId);
 
     List<KycVerification> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
+
+    boolean existsByCustomerIdAndStatus(Long customerId, String status);
 }

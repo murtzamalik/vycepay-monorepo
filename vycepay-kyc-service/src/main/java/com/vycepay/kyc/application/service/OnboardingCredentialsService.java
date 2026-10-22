@@ -15,7 +15,8 @@ import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
 /**
  * Sets username + PIN during KYC submit (onboarding).
  * Rules match auth-service PinCredentialsService; never logs raw PIN.
- * Same-username retry is a no-op so Choice failures can be retried safely.
+ * Same-username retry is a no-op so Choice failures can be retried safely,
+ * unless {@code allowOverwrite} is true (rejected-KYC resubmit).
  */
 @Service
 public class OnboardingCredentialsService {
@@ -35,18 +36,32 @@ public class OnboardingCredentialsService {
     }
 
     /**
-     * Ensures credentials for onboarding submit.
-     * <ul>
-     *   <li>Not set → validate and persist</li>
-     *   <li>Already set with same username → no-op</li>
-     *   <li>Already set with different username → conflict</li>
-     * </ul>
+     * Ensures credentials for onboarding submit (no overwrite).
      *
      * @param customer loaded customer entity (managed)
      * @param username app login username
      * @param pin      4-digit app login PIN (never logged)
      */
     public void ensureCredentials(Customer customer, String username, String pin) {
+        ensureCredentialsForSubmit(customer, username, pin, false);
+    }
+
+    /**
+     * Ensures credentials for KYC submit.
+     * <ul>
+     *   <li>Not set → validate and persist</li>
+     *   <li>Already set, {@code allowOverwrite=false}, same username → no-op</li>
+     *   <li>Already set, {@code allowOverwrite=false}, different username → conflict</li>
+     *   <li>Already set, {@code allowOverwrite=true} → overwrite username/PIN and clear lockout</li>
+     * </ul>
+     *
+     * @param customer       loaded customer entity (managed)
+     * @param username       app login username
+     * @param pin            4-digit app login PIN (never logged)
+     * @param allowOverwrite when true (rejected KYC retry), replace credentials
+     */
+    public void ensureCredentialsForSubmit(Customer customer, String username, String pin,
+                                           boolean allowOverwrite) {
         if (username == null || username.isBlank() || pin == null || pin.isBlank()) {
             throw new BusinessException("CREDENTIALS_REQUIRED",
                     "Username and PIN are required for KYC submit", HttpStatus.BAD_REQUEST);
@@ -55,7 +70,7 @@ public class OnboardingCredentialsService {
         validatePinFormat(pin);
         String normalized = username.toLowerCase();
 
-        if (customer.hasCredentials()) {
+        if (customer.hasCredentials() && !allowOverwrite) {
             if (normalized.equals(customer.getUsernameNormalized())) {
                 return;
             }
@@ -63,7 +78,7 @@ public class OnboardingCredentialsService {
                     "Credentials already set", HttpStatus.CONFLICT);
         }
 
-        if (customerRepository.existsByUsernameNormalized(normalized)) {
+        if (customerRepository.existsByUsernameNormalizedAndIdNot(normalized, customer.getId())) {
             throw new BusinessException("USERNAME_TAKEN",
                     "Username is already taken", HttpStatus.CONFLICT);
         }
@@ -72,6 +87,8 @@ public class OnboardingCredentialsService {
         customer.setUsernameNormalized(normalized);
         customer.setPinHash(passwordEncoder.encode(pin));
         customer.setCredentialsSetAt(Instant.now());
+        customer.setPinFailedAttempts(0);
+        customer.setPinLockedUntil(null);
         customerRepository.save(customer);
     }
 
