@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Shared JSON console logging for all VycePay services (via vycepay-common on the classpath).
+  One JSON object per line for Filebeat → Elasticsearch → Kibana.
+  Timestamps are UTC. service.name comes from spring.application.name.
+-->
+<configuration>
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="vycepay"/>
+    <springProperty scope="context" name="appEnv" source="VYCEPAY_ENV" defaultValue=""/>
+    <springProperty scope="context" name="springProfiles" source="spring.profiles.active" defaultValue="default"/>
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>@timestamp</fieldName>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>log.level</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread.name</fieldName>
+                </threadName>
+                <message>
+                    <fieldName>message</fieldName>
+                </message>
+                <stackTrace>
+                    <fieldName>error.stack_trace</fieldName>
+                </stackTrace>
+                <mdc/>
+                <pattern>
+                    <omitEmptyFields>true</omitEmptyFields>
+                    <pattern>
+                        {
+                          "service.name": "${appName}",
+                          "service.environment": "${appEnv:-${springProfiles}}"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+
+    <logger name="com.vycepay" level="INFO"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+</configuration>

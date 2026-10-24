@@ -54,6 +54,12 @@ services:
       timeout: 5s
       retries: 20
       start_period: 40s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
     stop_grace_period: 60s
 
@@ -86,6 +92,12 @@ services:
       ADMIN_HEALTH_WALLET_URL: "http://127.0.0.1:9093/actuator/health"
       ADMIN_HEALTH_TRANSACTION_URL: "http://127.0.0.1:9094/actuator/health"
       ADMIN_HEALTH_ACTIVITY_URL: "http://127.0.0.1:9095/actuator/health"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
 
   admin-portal:
@@ -104,6 +116,12 @@ services:
         condition: service_healthy
       admin:
         condition: service_started
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
 
 volumes:

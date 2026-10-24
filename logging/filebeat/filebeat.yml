@@ -1,0 +1,62 @@
+# Filebeat: ship VycePay Docker JSON logs → Elasticsearch
+# Multi-JVM containers are fine: filter in Kibana by service.name from app JSON.
+
+filebeat.inputs:
+  - type: container
+    enabled: true
+    paths:
+      - /var/lib/docker/containers/*/*-json.log
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      # Only VycePay containers
+      - drop_event.when:
+          not:
+            contains:
+              container.name: "vycepay"
+      # App Logback emits one JSON object per line in the container message field
+      - decode_json_fields:
+          fields: ["message"]
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+      - add_fields:
+          target: "labels"
+          fields:
+            vycepay_log_env: ${VYCEPAY_LOG_ENV:prod}
+      - drop_event.when.or:
+          - contains:
+              url.path: "/actuator/health"
+          - contains:
+              message: "/actuator/health"
+      - drop_event.when.equals:
+          log.level: "DEBUG"
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+
+setup.template.enabled: true
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "filebeat"
+setup.ilm.pattern: "{now/d}-000001"
+setup.ilm.policy_name: "vycepay-logs-14d"
+setup.ilm.policy_file: /usr/share/filebeat/ilm-policy.json
+setup.ilm.check_exists: true
+setup.ilm.overwrite: true
+
+# Index pattern used with data stream-style daily indices
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  username: "elastic"
+  password: "${ELASTIC_PASSWORD}"
+  index: "logs-vycepay-%{[labels.vycepay_log_env]}-%{+yyyy.MM.dd}"
+
+setup.template.name: "logs-vycepay"
+setup.template.pattern: "logs-vycepay-*"
+setup.template.settings:
+  index.number_of_shards: 1
+  index.number_of_replicas: 0
+
+logging.level: info
+logging.to_stderr: true

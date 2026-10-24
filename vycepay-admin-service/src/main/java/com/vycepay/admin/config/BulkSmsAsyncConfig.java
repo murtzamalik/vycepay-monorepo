@@ -1,5 +1,6 @@
 package com.vycepay.admin.config;
 
+import com.vycepay.common.logging.MdcTaskDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -25,6 +26,7 @@ public class BulkSmsAsyncConfig {
         executor.setMaxPoolSize(2);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("bulk-sms-");
+        executor.setTaskDecorator(new MdcTaskDecorator());
         // Prefer running on the caller than dropping a batch after rows were enqueued.
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();

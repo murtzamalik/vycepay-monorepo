@@ -4,9 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vycepay.common.choicebank.dto.ChoiceBankRequest;
 import com.vycepay.common.choicebank.dto.ChoiceBankResponse;
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import org.slf4j.Logger;
+import org.slf4j.MDC;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -180,6 +183,9 @@ public class ChoiceBankClient {
     }
 
     private void logChoiceRequest(String path, String requestId, ChoiceBankRequest req) {
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_BANK_REQUEST_ID, requestId);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_PATH, path);
+        LoggingMdc.putEvent(LoggingMdcKeys.DATASET_CHOICE_BAAS, "choice.baas.request", LoggingMdcKeys.OUTCOME_UNKNOWN);
         try {
             if (logBodies) {
                 String raw = objectMapper.writeValueAsString(req);
@@ -195,13 +201,32 @@ public class ChoiceBankClient {
 
     private void logChoiceResponse(String path, String outboundRequestId, ChoiceBankResponse response, String rawJson) {
         String correlationId = response.getRequestId() != null ? response.getRequestId() : outboundRequestId;
-        if (logBodies) {
-            String payload = ChoiceBankLogSanitizer.sanitizeJson(rawJson, redactSignatures);
-            log.info("choice_baas_response choiceBankRequestId={} path={} code={} msg={} payload={}",
-                    correlationId, path, response.getCode(), response.getMsg(), payload);
-        } else {
-            log.info("choice_baas_response choiceBankRequestId={} path={} code={} msg={}",
-                    correlationId, path, response.getCode(), response.getMsg());
+        String code = response.getCode();
+        boolean success = code == null || code.isBlank() || "0".equals(code);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_BANK_REQUEST_ID, correlationId);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_PATH, path);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_CODE, code);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_MSG, response.getMsg());
+        LoggingMdc.putEvent(
+                LoggingMdcKeys.DATASET_CHOICE_BAAS,
+                "choice.baas.response",
+                success ? LoggingMdcKeys.OUTCOME_SUCCESS : LoggingMdcKeys.OUTCOME_FAILURE);
+        try {
+            if (logBodies) {
+                String payload = ChoiceBankLogSanitizer.sanitizeJson(rawJson, redactSignatures);
+                log.info("choice_baas_response choiceBankRequestId={} path={} code={} msg={} payload={}",
+                        correlationId, path, response.getCode(), response.getMsg(), payload);
+            } else {
+                log.info("choice_baas_response choiceBankRequestId={} path={} code={} msg={}",
+                        correlationId, path, response.getCode(), response.getMsg());
+            }
+        } finally {
+            MDC.remove(LoggingMdcKeys.CHOICE_PATH);
+            MDC.remove(LoggingMdcKeys.CHOICE_CODE);
+            MDC.remove(LoggingMdcKeys.CHOICE_MSG);
+            MDC.remove(LoggingMdcKeys.EVENT_DATASET);
+            MDC.remove(LoggingMdcKeys.EVENT_ACTION);
+            MDC.remove(LoggingMdcKeys.EVENT_OUTCOME);
         }
     }
 
@@ -210,6 +235,7 @@ public class ChoiceBankClient {
             return objectMapper.readValue(json, ChoiceBankResponse.class);
         } catch (Exception e) {
             String safe = ChoiceBankLogSanitizer.sanitizeJson(json, redactSignatures);
+            LoggingMdc.putEvent(LoggingMdcKeys.DATASET_CHOICE_BAAS, "choice.baas.parse_error", LoggingMdcKeys.OUTCOME_FAILURE);
             log.error("Failed to parse Choice Bank response: {}", safe, e);
             throw new IllegalStateException("Invalid Choice Bank response", e);
         }

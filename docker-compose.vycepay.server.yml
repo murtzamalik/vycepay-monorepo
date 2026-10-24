@@ -60,6 +60,12 @@ services:
       timeout: 10s
       retries: 30
       start_period: 120s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
     stop_grace_period: 60s
 
@@ -104,6 +110,12 @@ services:
       MOBIWAVE_SENDER_ID: ${MOBIWAVE_SENDER_ID:-VycePay}
       HIKARI_MAXIMUM_POOL_SIZE: ${HIKARI_MAXIMUM_POOL_SIZE:-5}
       HIKARI_MINIMUM_IDLE: ${HIKARI_MINIMUM_IDLE:-1}
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
 
   admin-portal:
@@ -122,4 +134,10 @@ services:
         condition: service_started
     ports:
       - "${ADMIN_PORTAL_HOST_PORT:-8091}:3000"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped

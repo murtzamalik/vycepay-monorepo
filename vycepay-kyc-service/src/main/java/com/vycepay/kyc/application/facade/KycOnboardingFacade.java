@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,6 +118,8 @@ public class KycOnboardingFacade {
         KycVerification kyc = new KycVerification();
         kyc.setCustomerId(customerId);
         kyc.setChoiceOnboardingRequestId(onboardingRequestId);
+        LoggingMdc.put(LoggingMdcKeys.ONBOARDING_REQUEST_ID, onboardingRequestId);
+        LoggingMdc.put(LoggingMdcKeys.LABELS_FLOW, "kyc_submit");
         kyc.setStatus(STATUS_SUBMITTED);
         if (profile != null) {
             applyKycProfile(kyc, profile);

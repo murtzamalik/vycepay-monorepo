@@ -8,6 +8,8 @@ import com.vycepay.common.sms.port.SmsSendRequest;
 import com.vycepay.common.sms.port.SmsSendResult;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -76,13 +78,16 @@ public class MobiWaveSmsAdapter implements SmsPort {
             }
             SmsSendResult result = supplier.get();
             if (result.isSent()) {
+                LoggingMdc.putEvent(LoggingMdcKeys.DATASET_VYCE_SMS, "sms.send", LoggingMdcKeys.OUTCOME_SUCCESS);
                 log.info("SMS sent recipient={} providerUid={}", masked, result.providerUid());
             } else {
+                LoggingMdc.putEvent(LoggingMdcKeys.DATASET_VYCE_SMS, "sms.send", LoggingMdcKeys.OUTCOME_FAILURE);
                 log.warn("SMS not sent recipient={} status={} error={}",
                         masked, result.status(), result.errorMessage());
             }
             return result;
         } catch (Exception e) {
+            LoggingMdc.putEvent(LoggingMdcKeys.DATASET_VYCE_SMS, "sms.send", LoggingMdcKeys.OUTCOME_FAILURE);
             log.warn("SMS send failed recipient={}: {}", masked, e.getMessage());
             return SmsSendResult.failed(e.getMessage() != null ? e.getMessage() : "SMS provider error");
         }

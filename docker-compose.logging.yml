@@ -1,0 +1,127 @@
+# VycePay logging stack: Filebeat → Elasticsearch → Kibana
+#
+# Prefer running ES/Kibana on a separate host from the 7-JVM app container.
+# Filebeat must run on the app host (reads Docker container logs).
+#
+# Start:
+#   cp logging/.env.example logging/.env   # set ELASTIC_PASSWORD
+#   docker compose -f docker-compose.logging.yml --env-file logging/.env up -d
+#
+# Kibana: http://127.0.0.1:5601 (user elastic / ELASTIC_PASSWORD)
+# Elasticsearch is NOT published to the host by default (internal network only).
+# Set PUBLISH_ES_PORT=9200 only for local debugging on a trusted network.
+
+name: vycepay-logging
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: vycepay-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD}
+      - ES_JAVA_OPTS=-Xms${ES_HEAP:-512m} -Xmx${ES_HEAP:-512m}
+      - xpack.security.http.ssl.enabled=false
+      - xpack.license.self_generated.type=basic
+    volumes:
+      - vycepay_es_data:/usr/share/elasticsearch/data
+    networks:
+      - logging
+    # Bind ES to localhost only when published (never 0.0.0.0 without intent)
+    ports:
+      - "${PUBLISH_ES_PORT:-127.0.0.1:9200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:$${ELASTIC_PASSWORD} http://localhost:9200 >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: vycepay-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-${ELASTIC_PASSWORD}}
+      - XPACK_SECURITY_ENABLED=true
+      - SERVER_PUBLICBASEURL=${KIBANA_PUBLIC_BASE_URL:-http://127.0.0.1:5601}
+    ports:
+      - "${PUBLISH_KIBANA_PORT:-127.0.0.1:5601}:5601"
+    networks:
+      - logging
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # Setup kibana_system password once (idempotent-ish). Run after first ES boot if Kibana auth fails:
+  #   docker compose -f docker-compose.logging.yml --env-file logging/.env run --rm es-setup
+  es-setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    profiles: ["setup"]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-${ELASTIC_PASSWORD}}
+    networks:
+      - logging
+    entrypoint: >
+      bash -c "
+      set -e;
+      echo Setting kibana_system password...;
+      curl -s -u elastic:$$ELASTIC_PASSWORD -X POST http://elasticsearch:9200/_security/user/kibana_system/_password
+        -H 'Content-Type: application/json'
+        -d "{\"password\":\"$$KIBANA_SYSTEM_PASSWORD\"}";
+      echo;
+      echo Done.
+      "
+    restart: "no"
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.3
+    container_name: vycepay-filebeat
+    user: root
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD}
+      - VYCEPAY_LOG_ENV=${VYCEPAY_LOG_ENV:-prod}
+    volumes:
+      - ./logging/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logging/filebeat/ilm-policy.json:/usr/share/filebeat/ilm-policy.json:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vycepay_filebeat_data:/usr/share/filebeat/data
+    networks:
+      - logging
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+networks:
+  logging:
+    driver: bridge
+
+volumes:
+  vycepay_es_data:
+  vycepay_filebeat_data:

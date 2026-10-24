@@ -15,6 +15,8 @@ import com.vycepay.transaction.domain.model.Transaction;
 import com.vycepay.transaction.infrastructure.activity.CustomerActivityRecorder;
 import com.vycepay.transaction.infrastructure.persistence.TransactionRepository;
 import com.vycepay.transaction.infrastructure.persistence.WalletRepository;
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -127,6 +129,8 @@ public class TransactionFacade {
                                      String payeeBankCode, String payeeAccountId, Integer accountType,
                                      BigDecimal amount, String payeeReferenceNumber, String remark,
                                      String idempotencyKey, boolean skipTitleFetchConfirmed) {
+        LoggingMdc.put(LoggingMdcKeys.IDEMPOTENCY_KEY, idempotencyKey);
+        LoggingMdc.put(LoggingMdcKeys.LABELS_FLOW, "send_money");
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .map(existing -> new TransactionChoiceOutcome(existing, null))
                 .orElseGet(() -> executeTransfer(customerId, walletId, choiceAccountId,
@@ -202,6 +206,7 @@ public class TransactionFacade {
         tx.setCustomerId(customerId);
         tx.setWalletId(walletId);
         tx.setChoiceTxId(txId);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_TX_ID, txId != null ? txId.toString() : null);
         tx.setChoiceRequestId(requestId);
         tx.setType(TYPE_TRANSFER);
         tx.setAmount(amount);
@@ -213,6 +218,7 @@ public class TransactionFacade {
         tx.setRemark(remark);
         tx.setIdempotencyKey(idempotencyKey);
         Transaction saved = transactionRepository.save(tx);
+        LoggingMdc.put(LoggingMdcKeys.TRANSACTION_ID, saved.getExternalId());
         activityRecorder.record(customerId, "TRANSFER_CREATED", "TRANSACTION", saved.getExternalId());
         return new TransactionChoiceOutcome(saved, response.getMsg());
     }
@@ -428,6 +434,7 @@ public class TransactionFacade {
         tx.setCustomerId(customerId);
         tx.setWalletId(walletId);
         tx.setChoiceTxId(txId);
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_TX_ID, txId != null ? String.valueOf(txId) : null);
         tx.setChoiceRequestId(requestId);
         tx.setType(TYPE_DEPOSIT);
         tx.setAmount(BigDecimal.valueOf(amountKes));

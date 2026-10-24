@@ -6,6 +6,8 @@ import com.vycepay.callback.domain.port.NotificationHandler;
 import com.vycepay.callback.infrastructure.persistence.ChoiceBankCallbackRepository;
 import com.vycepay.common.choicebank.ChoiceBankCallbackSignatureVerifier;
 import com.vycepay.common.choicebank.dto.ChoiceBankCallbackPayload;
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,7 @@ public class CallbackService {
             try {
                 ChoiceBankCallbackPayload payload = objectMapper.readValue(rawPayload, ChoiceBankCallbackPayload.class);
                 if (!signatureVerifier.verify(payload)) {
+                    LoggingMdc.putEvent(LoggingMdcKeys.DATASET_CHOICE_CALLBACK, "callback.signature_invalid", LoggingMdcKeys.OUTCOME_FAILURE);
                     log.warn("Rejecting callback with invalid signature");
                     return false;
                 }
@@ -90,7 +93,11 @@ public class CallbackService {
             Optional<ChoiceBankCallback> existing = callbackRepository
                     .findByChoiceRequestIdAndNotificationType(requestId, notificationType);
             if (existing.isPresent()) {
-                log.debug("Duplicate callback ignored: requestId={} type={}", requestId, notificationType);
+                LoggingMdc.put(LoggingMdcKeys.CHOICE_BANK_REQUEST_ID, requestId);
+                LoggingMdc.putEvent(LoggingMdcKeys.DATASET_CHOICE_CALLBACK,
+                        "callback." + notificationType, LoggingMdcKeys.OUTCOME_SUCCESS);
+                log.info("Duplicate callback ignored choiceBankRequestId={} notificationType={}",
+                        requestId, notificationType);
                 return existing.get();
             }
 
@@ -115,15 +122,23 @@ public class CallbackService {
 
     @Async
     public void processAsync(ChoiceBankCallback callback) {
+        String type = callback.getNotificationType() != null ? callback.getNotificationType() : "UNKNOWN";
+        LoggingMdc.put(LoggingMdcKeys.CHOICE_BANK_REQUEST_ID, callback.getChoiceRequestId());
+        LoggingMdc.putEvent(LoggingMdcKeys.DATASET_CHOICE_CALLBACK, "callback." + type, LoggingMdcKeys.OUTCOME_UNKNOWN);
         try {
-            NotificationHandler handler = handlers.getOrDefault(callback.getNotificationType(), unknownHandler);
+            NotificationHandler handler = handlers.getOrDefault(type, unknownHandler);
             handler.handle(callback);
 
             callback.setProcessed(true);
             callback.setProcessedAt(Instant.now());
             callbackRepository.save(callback);
+            LoggingMdc.put(LoggingMdcKeys.EVENT_OUTCOME, LoggingMdcKeys.OUTCOME_SUCCESS);
+            log.info("Callback processed id={} notificationType={} choiceBankRequestId={}",
+                    callback.getId(), type, callback.getChoiceRequestId());
         } catch (Exception e) {
-            log.error("Callback processing failed: id={} type={}", callback.getId(), callback.getNotificationType(), e);
+            LoggingMdc.putEvent(LoggingMdcKeys.DATASET_CHOICE_CALLBACK, "callback." + type, LoggingMdcKeys.OUTCOME_FAILURE);
+            LoggingMdc.putError("CALLBACK_PROCESS_FAILED", e.getClass().getSimpleName(), e.getMessage());
+            log.error("Callback processing failed: id={} type={}", callback.getId(), type, e);
             callback.setProcessingError(e.getMessage());
             callbackRepository.save(callback);
         }

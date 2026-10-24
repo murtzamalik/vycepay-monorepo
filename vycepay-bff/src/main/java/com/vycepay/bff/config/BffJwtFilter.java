@@ -7,6 +7,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -73,6 +75,7 @@ public class BffJwtFilter extends OncePerRequestFilter {
             return;
         }
         request.setAttribute(ATTR_CUSTOMER_ID, externalId);
+        LoggingMdc.put(LoggingMdcKeys.CUSTOMER_ID, externalId);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(externalId, null, Collections.emptyList()));
         filterChain.doFilter(request, response);

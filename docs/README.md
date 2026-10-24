@@ -32,6 +32,7 @@ This folder contains all project documentation for the VycePay Digital Wallet Pl
 | [API_CONTRACTS.md](API_CONTRACTS.md) | Internal API contracts, endpoints, error envelopes |
 | [IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md) | Implementation order, package layout, coding standards |
 | [ACTUATOR.md](ACTUATOR.md) | Health checks, metrics, actuator configuration |
+| [LOGGING_ELK.md](LOGGING_ELK.md) | JSON logs, Filebeat → ES → Kibana, support playbook |
 
 ## Quick Links
 

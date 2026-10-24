@@ -33,6 +33,12 @@ services:
       CHOICE_BANK_BASE_URL: ${CHOICE_BANK_BASE_URL:-https://baas-pilot.choicebankapi.com}
     volumes:
       - vycepay_mysql_data:/var/lib/mysql
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
 
   admin-portal:
@@ -47,6 +53,12 @@ services:
       - vycepay
     ports:
       - "3000:3000"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     restart: unless-stopped
 
 volumes:

@@ -190,7 +190,8 @@ vycepay-android/
 
 ### Future Scalability
 
-- Kafka, Redis, ELK – documented as future options, not implemented
+- Kafka, Redis – future options, not implemented
+- **Logging (ELK):** Filebeat → Elasticsearch → Kibana — see [LOGGING_ELK.md](LOGGING_ELK.md) (`feat/structured-logging-elk`)
 
 ---
 

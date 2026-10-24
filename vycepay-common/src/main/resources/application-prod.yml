@@ -1,0 +1,12 @@
+# Loaded when SPRING_PROFILES_ACTIVE=prod (from vycepay-common on every service classpath).
+# Prefer metadata-only Choice logs in production; enable bodies only for short debug windows.
+vycepay:
+  choice-bank:
+    logging:
+      enabled: true
+      log-bodies: false
+      redact-signatures: true
+    audit:
+      http:
+        # Unauthenticated /internal/choice-bank/http-traces — keep off in prod.
+        enabled: false

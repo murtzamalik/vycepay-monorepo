@@ -3,6 +3,8 @@ package com.vycepay.callback.application.push;
 import com.vycepay.callback.application.notification.NotificationOrchestrator;
 import com.vycepay.callback.domain.model.PushMessage;
 import com.vycepay.callback.domain.model.PushSendResult;
+import com.vycepay.common.logging.LoggingMdc;
+import com.vycepay.common.logging.LoggingMdcKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -52,8 +54,10 @@ public class CallbackPushPublisher {
                 notificationOrchestrator.recordSkipOnly(customerId, PushSendResult.SKIP_UNSUPPORTED_TYPE);
                 return;
             }
+            LoggingMdc.putEvent(LoggingMdcKeys.DATASET_VYCE_PUSH, "push.send", LoggingMdcKeys.OUTCOME_UNKNOWN);
             notificationOrchestrator.createAndSendFromCallback(customerId, message, choiceCallbackId);
         } catch (Exception e) {
+            LoggingMdc.putEvent(LoggingMdcKeys.DATASET_VYCE_PUSH, "push.send", LoggingMdcKeys.OUTCOME_FAILURE);
             log.error("Push publish failed customerId={} type={}: {}",
                     customerId, notificationType, e.getMessage());
         }
