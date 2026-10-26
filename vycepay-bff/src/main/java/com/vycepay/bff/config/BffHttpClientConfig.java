@@ -24,7 +24,7 @@ public class BffHttpClientConfig {
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(Duration.ofSeconds(30));
+        requestFactory.setReadTimeout(Duration.ofSeconds(130)); // KYC biometric liveness up to 120s
         return new RestTemplate(requestFactory);
     }
 }

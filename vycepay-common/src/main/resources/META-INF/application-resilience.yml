@@ -14,6 +14,12 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 30s
         permittedNumberOfCallsInHalfOpenState: 3
+      weVipersKyc:
+        registerHealthIndicator: true
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
   retry:
     instances:
       choiceBank:
@@ -28,6 +34,15 @@ resilience4j:
       mobiWave:
         maxAttempts: 3
         waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.ConnectException
+          - java.io.IOException
+      weVipersKyc:
+        maxAttempts: 3
+        waitDuration: 2s
         enableExponentialBackoff: true
         exponentialBackoffMultiplier: 2
         retryExceptions:

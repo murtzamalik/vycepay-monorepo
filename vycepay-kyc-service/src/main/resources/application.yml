@@ -14,9 +14,16 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 35MB
+      max-request-size: 35MB
 
 server:
   port: ${PORT:8083}
+  tomcat:
+    max-http-form-post-size: 35MB
+    max-swallow-size: 35MB
 
 vycepay:
   jwt:
@@ -25,3 +32,25 @@ vycepay:
     base-url: ${CHOICE_BANK_BASE_URL:${VYCEPAY_CHOICE_BANK_BASE_URL:https://baas-pilot.choicebankapi.com}}
     sender-id: ${CHOICE_BANK_SENDER_ID:${VYCEPAY_CHOICE_BANK_SENDER_ID:}}
     private-key: ${CHOICE_BANK_PRIVATE_KEY:${VYCEPAY_CHOICE_BANK_PRIVATE_KEY:}}
+  kyc:
+    wevipers:
+      enabled: true
+      base-url: ${WEVIPERS_BASE_URL:http://2.28.204.253:8080}
+      connect-timeout-ms: 5000
+      ocr-read-timeout-ms: 60000
+      liveness-read-timeout-ms: 120000
+      match-read-timeout-ms: 30000
+    biometric:
+      required: ${KYC_BIOMETRIC_REQUIRED:false}
+      session-ttl-hours: 24
+      max-attempts: 5
+  media:
+    type: ${VYCEPAY_MEDIA_TYPE:local}
+    local-base-path: ${VYCEPAY_MEDIA_LOCAL_PATH:./data/kyc-media}
+    # When type=s3: set bucket + credentials. Apply S3 lifecycle ~2555 days (7 years).
+    bucket: ${VYCEPAY_MEDIA_BUCKET:}
+    region: ${VYCEPAY_MEDIA_REGION:af-south-1}
+    endpoint: ${VYCEPAY_MEDIA_ENDPOINT:}
+    access-key: ${VYCEPAY_MEDIA_ACCESS_KEY:}
+    secret-key: ${VYCEPAY_MEDIA_SECRET_KEY:}
+    path-style-access: ${VYCEPAY_MEDIA_PATH_STYLE:false}

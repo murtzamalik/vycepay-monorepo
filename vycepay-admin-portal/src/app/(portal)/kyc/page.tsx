@@ -26,6 +26,22 @@ const columns: Column[] = [
     },
     render: (r) => <StatusBadge status={r.status} />,
   },
+  {
+    key: 'biometricStatus',
+    label: 'Biometric',
+    filter: {
+      type: 'select',
+      param: 'biometricStatus',
+      options: [
+        { value: 'IN_PROGRESS', label: 'In progress' },
+        { value: 'READY_TO_SUBMIT', label: 'Ready' },
+        { value: 'SUBMITTED', label: 'Submitted' },
+        { value: 'FAILED', label: 'Failed' },
+      ],
+    },
+    render: (r) => (r.biometricStatus ? <StatusBadge status={r.biometricStatus} /> : '—'),
+  },
+  { key: 'biometricFailCode', label: 'Bio fail', mono: true, render: (r) => String(r.biometricFailCode ?? '—') },
   { key: 'createdAt', label: 'Submitted', sortable: true, render: (r) => formatDate(r.createdAt) },
   { key: 'actions', label: '', render: (r) => <EntityLink href={`/kyc/${r.id}`}><span className="btn secondary btn-sm">View</span></EntityLink> },
 ]

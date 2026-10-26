@@ -13,6 +13,8 @@ public final class LoggingMdcKeys {
     public static final String TRANSACTION_ID = "transactionId";
     public static final String CHOICE_TX_ID = "choiceTxId";
     public static final String IDEMPOTENCY_KEY = "idempotencyKey";
+    public static final String BIOMETRIC_SESSION_ID = "biometricSessionId";
+    public static final String BIOMETRIC_ATTEMPT_ID = "biometricAttemptId";
 
     public static final String EVENT_DATASET = "event.dataset";
     public static final String EVENT_ACTION = "event.action";

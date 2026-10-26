@@ -102,6 +102,37 @@ entries:
     httpStatus: 502
     userMessage: "We received an unexpected response while verifying your account. Please try again."
 
+  KYC_BIOMETRIC_REQUIRED:
+    httpStatus: 409
+    userMessage: "Please complete identity verification before submitting KYC."
+    retryable: false
+  KYC_BIOMETRIC_NOT_READY:
+    httpStatus: 409
+    userMessage: "Identity verification is not complete yet. Continue the remaining steps."
+    retryable: false
+  KYC_BIOMETRIC_SESSION_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find your identity verification session."
+  KYC_BIOMETRIC_SESSION_EXPIRED:
+    httpStatus: 410
+    userMessage: "Your identity verification session expired. Please start again."
+  KYC_BIOMETRIC_BAD_INPUT:
+    httpStatus: 400
+    userMessage: "The uploaded image or video is missing or invalid. Please try again."
+  KYC_BIOMETRIC_VENDOR_UNAVAILABLE:
+    httpStatus: 502
+    userMessage: "Identity verification is temporarily unavailable. Please try again."
+    retryable: true
+  MEDIA_NOT_FOUND:
+    httpStatus: 404
+    userMessage: "We couldn't find that document."
+  MEDIA_STORE_FAILED:
+    httpStatus: 500
+    userMessage: "We couldn't save your document. Please try again."
+  MEDIA_LOAD_FAILED:
+    httpStatus: 500
+    userMessage: "We couldn't load that document. Please try again."
+
   # Wallet / statements
   WALLET_NOT_FOUND:
     httpStatus: 404

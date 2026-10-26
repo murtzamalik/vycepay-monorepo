@@ -62,7 +62,7 @@ class KycOnboardingFacadeRejectedRetryTest {
         ChoiceBankResponseAssessor choiceAssessor = new ChoiceBankResponseAssessor(errorCatalog);
         facade = new KycOnboardingFacade(
                 bankingProvider, choiceAssessor, customerRepository, kycRepository,
-                onboardingCredentialsService, null, activityRecorder);
+                onboardingCredentialsService, null, activityRecorder, null, null);
     }
 
     @Test
@@ -81,7 +81,7 @@ class KycOnboardingFacadeRejectedRetryTest {
         when(kycRepository.save(any(KycVerification.class))).thenAnswer(inv -> inv.getArgument(0));
 
         KycSubmitOutcome outcome = facade.submitOnboarding(
-                10L, "ext-1", Map.of("mobile", "711666173"), null, "mohadz", "1234");
+                10L, "ext-1", Map.of("mobile", "711666173"), null, "mohadz", "1234", null);
 
         assertEquals("ONB-NEW-1", outcome.onboardingRequestId());
         assertEquals("ACTIVE", customer.getStatus());
@@ -108,7 +108,7 @@ class KycOnboardingFacadeRejectedRetryTest {
         when(bankingProvider.post(anyString(), anyMap())).thenReturn(successResponse("ONB-2"));
         when(kycRepository.save(any(KycVerification.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        facade.submitOnboarding(11L, "ext-2", Map.of(), null, "user2", "1111");
+        facade.submitOnboarding(11L, "ext-2", Map.of(), null, "user2", "1111", null);
 
         verify(onboardingCredentialsService).ensureCredentialsForSubmit(customer, "user2", "1111", false);
         verify(activityRecorder).record(11L, "KYC_SUBMITTED", "KYC", "ONB-2");
@@ -126,7 +126,7 @@ class KycOnboardingFacadeRejectedRetryTest {
         when(bankingProvider.post(anyString(), anyMap())).thenReturn(successResponse("ONB-3"));
         when(kycRepository.save(any(KycVerification.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        facade.submitOnboarding(12L, "ext-3", Map.of(), null, "user3", "2222");
+        facade.submitOnboarding(12L, "ext-3", Map.of(), null, "user3", "2222", null);
 
         verify(onboardingCredentialsService).ensureCredentialsForSubmit(customer, "user3", "2222", false);
         verify(kycRepository, never()).findByCustomerIdOrderByCreatedAtDesc(anyLong());
@@ -140,7 +140,7 @@ class KycOnboardingFacadeRejectedRetryTest {
         when(customerRepository.findById(13L)).thenReturn(Optional.of(customer));
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> facade.submitOnboarding(13L, "ext-4", Map.of(), null, "u", "1234"));
+                () -> facade.submitOnboarding(13L, "ext-4", Map.of(), null, "u", "1234", null));
 
         assertEquals("CUSTOMER_DEACTIVATED", ex.getCode());
         verify(onboardingCredentialsService, never())

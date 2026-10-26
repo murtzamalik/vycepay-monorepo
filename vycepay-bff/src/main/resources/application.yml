@@ -1,9 +1,16 @@
 spring:
   application:
     name: vycepay-bff
+  servlet:
+    multipart:
+      max-file-size: 35MB
+      max-request-size: 35MB
 
 server:
   port: ${PORT:8080}
+  tomcat:
+    max-http-form-post-size: 35MB
+    max-swallow-size: 35MB
 
 # JWT secret (same as auth service so BFF can validate tokens issued by auth)
 vycepay:

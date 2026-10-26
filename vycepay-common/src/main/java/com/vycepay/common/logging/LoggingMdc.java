@@ -52,6 +52,8 @@ public final class LoggingMdc {
         MDC.remove(LoggingMdcKeys.TRANSACTION_ID);
         MDC.remove(LoggingMdcKeys.CHOICE_TX_ID);
         MDC.remove(LoggingMdcKeys.IDEMPOTENCY_KEY);
+        MDC.remove(LoggingMdcKeys.BIOMETRIC_SESSION_ID);
+        MDC.remove(LoggingMdcKeys.BIOMETRIC_ATTEMPT_ID);
         MDC.remove(LoggingMdcKeys.HTTP_METHOD);
         MDC.remove(LoggingMdcKeys.URL_PATH);
     }
@@ -62,6 +64,8 @@ public final class LoggingMdc {
         MDC.remove(LoggingMdcKeys.TRANSACTION_ID);
         MDC.remove(LoggingMdcKeys.CHOICE_TX_ID);
         MDC.remove(LoggingMdcKeys.IDEMPOTENCY_KEY);
+        MDC.remove(LoggingMdcKeys.BIOMETRIC_SESSION_ID);
+        MDC.remove(LoggingMdcKeys.BIOMETRIC_ATTEMPT_ID);
     }
 
     private static String truncate(String value, int max) {

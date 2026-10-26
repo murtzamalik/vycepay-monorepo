@@ -20,6 +20,9 @@ public class KycVerification {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
+    @Column(name = "biometric_session_id")
+    private Long biometricSessionId;
+
     @Column(name = "choice_onboarding_request_id")
     private String choiceOnboardingRequestId;
 
@@ -58,6 +61,12 @@ public class KycVerification {
 
     @Column(name = "id_front_url")
     private String idFrontUrl;
+
+    @Column(name = "id_back_url")
+    private String idBackUrl;
+
+    @Column(name = "id_portrait_url")
+    private String idPortraitUrl;
 
     @Column(name = "selfie_url")
     private String selfieUrl;
@@ -188,12 +197,36 @@ public class KycVerification {
         this.kraPin = kraPin;
     }
 
+    public Long getBiometricSessionId() {
+        return biometricSessionId;
+    }
+
+    public void setBiometricSessionId(Long biometricSessionId) {
+        this.biometricSessionId = biometricSessionId;
+    }
+
     public String getIdFrontUrl() {
         return idFrontUrl;
     }
 
     public void setIdFrontUrl(String idFrontUrl) {
         this.idFrontUrl = idFrontUrl;
+    }
+
+    public String getIdBackUrl() {
+        return idBackUrl;
+    }
+
+    public void setIdBackUrl(String idBackUrl) {
+        this.idBackUrl = idBackUrl;
+    }
+
+    public String getIdPortraitUrl() {
+        return idPortraitUrl;
+    }
+
+    public void setIdPortraitUrl(String idPortraitUrl) {
+        this.idPortraitUrl = idPortraitUrl;
     }
 
     public String getSelfieUrl() {

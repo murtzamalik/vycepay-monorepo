@@ -24,6 +24,15 @@ public class KycStatusResponse {
     @Schema(description = "Customer-facing message from Choice Bank when present")
     private String message;
 
+    @Schema(description = "Active biometric session id when present")
+    private String biometricSessionId;
+
+    @Schema(description = "Biometric session status")
+    private String biometricStatus;
+
+    @Schema(description = "True when biometric session is READY_TO_SUBMIT")
+    private Boolean biometricCanSubmit;
+
     public KycStatusResponse() {
     }
 
@@ -77,5 +86,29 @@ public class KycStatusResponse {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public String getBiometricSessionId() {
+        return biometricSessionId;
+    }
+
+    public void setBiometricSessionId(String biometricSessionId) {
+        this.biometricSessionId = biometricSessionId;
+    }
+
+    public String getBiometricStatus() {
+        return biometricStatus;
+    }
+
+    public void setBiometricStatus(String biometricStatus) {
+        this.biometricStatus = biometricStatus;
+    }
+
+    public Boolean getBiometricCanSubmit() {
+        return biometricCanSubmit;
+    }
+
+    public void setBiometricCanSubmit(Boolean biometricCanSubmit) {
+        this.biometricCanSubmit = biometricCanSubmit;
     }
 }

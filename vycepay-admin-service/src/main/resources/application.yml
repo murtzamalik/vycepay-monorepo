@@ -23,6 +23,12 @@ management:
         include: health,info,metrics
 
 vycepay:
+  kyc:
+    wevipers:
+      enabled: false
+  media:
+    type: ${VYCEPAY_MEDIA_TYPE:local}
+    local-base-path: ${VYCEPAY_MEDIA_LOCAL_PATH:./data/kyc-media}
   jwt:
     secret: ${JWT_SECRET:vycepay-default-secret-key-min-256-bits-for-hs256}
   sms:

@@ -17,6 +17,8 @@ import com.vycepay.kyc.api.v1.dto.KycSubmitRequest;
 import com.vycepay.kyc.application.KycSubmitOutcome;
 import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.facade.KycOnboardingFacade;
+import com.vycepay.kyc.application.facade.KycBiometricFacade;
+import com.vycepay.kyc.domain.model.biometric.KycBiometricSession;
 import com.vycepay.kyc.domain.model.Customer;
 import com.vycepay.kyc.domain.model.KycVerification;
 import com.vycepay.kyc.infrastructure.persistence.CustomerRepository;
@@ -38,13 +40,16 @@ public class KycController {
     private final KycOnboardingFacade kycFacade;
     private final CustomerRepository customerRepository;
     private final KycVerificationRepository kycRepository;
+    private final KycBiometricFacade biometricFacade;
 
     public KycController(@Autowired(required = false) KycOnboardingFacade kycFacade,
                          CustomerRepository customerRepository,
-                         KycVerificationRepository kycRepository) {
+                         KycVerificationRepository kycRepository,
+                         @Autowired(required = false) KycBiometricFacade biometricFacade) {
         this.kycFacade = kycFacade; // null when Choice Bank not configured
         this.customerRepository = customerRepository;
         this.kycRepository = kycRepository;
+        this.biometricFacade = biometricFacade;
     }
 
     /**
@@ -58,13 +63,31 @@ public class KycController {
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         List<KycVerification> list = kycRepository.findByCustomerIdOrderByCreatedAtDesc(customer.getId());
         if (list.isEmpty()) {
-            return ResponseEntity.ok(new KycStatusResponse("NOT_STARTED", null, null));
+            KycStatusResponse empty = new KycStatusResponse("NOT_STARTED", null, null);
+            attachBiometric(empty, customer.getId());
+            return ResponseEntity.ok(empty);
         }
         KycVerification latest = list.get(0);
-        return ResponseEntity.ok(new KycStatusResponse(
+        KycStatusResponse resp = new KycStatusResponse(
                 latest.getStatus(),
                 latest.getChoiceOnboardingRequestId(),
-                latest.getChoiceAccountId()));
+                latest.getChoiceAccountId());
+        attachBiometric(resp, customer.getId());
+        return ResponseEntity.ok(resp);
+    }
+
+    private void attachBiometric(KycStatusResponse resp, Long customerId) {
+        if (biometricFacade == null) {
+            return;
+        }
+        KycBiometricSession session = biometricFacade.findActiveForCustomer(customerId);
+        if (session == null) {
+            return;
+        }
+        resp.setBiometricSessionId(session.getPublicId());
+        resp.setBiometricStatus(session.getStatus().name());
+        resp.setBiometricCanSubmit(
+                session.getStatus() == com.vycepay.kyc.domain.model.biometric.BiometricSessionStatus.READY_TO_SUBMIT);
     }
 
     /**
@@ -94,7 +117,8 @@ public class KycController {
                 request.getEmail());
         KycSubmitOutcome outcome = kycFacade.submitOnboarding(
                 customer.getId(), externalId, params, profile,
-                request.getUsername(), request.getPin());
+                request.getUsername(), request.getPin(),
+                request.getBiometricSessionId());
         return ResponseEntity.ok(new KycStatusResponse("1", outcome.onboardingRequestId(), null,
                 ChoiceCustomerMessage.prefer(outcome.choiceMsg(), null)));
     }

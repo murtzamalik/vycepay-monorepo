@@ -1,1 +1,3 @@
 com.vycepay.common.config.VyceErrorAutoConfiguration
+com.vycepay.common.media.MediaStorageAutoConfiguration
+com.vycepay.common.kyc.WeVipersClientConfig

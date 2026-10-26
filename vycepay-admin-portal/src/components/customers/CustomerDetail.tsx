@@ -154,10 +154,14 @@ export function CustomerDetail() {
             <div className="section-title" style={{ marginBottom: 14 }}>Documents</div>
             <KeyValueGrid items={[
               { label: 'ID Front', value: k.idFrontUrl ? <a href={String(k.idFrontUrl)} target="_blank" rel="noreferrer">View document</a> : 'Not stored locally' },
+              { label: 'ID Back', value: k.idBackUrl ? <a href={String(k.idBackUrl)} target="_blank" rel="noreferrer">View document</a> : '—' },
+              { label: 'Portrait', value: k.idPortraitUrl ? <a href={String(k.idPortraitUrl)} target="_blank" rel="noreferrer">View document</a> : '—' },
               { label: 'Selfie', value: k.selfieUrl ? <a href={String(k.selfieUrl)} target="_blank" rel="noreferrer">View document</a> : 'Not stored locally' },
+              { label: 'Biometric', value: k.biometricStatus ? String(k.biometricStatus) : '—' },
             ]} />
+            {k.kycId ? <div style={{ marginTop: 12 }}><EntityLink href={`/kyc/${k.kycId}`}>Open full KYC / biometric detail →</EntityLink></div> : null}
             <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-              ID photos are submitted to Choice Bank during onboarding. Local copies appear here when document URLs are stored.
+              Biometric media is stored by VycePay. Open KYC detail for timeline and gallery.
             </p>
           </div>
         </div>

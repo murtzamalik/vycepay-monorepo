@@ -38,6 +38,8 @@ public class KycSubmitRequest {
     private String username;
     @Schema(description = "App login 4-digit PIN (required). Never sent to Choice Bank.", requiredMode = Schema.RequiredMode.REQUIRED)
     private String pin;
+    @Schema(description = "Biometric session UUID from /kyc/biometric/sessions")
+    private String biometricSessionId;
     @Schema(description = "Base64 front side of ID")
     private String frontSidePhoto;
     @Schema(description = "Base64 back side of ID")
@@ -174,6 +176,14 @@ public class KycSubmitRequest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getBiometricSessionId() {
+        return biometricSessionId;
+    }
+
+    public void setBiometricSessionId(String biometricSessionId) {
+        this.biometricSessionId = biometricSessionId;
     }
 
     public String getFrontSidePhoto() {

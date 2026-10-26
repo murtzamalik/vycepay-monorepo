@@ -136,6 +136,13 @@ Android inbox UI may consume these later; tray FCM still works independently.
 
 ### KYC (onboarding)
 
+Biometric (WeVipers via VycePay — see [MOBILE_KYC_BIOMETRIC_HANDOFF.md](MOBILE_KYC_BIOMETRIC_HANDOFF.md)):
+- `POST /api/v1/kyc/biometric/sessions`
+- `GET /api/v1/kyc/biometric/sessions/{sessionId}`
+- `POST .../document-liveness` (optional)
+- `POST .../ocr` · `.../face-liveness` · `.../face-match`
+- Submit includes optional `biometricSessionId` (required when flag on)
+
 1. `GET /api/v1/kyc/status` — check `displayStatus` field: `NOT_STARTED | PENDING | APPROVED | REJECTED`.
 2. `POST /api/v1/kyc/submit` — body: `firstName`, `middleName`, `lastName`, `birthday` (YYYY-MM-DD), `gender` (0=Female/1=Male), `countryCode` (default "254"), `mobile`, `idType` (101=NationalID/102=Alien/103=Passport), `idNumber`, `frontSidePhoto` (Base64 JPEG), `selfiePhoto` (Base64 JPEG), **`username`** (app login), **`pin`** (4-digit app login PIN). Optional: `address`, `kraPin`, `email`. Returns `choiceOnboardingRequestId`. Username/PIN are stored by VycePay only (not sent to Choice).
 3. `POST /api/v1/kyc/send-otp?onboardingRequestId=<id from submit>` (success code: `KYC_OTP_SENT`).
@@ -182,7 +189,12 @@ All under base path `/api/v1/`. Callback is **not** for mobile (Choice Bank webh
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/v1/kyc/status | KYC status — use `displayStatus` (NOT_STARTED/PENDING/APPROVED/REJECTED) |
-| POST | /api/v1/kyc/submit | Submit KYC + app username/PIN — returns `choiceOnboardingRequestId` |
+| POST | /api/v1/kyc/biometric/sessions | Create biometric session |
+| GET | /api/v1/kyc/biometric/sessions/{sessionId} | Session + step status |
+| POST | /api/v1/kyc/biometric/sessions/{id}/ocr | OCR |
+| POST | /api/v1/kyc/biometric/sessions/{id}/face-liveness | Face liveness |
+| POST | /api/v1/kyc/biometric/sessions/{id}/face-match | Face match |
+| POST | /api/v1/kyc/submit | Submit KYC + app username/PIN (+ optional biometricSessionId) — returns `choiceOnboardingRequestId` |
 | POST | /api/v1/kyc/send-otp?onboardingRequestId= | Send OTP for KYC confirmation (`KYC_OTP_SENT`) |
 | POST | /api/v1/kyc/resend-otp?onboardingRequestId=&otpType=SMS | Resend OTP (`KYC_OTP_RESENT`) |
 | POST | /api/v1/kyc/confirm-otp?onboardingRequestId=&otpCode= | Confirm KYC OTP (`KYC_OTP_CONFIRMED`) |

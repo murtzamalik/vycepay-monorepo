@@ -23,6 +23,8 @@ import com.vycepay.common.security.port.SensitiveDataEncryptionPort;
 import com.vycepay.kyc.application.KycSubmitOutcome;
 import com.vycepay.kyc.application.dto.KycProfileCommand;
 import com.vycepay.kyc.application.service.OnboardingCredentialsService;
+import com.vycepay.kyc.config.BiometricProperties;
+import com.vycepay.kyc.domain.model.biometric.KycBiometricSession;
 import com.vycepay.kyc.domain.model.Customer;
 import com.vycepay.kyc.domain.model.KycDisplayStatus;
 import com.vycepay.kyc.domain.model.KycVerification;
@@ -58,6 +60,8 @@ public class KycOnboardingFacade {
     private final OnboardingCredentialsService onboardingCredentialsService;
     private final SensitiveDataEncryptionPort encryptionPort;
     private final CustomerActivityRecorder activityRecorder;
+    private final KycBiometricFacade biometricFacade;
+    private final BiometricProperties biometricProperties;
 
     public KycOnboardingFacade(BankingProviderPort bankingProvider,
                                ChoiceBankResponseAssessor choiceAssessor,
@@ -65,7 +69,9 @@ public class KycOnboardingFacade {
                                KycVerificationRepository kycRepository,
                                OnboardingCredentialsService onboardingCredentialsService,
                                @Autowired(required = false) SensitiveDataEncryptionPort encryptionPort,
-                               CustomerActivityRecorder activityRecorder) {
+                               CustomerActivityRecorder activityRecorder,
+                               @Autowired(required = false) KycBiometricFacade biometricFacade,
+                               @Autowired(required = false) BiometricProperties biometricProperties) {
         this.bankingProvider = bankingProvider;
         this.choiceAssessor = choiceAssessor;
         this.customerRepository = customerRepository;
@@ -73,6 +79,8 @@ public class KycOnboardingFacade {
         this.onboardingCredentialsService = onboardingCredentialsService;
         this.encryptionPort = encryptionPort;
         this.activityRecorder = activityRecorder;
+        this.biometricFacade = biometricFacade;
+        this.biometricProperties = biometricProperties;
     }
 
     /**
@@ -88,12 +96,28 @@ public class KycOnboardingFacade {
      */
     @Transactional
     public KycSubmitOutcome submitOnboarding(Long customerId, String userId, Map<String, Object> params,
-                                   KycProfileCommand profile, String username, String pin) {
+                                   KycProfileCommand profile, String username, String pin,
+                                   String biometricSessionId) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new BusinessException("CUSTOMER_NOT_FOUND", "Customer not found", HttpStatus.NOT_FOUND));
         if (CUSTOMER_STATUS_DEACTIVATED.equals(customer.getStatus())) {
             throw new BusinessException("CUSTOMER_DEACTIVATED",
                     "This account has been deactivated. Contact support.", HttpStatus.FORBIDDEN);
+        }
+
+        KycBiometricSession bioSession = null;
+        boolean biometricRequired = biometricProperties != null && biometricProperties.isRequired();
+        if (biometricRequired) {
+            if (biometricFacade == null) {
+                throw new BusinessException("SERVICE_UNAVAILABLE", "Biometric service unavailable", HttpStatus.SERVICE_UNAVAILABLE);
+            }
+            bioSession = biometricFacade.requireReadyForSubmit(customerId, biometricSessionId);
+            LoggingMdc.put(LoggingMdcKeys.BIOMETRIC_SESSION_ID, bioSession.getPublicId());
+            hydratePhotosFromSession(params, bioSession);
+        } else if (biometricSessionId != null && !biometricSessionId.isBlank() && biometricFacade != null) {
+            bioSession = biometricFacade.requireReadyForSubmit(customerId, biometricSessionId);
+            LoggingMdc.put(LoggingMdcKeys.BIOMETRIC_SESSION_ID, bioSession.getPublicId());
+            hydratePhotosFromSession(params, bioSession);
         }
 
         boolean allowOverwrite = isRejectedKycRetryEligible(customerId);
@@ -124,12 +148,42 @@ public class KycOnboardingFacade {
         if (profile != null) {
             applyKycProfile(kyc, profile);
         }
+        if (bioSession != null) {
+            kyc.setBiometricSessionId(bioSession.getId());
+            kyc.setIdFrontUrl(bioSession.getIdFrontUrl());
+            kyc.setIdBackUrl(bioSession.getIdBackUrl());
+            kyc.setIdPortraitUrl(bioSession.getIdPortraitUrl());
+            kyc.setSelfieUrl(bioSession.getSelfieUrl());
+        }
         kycRepository.save(kyc);
+        if (bioSession != null && biometricFacade != null) {
+            biometricFacade.markSubmitted(bioSession, kyc.getId());
+        }
         String activityType = allowOverwrite ? "KYC_RESUBMITTED" : "KYC_SUBMITTED";
         activityRecorder.record(customerId, activityType, "KYC", onboardingRequestId);
-        log.info("Onboarding submitted: customerId={} onboardingRequestId={} resubmit={}",
-                customerId, onboardingRequestId, allowOverwrite);
+        log.info("Onboarding submitted: customerId={} onboardingRequestId={} resubmit={} biometricSession={}",
+                customerId, onboardingRequestId, allowOverwrite,
+                bioSession != null ? bioSession.getPublicId() : null);
         return new KycSubmitOutcome(onboardingRequestId, response.getMsg());
+    }
+
+    /**
+     * Fills missing Choice photo params from stored biometric media (override wins when body present).
+     */
+    private void hydratePhotosFromSession(Map<String, Object> params, KycBiometricSession session) {
+        if (isBlankParam(params.get("frontSidePhoto")) && session.getIdFrontUrl() != null) {
+            params.put("frontSidePhoto", biometricFacade.loadMediaAsBase64(session.getIdFrontUrl()));
+        }
+        if (isBlankParam(params.get("selfiePhoto")) && session.getSelfieUrl() != null) {
+            params.put("selfiePhoto", biometricFacade.loadMediaAsBase64(session.getSelfieUrl()));
+        }
+        if (isBlankParam(params.get("backSidePhoto")) && session.getIdBackUrl() != null) {
+            params.put("backSidePhoto", biometricFacade.loadMediaAsBase64(session.getIdBackUrl()));
+        }
+    }
+
+    private static boolean isBlankParam(Object value) {
+        return value == null || String.valueOf(value).isBlank();
     }
 
     /**

@@ -179,10 +179,9 @@ vycepay-android/
 
 ### OCR & Face Comparison
 
-- **Assumption:** Choice Bank performs OCR and face comparison as part of their KYC pipeline
-- We send `frontSidePhoto` and `selfiePhoto` (Base64) + user-entered `idNumber` to Choice Bank
-- If we need our own pre-validation: add `DocumentVerificationPort` with OCR/face adapters (e.g. ML Kit, Tesseract, cloud APIs)
-- Confirm with Choice Bank whether they handle verification end-to-end
+- **Implemented:** WeVipers biometric pre-check via VycePay (`DocumentVerificationPort` / `WeVipersKycAdapter`), session + attempts, local/S3 media (7y lifecycle)
+- Mobile must call VycePay biometric APIs (not WeVipers directly). See `docs/MOBILE_KYC_BIOMETRIC_HANDOFF.md`
+- Choice Bank remains final BaaS KYC; photos reused from session on submit (`KYC_BIOMETRIC_REQUIRED` flag)
 
 ### Tests
 

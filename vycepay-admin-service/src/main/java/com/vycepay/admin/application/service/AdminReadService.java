@@ -24,12 +24,15 @@ public class AdminReadService {
     private final AdminSecurityContext securityContext;
     private final PiiMaskingService maskingService;
     private final AdminProperties properties;
+    private final AdminKycBiometricService kycBiometricService;
 
-    public AdminReadService(JdbcTemplate jdbcTemplate, AdminSecurityContext securityContext, PiiMaskingService maskingService, AdminProperties properties) {
+    public AdminReadService(JdbcTemplate jdbcTemplate, AdminSecurityContext securityContext, PiiMaskingService maskingService, AdminProperties properties,
+                            AdminKycBiometricService kycBiometricService) {
         this.jdbcTemplate = jdbcTemplate;
         this.securityContext = securityContext;
         this.maskingService = maskingService;
         this.properties = properties;
+        this.kycBiometricService = kycBiometricService;
     }
 
     public Map<String, Object> dashboardSummary(String fromDate, String toDate) {
@@ -181,6 +184,8 @@ public class AdminReadService {
         if (!securityContext.hasPermission("kyc:view_documents")) {
             row.remove("idFrontUrl");
             row.remove("selfieUrl");
+            row.remove("idBackUrl");
+            row.remove("idPortraitUrl");
         }
         Long customerId = ((Number) row.get("id")).longValue();
         row.put("deviceCount", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM device_token WHERE customer_id=?", Long.class, customerId));
@@ -245,27 +250,35 @@ public class AdminReadService {
                 resolveSort(sort, order, ACTIVITY_SORT, "ORDER BY created_at DESC"), customerId);
     }
 
-    public Map<String, Object> kyc(Integer pageReq, Integer sizeReq, String status, String search, String fromDate, String toDate, String sort, String order) {
+    public Map<String, Object> kyc(Integer pageReq, Integer sizeReq, String status, String search, String fromDate, String toDate, String sort, String order, String biometricStatus, String failCode) {
         StringBuilder where = new StringBuilder("1=1");
         List<Object> p = new ArrayList<>();
         if (status != null && !status.isBlank()) { where.append(" AND k.status=?"); p.add(status); }
+        if (biometricStatus != null && !biometricStatus.isBlank()) { where.append(" AND EXISTS (SELECT 1 FROM kyc_biometric_session bs WHERE bs.id=k.biometric_session_id AND bs.status=?)"); p.add(biometricStatus); }
+        if (failCode != null && !failCode.isBlank()) { where.append(" AND EXISTS (SELECT 1 FROM kyc_biometric_session bs WHERE bs.id=k.biometric_session_id AND bs.fail_reason_code=?)"); p.add(failCode); }
         if (search != null && !search.isBlank()) {
             where.append(" AND (c.external_id LIKE ? OR c.mobile LIKE ? OR k.choice_onboarding_request_id LIKE ?)");
             String s = "%" + search + "%";
             p.add(s); p.add(s); p.add(s);
         }
         DateRangeQuery.of(fromDate, toDate).apply("k.created_at", where, p);
-        return page("SELECT k.id, k.choice_onboarding_request_id choiceOnboardingRequestId, k.status, k.id_type idType, k.created_at createdAt, c.external_id customerExternalId, c.first_name firstName, c.last_name lastName FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE " + where,
+        Map<String, Object> res = page("SELECT k.id, k.choice_onboarding_request_id choiceOnboardingRequestId, k.status, k.id_type idType, k.created_at createdAt, k.biometric_session_id biometricSessionId, c.external_id customerExternalId, c.first_name firstName, c.last_name lastName FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE " + where,
                 "SELECT COUNT(*) FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE " + where, pageReq, sizeReq,
                 resolveSort(sort, order, KYC_SORT, "ORDER BY k.created_at DESC"), p.toArray());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> content = (List<Map<String, Object>>) res.get("content");
+        if (content != null) {
+            content.forEach(kycBiometricService::enrichKycListRow);
+        }
+        return res;
     }
 
     public Map<String, Object> kycDetail(Long id) {
         var rows = jdbcTemplate.queryForList("SELECT k.*, c.external_id customerExternalId, c.first_name firstName, c.last_name lastName FROM kyc_verification k JOIN customer c ON c.id=k.customer_id WHERE k.id=?", id);
         if (rows.isEmpty()) throw notFound("KYC_NOT_FOUND");
         Map<String, Object> row = rows.get(0);
-        if (!securityContext.hasPermission("kyc:view_documents")) { row.remove("id_front_url"); row.remove("selfie_url"); }
         row.put("id_number", maskingService.maskIdNumber((String) row.get("id_number"), securityContext.hasPermission("customer:view_pii")));
+        kycBiometricService.enrichKycDetail(row);
         return row;
     }
 
