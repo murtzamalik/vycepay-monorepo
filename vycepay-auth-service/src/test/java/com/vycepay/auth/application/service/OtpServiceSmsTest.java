@@ -10,9 +10,11 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,7 +34,7 @@ class OtpServiceSmsTest {
             return m;
         };
 
-        OtpService service = new OtpService(otpRepo, smsRepo, sms, 6, 5, "123456");
+        OtpService service = otpService(otpRepo, smsRepo, sms, "123456", "", "");
         String code = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
 
         assertEquals("123456", code);
@@ -48,7 +50,7 @@ class OtpServiceSmsTest {
             throw new RuntimeException("provider down");
         };
 
-        OtpService service = new OtpService(otpRepo, unusedSmsRepo(), sms, 6, 5, "123456");
+        OtpService service = otpService(otpRepo, unusedSmsRepo(), sms, "123456", "", "");
         assertEquals("123456", service.sendOtp("254", "712345678", OtpPurpose.DEVICE_BIND));
     }
 
@@ -63,17 +65,135 @@ class OtpServiceSmsTest {
             return m;
         };
 
-        OtpService service = new OtpService(otpRepo, unusedSmsRepo(), sms, 6, 5, "");
+        OtpService service = otpService(otpRepo, unusedSmsRepo(), sms, "", "", "");
         String first = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
         String second = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
 
         assertEquals(6, first.length());
         assertTrue(first.chars().allMatch(Character::isDigit));
         assertNotEquals("123456", first);
-        // Two independent draws should almost never collide; if they do, length/digit checks still hold.
         if (first.equals(second)) {
             assertEquals(6, second.length());
         }
+    }
+
+    @Test
+    void sendOtp_reviewerWhitelist_returnsFixedCodeAndSkipsSms() {
+        AtomicLong ids = new AtomicLong(1);
+        AtomicInteger smsCalls = new AtomicInteger();
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            smsCalls.incrementAndGet();
+            throw new AssertionError("SMS must not be sent for reviewer");
+        };
+
+        OtpService service = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "123456", "254712345678");
+        String code = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
+
+        assertEquals("123456", code);
+        assertEquals(0, smsCalls.get());
+        assertTrue(service.isReviewerMobile("254", "712345678"));
+    }
+
+    @Test
+    void sendOtp_nonWhitelistWithReviewerConfig_usesRandomAndSendsSms() {
+        AtomicLong ids = new AtomicLong(1);
+        AtomicInteger smsCalls = new AtomicInteger();
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            smsCalls.incrementAndGet();
+            SmsMessage m = new SmsMessage();
+            m.setId(1L);
+            m.setStatus("SENT");
+            return m;
+        };
+
+        OtpService service = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "123456", "254712345678");
+        String code = service.sendOtp("254", "700000001", OtpPurpose.DEVICE_BIND);
+
+        assertEquals(6, code.length());
+        assertTrue(code.chars().allMatch(Character::isDigit));
+        assertNotEquals("123456", code);
+        assertEquals(1, smsCalls.get());
+        assertFalse(service.isReviewerMobile("254", "700000001"));
+    }
+
+    @Test
+    void sendOtp_codeSetMobilesEmpty_neverGlobalFixed() {
+        AtomicLong ids = new AtomicLong(1);
+        AtomicInteger smsCalls = new AtomicInteger();
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            smsCalls.incrementAndGet();
+            SmsMessage m = new SmsMessage();
+            m.setId(1L);
+            m.setStatus("SENT");
+            return m;
+        };
+
+        OtpService service = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "123456", "");
+        String code = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
+
+        assertNotEquals("123456", code);
+        assertEquals(6, code.length());
+        assertEquals(1, smsCalls.get());
+        assertFalse(service.isReviewerMobile("254", "712345678"));
+    }
+
+    @Test
+    void sendOtp_mobilesSetCodeEmpty_usesRandom() {
+        AtomicLong ids = new AtomicLong(1);
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            SmsMessage m = new SmsMessage();
+            m.setId(1L);
+            m.setStatus("SENT");
+            return m;
+        };
+
+        OtpService service = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "", "254712345678");
+        String code = service.sendOtp("254", "712345678", OtpPurpose.SIGNUP);
+
+        assertNotEquals("123456", code);
+        assertEquals(6, code.length());
+        assertFalse(service.isReviewerMobile("254", "712345678"));
+    }
+
+    @Test
+    void sendOtp_devFixedOnly_preservesLocalBehavior() {
+        AtomicLong ids = new AtomicLong(1);
+        List<String> captured = new ArrayList<>();
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            captured.add(otpCode);
+            SmsMessage m = new SmsMessage();
+            m.setId(1L);
+            m.setStatus("SKIPPED");
+            return m;
+        };
+
+        OtpService service = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "654321", "", "");
+        assertEquals("654321", service.sendOtp("254", "712345678", OtpPurpose.PIN_RESET));
+        assertEquals(1, captured.size());
+    }
+
+    @Test
+    void reviewerMobiles_formatVariants_allMatchSameNational() {
+        AtomicLong ids = new AtomicLong(1);
+        AuthOtpSmsPort sms = (cc, mobile, purpose, otpCode, otpId, trigger, adminId) -> {
+            throw new AssertionError("SMS must not be sent");
+        };
+
+        OtpService plus = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "123456", "+254712345678");
+        OtpService local = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "123456", "0712345678");
+        OtpService e164 = otpService(new SaveOnlyOtpRepo(ids), unusedSmsRepo(), sms,
+                "", "123456", "254712345678");
+
+        assertEquals("123456", plus.sendOtp("254", "712345678", OtpPurpose.SIGNUP));
+        assertEquals("123456", local.sendOtp("254", "712345678", OtpPurpose.DEVICE_BIND));
+        assertEquals("123456", e164.sendOtp("254", "712345678", OtpPurpose.CREDENTIALS_MIGRATE));
     }
 
     @Test
@@ -81,6 +201,15 @@ class OtpServiceSmsTest {
         String msg = SmsApplicationService.buildOtpMessage(OtpPurpose.PIN_RESET, "654321");
         assertTrue(msg.contains("654321"));
         assertTrue(msg.contains("PIN reset"));
+    }
+
+    private static OtpService otpService(OtpVerificationRepository otpRepo,
+                                         SmsMessageRepository smsRepo,
+                                         AuthOtpSmsPort sms,
+                                         String devFixed,
+                                         String reviewerCode,
+                                         String reviewerMobiles) {
+        return new OtpService(otpRepo, smsRepo, sms, 6, 5, devFixed, reviewerCode, reviewerMobiles);
     }
 
     private static SmsMessageRepository unusedSmsRepo() {

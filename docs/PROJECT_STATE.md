@@ -47,7 +47,7 @@ White-label digital wallet platform using **Choice Bank (Kenya)** as BaaS provid
 ### Rollout checklist
 
 1. Run Flyway V7 on all environments before app release
-2. OTP/SMS (staging/prod): leave `OTP_DEV_FIXED_CODE` unset/empty (YAML default is now empty → random OTP); set `SMS_ENABLED=true` and `MOBIWAVE_API_TOKEN`; optionally set `MOBIWAVE_SENDER_ID` / `MOBIWAVE_BASE_URL`. Local/dev only: `OTP_DEV_FIXED_CODE=123456`
+2. OTP/SMS (staging/prod): leave `OTP_DEV_FIXED_CODE` unset/empty (random OTP for normal users); set `SMS_ENABLED=true` and `MOBIWAVE_API_TOKEN`; optionally set `MOBIWAVE_SENDER_ID` / `MOBIWAVE_BASE_URL`. Local/dev only: `OTP_DEV_FIXED_CODE=123456`. Google Play review: set `OTP_REVIEWER_FIXED_CODE=123456` and `OTP_REVIEWER_MOBILES=2547XXXXXXXX` (whitelist only; never use global fixed OTP in prod). After deploy: smoke reviewer + normal number, create review account via app (username/PIN), fill Play Console App access with mobile + fixed OTP + PIN.
 3. Alert on `auth.pin.lockout` / `auth.login.failure` spikes
 4. Confirm BFF public routes deployed with auth-service
 5. Mobile must send `username` + `pin` on `POST /kyc/submit`; stop calling `/auth/credentials` during signup

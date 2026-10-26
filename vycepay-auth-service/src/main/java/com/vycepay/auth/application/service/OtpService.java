@@ -3,8 +3,11 @@ package com.vycepay.auth.application.service;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -24,6 +27,10 @@ import com.vycepay.common.sms.KenyaPhoneNormalizer;
 /**
  * Generates and validates purpose-scoped OTPs for signup, device bind, PIN reset, and migrate.
  * Delivers SMS via {@link AuthOtpSmsPort} (soft-fail).
+ * <p>
+ * Production may set {@code OTP_REVIEWER_FIXED_CODE} + {@code OTP_REVIEWER_MOBILES} so Google Play
+ * reviewers get a fixed auth OTP on whitelisted MSISDNs only. {@code OTP_DEV_FIXED_CODE} must stay
+ * empty in staging/prod (local/dev global fixed OTP only).
  */
 @Service
 public class OtpService {
@@ -38,23 +45,30 @@ public class OtpService {
     private final int otpLength;
     private final int otpExpiryMinutes;
     private final String devFixedCode;
+    private final String reviewerFixedCode;
+    private final Set<String> reviewerMsisdns;
 
     public OtpService(OtpVerificationRepository otpRepository,
                       SmsMessageRepository smsMessageRepository,
                       AuthOtpSmsPort authOtpSmsPort,
                       @Value("${vycepay.otp.length:6}") int otpLength,
                       @Value("${vycepay.otp.expiry-minutes:5}") int otpExpiryMinutes,
-                      @Value("${vycepay.otp.dev-fixed-code:}") String devFixedCode) {
+                      @Value("${vycepay.otp.dev-fixed-code:}") String devFixedCode,
+                      @Value("${vycepay.otp.reviewer-fixed-code:}") String reviewerFixedCode,
+                      @Value("${vycepay.otp.reviewer-mobiles:}") String reviewerMobiles) {
         this.otpRepository = otpRepository;
         this.smsMessageRepository = smsMessageRepository;
         this.authOtpSmsPort = authOtpSmsPort;
         this.otpLength = otpLength;
         this.otpExpiryMinutes = otpExpiryMinutes;
         this.devFixedCode = devFixedCode == null ? "" : devFixedCode.trim();
+        this.reviewerFixedCode = reviewerFixedCode == null ? "" : reviewerFixedCode.trim();
+        this.reviewerMsisdns = parseReviewerMobiles(reviewerMobiles);
     }
 
     /**
      * Generates OTP for the given purpose, persists it, and sends SMS (best-effort).
+     * Reviewer-whitelist numbers skip SMS and use the configured fixed code.
      */
     public String sendOtp(String mobileCountryCode, String mobile, OtpPurpose purpose) {
         return sendOtp(mobileCountryCode, mobile, purpose, SmsApplicationService.TRIGGER_AUTO, null);
@@ -65,7 +79,8 @@ public class OtpService {
      */
     public String sendOtp(String mobileCountryCode, String mobile, OtpPurpose purpose,
                           String triggerSource, Long adminId) {
-        String code = generateOtp();
+        boolean reviewer = isReviewerMobile(mobileCountryCode, mobile);
+        String code = generateOtp(reviewer);
         Instant expiresAt = Instant.now().plus(otpExpiryMinutes, TimeUnit.MINUTES.toChronoUnit());
 
         OtpVerification otp = new OtpVerification();
@@ -76,6 +91,12 @@ public class OtpService {
         otp.setExpiresAt(expiresAt);
         otp.setVerified(false);
         otp = otpRepository.save(otp);
+
+        if (reviewer) {
+            log.info("Reviewer fixed OTP purpose={} to {} {} SMS skipped expires {}",
+                    purpose, mobileCountryCode, maskMobile(mobile), expiresAt);
+            return code;
+        }
 
         try {
             SmsMessage sent = authOtpSmsPort.sendAuthOtp(
@@ -156,7 +177,10 @@ public class OtpService {
         otpRepository.save(otp);
     }
 
-    private String generateOtp() {
+    private String generateOtp(boolean reviewer) {
+        if (reviewer) {
+            return reviewerFixedCode;
+        }
         if (!devFixedCode.isEmpty()) {
             return devFixedCode;
         }
@@ -165,6 +189,50 @@ public class OtpService {
             sb.append(RANDOM.nextInt(10));
         }
         return sb.toString();
+    }
+
+    /**
+     * Reviewer fixed OTP applies only when both code and at least one parsed mobile are configured
+     * and the current MSISDN is on the whitelist.
+     */
+    boolean isReviewerMobile(String mobileCountryCode, String mobile) {
+        if (reviewerFixedCode.isEmpty() || reviewerMsisdns.isEmpty()) {
+            return false;
+        }
+        String msisdn = toMsisdn(mobileCountryCode, mobile);
+        return msisdn != null && reviewerMsisdns.contains(msisdn);
+    }
+
+    private static Set<String> parseReviewerMobiles(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Set.of();
+        }
+        Set<String> parsed = new LinkedHashSet<>();
+        for (String part : raw.split(",")) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            KenyaPhoneNormalizer.toRecipient(part.trim()).ifPresent(parsed::add);
+            MobileNormalizer.normalize(part.trim()).ifPresent(n ->
+                    parsed.add(n.mobileCountryCode() + n.mobile()));
+        }
+        return parsed.isEmpty() ? Set.of() : Collections.unmodifiableSet(parsed);
+    }
+
+    private static String toMsisdn(String mobileCountryCode, String mobile) {
+        if (mobileCountryCode != null && !mobileCountryCode.isBlank()
+                && mobile != null && !mobile.isBlank()) {
+            String combined = mobileCountryCode.trim() + mobile.trim();
+            return KenyaPhoneNormalizer.toRecipient(combined)
+                    .or(() -> MobileNormalizer.normalize(combined).map(n -> n.mobileCountryCode() + n.mobile()))
+                    .orElse(null);
+        }
+        if (mobile != null && !mobile.isBlank()) {
+            return KenyaPhoneNormalizer.toRecipient(mobile.trim())
+                    .or(() -> MobileNormalizer.normalize(mobile.trim()).map(n -> n.mobileCountryCode() + n.mobile()))
+                    .orElse(null);
+        }
+        return null;
     }
 
     public static String maskMobile(String mobile) {

@@ -31,8 +31,12 @@ vycepay:
     length: ${OTP_LENGTH:6}
     expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
     # Empty by default (random OTP). Set OTP_DEV_FIXED_CODE=123456 only for local/dev.
-    # Staging/prod: leave unset/empty, SMS_ENABLED=true, MOBIWAVE_API_TOKEN set.
+    # Staging/prod: leave unset/empty — never enable global fixed OTP in prod.
     dev-fixed-code: ${OTP_DEV_FIXED_CODE:}
+    # Google Play / store review: fixed OTP only for whitelisted MSISDNs (comma-separated).
+    # Both must be set; code alone never becomes a global fixed OTP.
+    reviewer-fixed-code: ${OTP_REVIEWER_FIXED_CODE:}
+    reviewer-mobiles: ${OTP_REVIEWER_MOBILES:}
   auth:
     pin:
       max-attempts: ${AUTH_PIN_MAX_ATTEMPTS:5}
