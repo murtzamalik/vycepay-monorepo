@@ -14,6 +14,9 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 /**
  * Biometric pre-KYC session. Maps to kyc_biometric_session.
  */
@@ -38,10 +41,12 @@ public class KycBiometricSession {
     private String documentCountry;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "status", nullable = false, length = 32)
     private BiometricSessionStatus status;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "current_step", length = 32)
     private BiometricStep currentStep;
 
@@ -75,7 +80,8 @@ public class KycBiometricSession {
     @Column(name = "face_similarity", precision = 6, scale = 2)
     private BigDecimal faceSimilarity;
 
-    @Column(name = "face_match")
+    /** Matches Flyway V16 {@code TINYINT} — Hibernate Boolean defaults to BIT. */
+    @Column(name = "face_match", columnDefinition = "TINYINT")
     private Boolean faceMatch;
 
     @Column(name = "attempt_count", nullable = false)

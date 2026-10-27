@@ -13,6 +13,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 /**
  * Single WeVipers call attempt. Maps to kyc_biometric_attempt.
  */
@@ -34,6 +37,7 @@ public class KycBiometricAttempt {
     private Long customerId;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "step", nullable = false, length = 32)
     private BiometricStep step;
 
@@ -41,6 +45,7 @@ public class KycBiometricAttempt {
     private int attemptNo;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "outcome", nullable = false, length = 16)
     private BiometricAttemptOutcome outcome;
 
@@ -56,7 +61,8 @@ public class KycBiometricAttempt {
     @Column(name = "confidence_score", precision = 6, scale = 4)
     private BigDecimal confidenceScore;
 
-    @Column(name = "match_result")
+    /** Matches Flyway V16 {@code TINYINT} — Hibernate Boolean defaults to BIT. */
+    @Column(name = "match_result", columnDefinition = "TINYINT")
     private Boolean matchResult;
 
     @Column(name = "similarity", precision = 6, scale = 2)
