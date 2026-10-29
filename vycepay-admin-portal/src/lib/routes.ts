@@ -35,6 +35,7 @@ export const navSections = [
     items: [
       { label: 'Audit Log', href: '/audit-log' },
       { label: 'System Health', href: '/system-health' },
+      { label: 'App release', href: '/system/app-release' },
     ],
   },
   {

@@ -49,7 +49,8 @@ public class BffSecurityConfig {
                                 "/api/v1/auth/verify-device-otp",
                                 "/api/v1/auth/verify-migrate-otp",
                                 "/api/v1/auth/forgot-pin/request",
-                                "/api/v1/auth/forgot-pin/confirm"
+                                "/api/v1/auth/forgot-pin/confirm",
+                                "/api/v1/auth/app-config"
                         ).permitAll()
                         .requestMatchers("/api/v1/**").authenticated())
                 .build();

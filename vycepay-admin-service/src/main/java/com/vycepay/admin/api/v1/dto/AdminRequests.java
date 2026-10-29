@@ -6,6 +6,7 @@ import java.util.Set;
 
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -160,6 +161,20 @@ public final class AdminRequests {
 
     public record AdminPasswordResetRequest(
             @NotBlank @Pattern(regexp = PASSWORD_PATTERN, message = "newPassword must be 12-128 characters and include upper, lower, number, and symbol") String newPassword,
+            @NotBlank @Size(min = 10, max = 512) String reason) {
+    }
+
+    public record AppReleasePolicyUpdateRequest(
+            @NotNull @Min(1) Integer minSupportedVersionCode,
+            @NotNull @Min(1) Integer latestVersionCode,
+            @NotBlank @Size(max = 32) String latestVersionName,
+            @NotBlank @Size(max = 128) String updateTitle,
+            @NotBlank @Size(max = 512) String updateMessage,
+            @Size(max = 512) String storeUrl,
+            @Size(max = 512) String apkUrl,
+            @NotNull Boolean maintenance,
+            @Size(max = 512) String maintenanceMessage,
+            @NotNull Boolean active,
             @NotBlank @Size(min = 10, max = 512) String reason) {
     }
 }

@@ -27,6 +27,7 @@ After signup OTP verify or successful PIN login you receive a JWT. Use it on eve
 - `POST /api/v1/auth/verify-migrate-otp` — existing user without PIN
 - `POST /api/v1/auth/forgot-pin/request`
 - `POST /api/v1/auth/forgot-pin/confirm`
+- `GET /api/v1/auth/app-config` — app version / maintenance gate (send `X-App-Version-Code`, optional `X-Platform`, `X-Distribution`)
 
 Authenticated auth endpoints: `POST /api/v1/auth/credentials`, `POST /api/v1/auth/change-pin`.
 

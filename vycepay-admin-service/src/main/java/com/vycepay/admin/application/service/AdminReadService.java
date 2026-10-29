@@ -899,6 +899,40 @@ public class AdminReadService {
         return value == 0 ? "Female" : "Male";
     }
 
+
+    public List<Map<String, Object>> appReleasePolicies() {
+        return jdbcTemplate.queryForList(
+                "SELECT p.platform, p.min_supported_version_code minSupportedVersionCode, "
+                        + "p.latest_version_code latestVersionCode, p.latest_version_name latestVersionName, "
+                        + "p.update_title updateTitle, p.update_message updateMessage, "
+                        + "p.store_url storeUrl, p.apk_url apkUrl, p.maintenance, p.maintenance_message maintenanceMessage, "
+                        + "p.active, p.updated_by_admin_id updatedByAdminId, p.created_at createdAt, p.updated_at updatedAt, "
+                        + "u.username updatedByUsername "
+                        + "FROM app_release_policy p LEFT JOIN admin_user u ON u.id=p.updated_by_admin_id "
+                        + "ORDER BY p.platform");
+    }
+
+    public Map<String, Object> appReleasePolicyDetail(String platform) {
+        if (platform == null || platform.isBlank()) {
+            throw notFound("APP_RELEASE_POLICY_NOT_FOUND");
+        }
+        String normalized = platform.trim().toUpperCase();
+        var rows = jdbcTemplate.queryForList(
+                "SELECT p.platform, p.min_supported_version_code minSupportedVersionCode, "
+                        + "p.latest_version_code latestVersionCode, p.latest_version_name latestVersionName, "
+                        + "p.update_title updateTitle, p.update_message updateMessage, "
+                        + "p.store_url storeUrl, p.apk_url apkUrl, p.maintenance, p.maintenance_message maintenanceMessage, "
+                        + "p.active, p.updated_by_admin_id updatedByAdminId, p.created_at createdAt, p.updated_at updatedAt, "
+                        + "u.username updatedByUsername "
+                        + "FROM app_release_policy p LEFT JOIN admin_user u ON u.id=p.updated_by_admin_id "
+                        + "WHERE p.platform=?",
+                normalized);
+        if (rows.isEmpty()) {
+            throw notFound("APP_RELEASE_POLICY_NOT_FOUND");
+        }
+        return new LinkedHashMap<>(rows.get(0));
+    }
+
     private BusinessException notFound(String code) { return new BusinessException(code, "Resource not found", HttpStatus.NOT_FOUND); }
 
     private Object[] params(List<Object> base, Object... tail) {

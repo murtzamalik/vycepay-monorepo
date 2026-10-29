@@ -36,7 +36,8 @@ public class BffJwtFilter extends OncePerRequestFilter {
             "POST:/api/v1/auth/verify-device-otp",
             "POST:/api/v1/auth/verify-migrate-otp",
             "POST:/api/v1/auth/forgot-pin/request",
-            "POST:/api/v1/auth/forgot-pin/confirm"
+            "POST:/api/v1/auth/forgot-pin/confirm",
+            "GET:/api/v1/auth/app-config"
     );
 
     private final JwtValidator jwtValidator;

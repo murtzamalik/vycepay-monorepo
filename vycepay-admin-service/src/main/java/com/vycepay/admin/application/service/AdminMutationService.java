@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.vycepay.admin.api.v1.dto.AdminRequests.AdminPasswordResetRequest;
+import com.vycepay.admin.api.v1.dto.AdminRequests.AppReleasePolicyUpdateRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.AdminUserCreateRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.AdminUserUpdateRequest;
 import com.vycepay.admin.api.v1.dto.AdminRequests.CallbackRetryRequest;
@@ -27,6 +28,7 @@ import com.vycepay.common.sms.KenyaPhoneNormalizer;
 import com.vycepay.common.sms.port.SmsPort;
 import com.vycepay.common.sms.port.SmsSendRequest;
 import com.vycepay.common.sms.port.SmsSendResult;
+import com.vycepay.common.apprelease.AppReleasePolicyDefaults;
 import com.vycepay.common.sms.template.SmsTemplateDefaults;
 import com.vycepay.common.sms.template.SmsTemplatePlaceholders;
 import com.vycepay.common.sms.template.SmsTemplateRenderer;
@@ -400,6 +402,78 @@ public class AdminMutationService {
     private void replaceRoleAssignments(Long roleId, List<Long> menuIds, List<String> permissionCodes){ jdbcTemplate.update("DELETE FROM admin_role_menu WHERE role_id=?", roleId); jdbcTemplate.update("DELETE FROM admin_role_permission WHERE role_id=?", roleId); for(Long menuId: menuIds) jdbcTemplate.update("INSERT INTO admin_role_menu (role_id, menu_id) VALUES (?, ?)", roleId, menuId); for(String code: permissionCodes) jdbcTemplate.update("INSERT INTO admin_role_permission (role_id, permission_id) SELECT ?, id FROM admin_permission WHERE code=?", roleId, code); }
     private void replaceUserRoles(Long userId, List<Long> roleIds){ jdbcTemplate.update("DELETE FROM admin_user_role WHERE user_id=?", userId); for(Long roleId: roleIds) jdbcTemplate.update("INSERT INTO admin_user_role (user_id, role_id) VALUES (?, ?)", userId, roleId); }
     private Long customerPk(String id){ var rows=jdbcTemplate.queryForList("SELECT id FROM customer WHERE external_id=? OR id=?", id, numericId(id)); if(rows.isEmpty()) throw notFound("CUSTOMER_NOT_FOUND"); return ((Number)rows.get(0).get("id")).longValue(); }
+
+    /**
+     * Updates seeded app release policy for ANDROID or IOS (no create/delete).
+     */
+    @Transactional
+    public Map<String, Object> updateAppReleasePolicy(String platform, AppReleasePolicyUpdateRequest body,
+                                                      HttpServletRequest req) {
+        if (!AppReleasePolicyDefaults.isKnownPlatform(platform)) {
+            throw new BusinessException("APP_RELEASE_PLATFORM_UNKNOWN",
+                    "Platform must be ANDROID or IOS", HttpStatus.BAD_REQUEST);
+        }
+        String normalized = AppReleasePolicyDefaults.normalizePlatform(platform);
+        int min = body.minSupportedVersionCode();
+        int latest = body.latestVersionCode();
+        if (min > latest) {
+            throw new BusinessException("APP_RELEASE_MIN_GT_LATEST",
+                    "minSupportedVersionCode must be <= latestVersionCode", HttpStatus.BAD_REQUEST);
+        }
+        String storeUrl = blankToNull(body.storeUrl());
+        String apkUrl = blankToNull(body.apkUrl());
+        String maintenanceMessage = blankToNull(body.maintenanceMessage());
+        validateOptionalHttpUrl(storeUrl, "storeUrl");
+        validateOptionalHttpUrl(apkUrl, "apkUrl");
+        Long adminId = securityContext.currentAdmin().id();
+        int rows = jdbcTemplate.update(
+                "UPDATE app_release_policy SET min_supported_version_code=?, latest_version_code=?, "
+                        + "latest_version_name=?, update_title=?, update_message=?, store_url=?, apk_url=?, "
+                        + "maintenance=?, maintenance_message=?, active=?, updated_by_admin_id=?, "
+                        + "updated_at=CURRENT_TIMESTAMP WHERE platform=?",
+                min, latest, body.latestVersionName().trim(), body.updateTitle().trim(),
+                body.updateMessage().trim(), storeUrl, apkUrl,
+                Boolean.TRUE.equals(body.maintenance()) ? 1 : 0, maintenanceMessage,
+                Boolean.TRUE.equals(body.active()) ? 1 : 0, adminId, normalized);
+        if (rows == 0) {
+            throw notFound("APP_RELEASE_POLICY_NOT_FOUND");
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("platform", normalized);
+        data.put("minSupportedVersionCode", min);
+        data.put("latestVersionCode", latest);
+        data.put("latestVersionName", body.latestVersionName().trim());
+        data.put("updateTitle", body.updateTitle().trim());
+        data.put("updateMessage", body.updateMessage().trim());
+        data.put("storeUrl", storeUrl);
+        data.put("apkUrl", apkUrl);
+        data.put("maintenance", Boolean.TRUE.equals(body.maintenance()));
+        data.put("maintenanceMessage", maintenanceMessage);
+        data.put("active", Boolean.TRUE.equals(body.active()));
+        auditService.log(securityContext.currentAdmin(), "UPDATE_APP_RELEASE_POLICY", "app_release_policy",
+                normalized, body.reason(),
+                "{\"min\":" + min + ",\"latest\":" + latest + ",\"maintenance\":" + Boolean.TRUE.equals(body.maintenance()) + "}", req);
+        return data;
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private static void validateOptionalHttpUrl(String url, String field) {
+        if (url == null) {
+            return;
+        }
+        String lower = url.toLowerCase();
+        if (!(lower.startsWith("https://") || lower.startsWith("http://"))) {
+            throw new BusinessException("APP_RELEASE_INVALID_URL",
+                    field + " must start with http:// or https://", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     private BusinessException notFound(String code){ return new BusinessException(code, "Resource not found", HttpStatus.NOT_FOUND); }
     private Long numericId(String id){ try{return Long.parseLong(id);}catch(Exception e){return -1L;} } private int intVal(Object v){ return v instanceof Number n?n.intValue():v==null?0:Integer.parseInt(String.valueOf(v)); }
 }
