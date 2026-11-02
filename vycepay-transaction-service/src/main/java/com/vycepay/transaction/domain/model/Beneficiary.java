@@ -46,6 +46,13 @@ public class Beneficiary {
     @Column(name = "payee_account_name", length = 120)
     private String payeeAccountName;
 
+    /**
+     * Paybill Acc / customer reference ({@code payeeReferenceNumber} on send).
+     * Empty for non-Paybill rails; required (non-blank) when {@code accountType} is 1.
+     */
+    @Column(name = "payee_reference_number", nullable = false, length = 64)
+    private String payeeReferenceNumber = "";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -135,6 +142,14 @@ public class Beneficiary {
 
     public void setPayeeAccountName(String payeeAccountName) {
         this.payeeAccountName = payeeAccountName;
+    }
+
+    public String getPayeeReferenceNumber() {
+        return payeeReferenceNumber;
+    }
+
+    public void setPayeeReferenceNumber(String payeeReferenceNumber) {
+        this.payeeReferenceNumber = payeeReferenceNumber;
     }
 
     public Instant getCreatedAt() {

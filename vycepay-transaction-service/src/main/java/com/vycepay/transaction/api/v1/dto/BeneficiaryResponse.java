@@ -26,17 +26,22 @@ public class BeneficiaryResponse {
     @Schema(description = "Last known account title")
     private String payeeAccountName;
 
+    @Schema(description = "Paybill Acc / account number; null when not applicable or legacy row")
+    private String payeeReferenceNumber;
+
     public BeneficiaryResponse() {
     }
 
     public BeneficiaryResponse(String externalId, String nickname, int accountType,
-                               String payeeBankCode, String payeeAccountId, String payeeAccountName) {
+                               String payeeBankCode, String payeeAccountId, String payeeAccountName,
+                               String payeeReferenceNumber) {
         this.externalId = externalId;
         this.nickname = nickname;
         this.accountType = accountType;
         this.payeeBankCode = payeeBankCode;
         this.payeeAccountId = payeeAccountId;
         this.payeeAccountName = payeeAccountName;
+        this.payeeReferenceNumber = payeeReferenceNumber;
     }
 
     public String getExternalId() {
@@ -85,5 +90,13 @@ public class BeneficiaryResponse {
 
     public void setPayeeAccountName(String payeeAccountName) {
         this.payeeAccountName = payeeAccountName;
+    }
+
+    public String getPayeeReferenceNumber() {
+        return payeeReferenceNumber;
+    }
+
+    public void setPayeeReferenceNumber(String payeeReferenceNumber) {
+        this.payeeReferenceNumber = payeeReferenceNumber;
     }
 }

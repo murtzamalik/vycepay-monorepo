@@ -20,6 +20,7 @@ import com.vycepay.transaction.infrastructure.persistence.BeneficiaryRepository;
 
 /**
  * CRUD for saved transfer beneficiaries with soft-delete and identity upsert.
+ * Paybill ({@code accountType} 1) identity includes {@code payeeReferenceNumber} (Acc).
  */
 @Service
 public class BeneficiaryService {
@@ -27,8 +28,10 @@ public class BeneficiaryService {
     private static final Logger log = LoggerFactory.getLogger(BeneficiaryService.class);
     private static final int ACCOUNT_TYPE_MIN = 0;
     private static final int ACCOUNT_TYPE_MAX = 5;
+    private static final int ACCOUNT_TYPE_PAYBILL = 1;
     private static final int ACCOUNT_TYPE_PESALINK = 4;
     private static final int NICKNAME_MAX = 50;
+    private static final int REFERENCE_MAX = 64;
 
     private final BeneficiaryRepository beneficiaryRepository;
 
@@ -51,6 +54,7 @@ public class BeneficiaryService {
 
     /**
      * Creates or upserts a beneficiary. Soft-deleted match is restored.
+     * Identity: customer + accountType + bankCode + accountId + reference (empty for non-Paybill).
      *
      * @return result with response DTO and whether this was a new create vs update/restore
      */
@@ -60,10 +64,12 @@ public class BeneficiaryService {
         int accountType = requireAccountType(request.getAccountType());
         String accountId = requireAccountId(request.getPayeeAccountId());
         String bankCode = normalizeBankCode(accountType, request.getPayeeBankCode());
-        String accountName = trimToNull(request.getPayeeAccountName());
+        String accountName = trimToNull(request.getPayeeAccountName(), 120);
+        String reference = normalizeReference(accountType, request.getPayeeReferenceNumber());
 
-        var existing = beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountId(
-                customerId, accountType, bankCode, accountId);
+        var existing = beneficiaryRepository
+                .findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+                        customerId, accountType, bankCode, accountId, reference);
 
         if (existing.isPresent()) {
             Beneficiary b = existing.get();
@@ -87,6 +93,7 @@ public class BeneficiaryService {
         created.setPayeeBankCode(bankCode);
         created.setPayeeAccountId(accountId);
         created.setPayeeAccountName(accountName);
+        created.setPayeeReferenceNumber(reference);
         beneficiaryRepository.save(created);
         log.info("Beneficiary created customerId={} externalId={}", customerId, created.getExternalId());
         return new SaveResult(toResponse(created), true);
@@ -159,22 +166,46 @@ public class BeneficiaryService {
         return code;
     }
 
-    private String trimToNull(String value) {
+    /**
+     * Paybill requires Acc; other rails ignore any provided reference (store empty).
+     */
+    private String normalizeReference(int accountType, String payeeReferenceNumber) {
+        if (accountType != ACCOUNT_TYPE_PAYBILL) {
+            return "";
+        }
+        if (payeeReferenceNumber == null || payeeReferenceNumber.isBlank()) {
+            throw new BusinessException("INVALID_PAYEE_REFERENCE",
+                    "payeeReferenceNumber is required when accountType is 1 (M-Pesa Paybill)",
+                    HttpStatus.BAD_REQUEST);
+        }
+        String trimmed = payeeReferenceNumber.trim();
+        if (trimmed.length() > REFERENCE_MAX) {
+            throw new BusinessException("INVALID_PAYEE_REFERENCE",
+                    "payeeReferenceNumber must be at most " + REFERENCE_MAX + " characters",
+                    HttpStatus.BAD_REQUEST);
+        }
+        return trimmed;
+    }
+
+    private String trimToNull(String value, int maxLen) {
         if (value == null || value.isBlank()) {
             return null;
         }
         String trimmed = value.trim();
-        return trimmed.length() > 120 ? trimmed.substring(0, 120) : trimmed;
+        return trimmed.length() > maxLen ? trimmed.substring(0, maxLen) : trimmed;
     }
 
     private BeneficiaryResponse toResponse(Beneficiary b) {
+        String ref = b.getPayeeReferenceNumber();
+        String refOut = (ref == null || ref.isBlank()) ? null : ref;
         return new BeneficiaryResponse(
                 b.getExternalId(),
                 b.getNickname(),
                 b.getAccountType(),
                 b.getPayeeBankCode(),
                 b.getPayeeAccountId(),
-                b.getPayeeAccountName());
+                b.getPayeeAccountName(),
+                refOut);
     }
 
     /**

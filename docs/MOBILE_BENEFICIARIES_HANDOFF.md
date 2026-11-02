@@ -6,6 +6,7 @@
 
 Related:
 
+- [MOBILE_PAYBILL_BENEFICIARY_ACC_HANDOFF.md](MOBILE_PAYBILL_BENEFICIARY_ACC_HANDOFF.md) — **Paybill Acc on save/list (required mobile change)**
 - [MOBILE_VALIDATE_ACCOUNT_HANDOFF.md](MOBILE_VALIDATE_ACCOUNT_HANDOFF.md) — validate + send
 - [MOBILE_ACCOUNT_TYPE_INSTRUCTIONS.md](MOBILE_ACCOUNT_TYPE_INSTRUCTIONS.md) — `accountType` 0–5
 - [MOBILE_CHOICE_VS_PESALINK.md](MOBILE_CHOICE_VS_PESALINK.md) — Choice (`0`) vs PesaLink (`4`)
@@ -18,7 +19,7 @@ Related:
 |------|--------|
 | Save | **Opt-in** after successful transfer (or after OTP confirm). Do not auto-save silently. |
 | List | Show saved beneficiaries on Send Money (tab or section). |
-| Select | Pre-fill rail + account; **always** call `POST /validate-account` again before send. |
+| Select | Pre-fill rail + account (+ Paybill Acc / `payeeReferenceNumber` when type `1`); **always** call `POST /validate-account` again before send. |
 | Never skip Hakikisha | Saved ≠ trusted forever. Account may be frozen / restrict-in later. |
 | Edit | Nickname only. |
 | Delete | Soft-delete on backend; remove from UI list. |
@@ -90,11 +91,14 @@ Base path: `/api/v1/transactions/beneficiaries`
       "accountType": 4,
       "payeeBankCode": "68",
       "payeeAccountId": "0123456789",
-      "payeeAccountName": "JANE DOE"
+      "payeeAccountName": "JANE DOE",
+      "payeeReferenceNumber": null
     }
   ]
 }
 ```
+
+Paybill items include Acc as `payeeReferenceNumber` (string). Legacy Paybill rows saved before this field may return `null` until the user re-saves.
 
 Empty list → `{ "items": [] }`.
 
@@ -119,6 +123,19 @@ Empty list → `{ "items": [] }`.
 }
 ```
 
+Paybill example (`accountType: 1`) — Acc is required:
+
+```json
+{
+  "nickname": "KPLC home",
+  "accountType": 1,
+  "payeeBankCode": "M-PESA",
+  "payeeAccountId": "888880",
+  "payeeAccountName": "Kenya Power",
+  "payeeReferenceNumber": "1234567890"
+}
+```
+
 | Field | Required | Notes |
 |-------|----------|--------|
 | `nickname` | Yes | 1–50 chars |
@@ -126,6 +143,7 @@ Empty list → `{ "items": [] }`.
 | `payeeAccountId` | Yes | Same as validate `accountId` |
 | `payeeBankCode` | If type `4` | Same as validate `bankCode`. For other rails may be `""` or omit (stored as empty). |
 | `payeeAccountName` | Recommended | From last successful validate / send response |
+| `payeeReferenceNumber` | If type `1` | Paybill Acc / account number (same as send). Required for Paybill; ignored for other types. Blank Paybill → `INVALID_PAYEE_REFERENCE`. |
 
 **Success**
 
@@ -144,7 +162,8 @@ Empty list → `{ "items": [] }`.
     "accountType": 4,
     "payeeBankCode": "68",
     "payeeAccountId": "0123456789",
-    "payeeAccountName": "JANE DOE"
+    "payeeAccountName": "JANE DOE",
+    "payeeReferenceNumber": null
   }
 }
 ```
@@ -188,7 +207,10 @@ From list item:
 | `payeeAccountId` | `accountId` | `payeeAccountId` |
 | `accountType` | `accountType` | `accountType` |
 | `payeeBankCode` | `bankCode` (only if type `4`) | `payeeBankCode` |
+| `payeeReferenceNumber` | — | `payeeReferenceNumber` (**required** when type `1` Paybill) |
 | — | — | `amount`, `remark`, `Idempotency-Key` |
+
+Same Paybill + different Acc = separate saved payees (unique identity includes Acc).
 
 ### Example — PesaLink beneficiary
 

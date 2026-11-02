@@ -20,6 +20,7 @@ This folder contains all project documentation for the VycePay Digital Wallet Pl
 | [MOBILE_CONTACTS_VERIFY_HANDOFF.md](MOBILE_CONTACTS_VERIFY_HANDOFF.md) | **Mobile team:** contact mobiles → VycePay username + account title (ACTIVE wallet) |
 | [MOBILE_EMAIL_UPDATE_HANDOFF.md](MOBILE_EMAIL_UPDATE_HANDOFF.md) | **Mobile team:** add / update / verify account email (`{ "email" }` only; identity from KYC) |
 | [MOBILE_APP_VERSION_HANDOFF.md](MOBILE_APP_VERSION_HANDOFF.md) | **Mobile team:** HTTPS `api.vycepay.com`, launch `app-config` gate, force/soft update + maintenance UI |
+| [MOBILE_PAYBILL_BENEFICIARY_ACC_HANDOFF.md](MOBILE_PAYBILL_BENEFICIARY_ACC_HANDOFF.md) | **Mobile team:** Paybill saved payee Acc (`payeeReferenceNumber`) save + prefill |
 
 ## Other Documentation
 

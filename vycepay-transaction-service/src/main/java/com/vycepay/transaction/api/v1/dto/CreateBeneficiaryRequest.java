@@ -24,6 +24,10 @@ public class CreateBeneficiaryRequest {
     @Schema(description = "Last known title from Choice validate (optional but recommended)")
     private String payeeAccountName;
 
+    @Schema(description = "Paybill Acc / account number. Required when accountType is 1; ignored for other types.",
+            example = "1234567890")
+    private String payeeReferenceNumber;
+
     public String getNickname() {
         return nickname;
     }
@@ -62,5 +66,13 @@ public class CreateBeneficiaryRequest {
 
     public void setPayeeAccountName(String payeeAccountName) {
         this.payeeAccountName = payeeAccountName;
+    }
+
+    public String getPayeeReferenceNumber() {
+        return payeeReferenceNumber;
+    }
+
+    public void setPayeeReferenceNumber(String payeeReferenceNumber) {
+        this.payeeReferenceNumber = payeeReferenceNumber;
     }
 }

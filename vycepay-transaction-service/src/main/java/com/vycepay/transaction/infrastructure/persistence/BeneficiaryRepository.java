@@ -16,6 +16,7 @@ public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long> 
 
     Optional<Beneficiary> findByExternalIdAndCustomerIdAndDeletedAtIsNull(String externalId, Long customerId);
 
-    Optional<Beneficiary> findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountId(
-            Long customerId, int accountType, String payeeBankCode, String payeeAccountId);
+    Optional<Beneficiary> findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+            Long customerId, int accountType, String payeeBankCode, String payeeAccountId,
+            String payeeReferenceNumber);
 }

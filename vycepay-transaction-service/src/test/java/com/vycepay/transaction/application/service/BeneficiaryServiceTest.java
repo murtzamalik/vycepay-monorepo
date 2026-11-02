@@ -19,6 +19,7 @@ import com.vycepay.transaction.infrastructure.persistence.BeneficiaryRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,9 +46,9 @@ class BeneficiaryServiceTest {
 
     @Test
     void save_createsNewWhenNoMatch() {
-        CreateBeneficiaryRequest req = request("Mum", 4, "68", "0123456789", "JANE DOE");
-        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountId(
-                1L, 4, "68", "0123456789")).thenReturn(Optional.empty());
+        CreateBeneficiaryRequest req = request("Mum", 4, "68", "0123456789", "JANE DOE", null);
+        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+                1L, 4, "68", "0123456789", "")).thenReturn(Optional.empty());
         when(beneficiaryRepository.save(any(Beneficiary.class))).thenAnswer(inv -> inv.getArgument(0));
 
         BeneficiaryService.SaveResult result = service.save(1L, req);
@@ -56,17 +57,56 @@ class BeneficiaryServiceTest {
         assertEquals("Mum", result.response().getNickname());
         assertEquals(4, result.response().getAccountType());
         assertEquals("68", result.response().getPayeeBankCode());
+        assertNull(result.response().getPayeeReferenceNumber());
         ArgumentCaptor<Beneficiary> captor = ArgumentCaptor.forClass(Beneficiary.class);
         verify(beneficiaryRepository).save(captor.capture());
         assertEquals(1L, captor.getValue().getCustomerId());
+        assertEquals("", captor.getValue().getPayeeReferenceNumber());
+    }
+
+    @Test
+    void save_paybill_persistsReference() {
+        CreateBeneficiaryRequest req = request("KPLC", 1, "M-PESA", "888880", "Kenya Power", "1234567890");
+        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+                1L, 1, "M-PESA", "888880", "1234567890")).thenReturn(Optional.empty());
+        when(beneficiaryRepository.save(any(Beneficiary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BeneficiaryService.SaveResult result = service.save(1L, req);
+
+        assertTrue(result.created());
+        assertEquals("1234567890", result.response().getPayeeReferenceNumber());
+        ArgumentCaptor<Beneficiary> captor = ArgumentCaptor.forClass(Beneficiary.class);
+        verify(beneficiaryRepository).save(captor.capture());
+        assertEquals("1234567890", captor.getValue().getPayeeReferenceNumber());
+    }
+
+    @Test
+    void save_paybill_requiresReference() {
+        CreateBeneficiaryRequest req = request("KPLC", 1, "M-PESA", "888880", "Kenya Power", null);
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.save(1L, req));
+        assertEquals("INVALID_PAYEE_REFERENCE", ex.getCode());
+        verify(beneficiaryRepository, never()).save(any());
+    }
+
+    @Test
+    void save_nonPaybill_ignoresReference() {
+        CreateBeneficiaryRequest req = request("Till", 2, "M-PESA", "987654", "Shop", "should-ignore");
+        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+                1L, 2, "M-PESA", "987654", "")).thenReturn(Optional.empty());
+        when(beneficiaryRepository.save(any(Beneficiary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BeneficiaryService.SaveResult result = service.save(1L, req);
+
+        assertTrue(result.created());
+        assertNull(result.response().getPayeeReferenceNumber());
     }
 
     @Test
     void save_upsertsActiveMatch() {
-        Beneficiary existing = active(10L, "uuid-1", 1L, 4, "68", "0123456789", "Old");
-        CreateBeneficiaryRequest req = request("New Nick", 4, "68", "0123456789", "JANE DOE");
-        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountId(
-                1L, 4, "68", "0123456789")).thenReturn(Optional.of(existing));
+        Beneficiary existing = active(10L, "uuid-1", 1L, 4, "68", "0123456789", "Old", "");
+        CreateBeneficiaryRequest req = request("New Nick", 4, "68", "0123456789", "JANE DOE", null);
+        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+                1L, 4, "68", "0123456789", "")).thenReturn(Optional.of(existing));
         when(beneficiaryRepository.save(any(Beneficiary.class))).thenAnswer(inv -> inv.getArgument(0));
 
         BeneficiaryService.SaveResult result = service.save(1L, req);
@@ -79,11 +119,11 @@ class BeneficiaryServiceTest {
 
     @Test
     void save_restoresSoftDeleted() {
-        Beneficiary deleted = active(10L, "uuid-1", 1L, 3, "", "712345678", "Old");
+        Beneficiary deleted = active(10L, "uuid-1", 1L, 3, "", "712345678", "Old", "");
         deleted.setDeletedAt(Instant.now());
-        CreateBeneficiaryRequest req = request("Mobile", 3, null, "712345678", "JOHN");
-        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountId(
-                1L, 3, "", "712345678")).thenReturn(Optional.of(deleted));
+        CreateBeneficiaryRequest req = request("Mobile", 3, null, "712345678", "JOHN", null);
+        when(beneficiaryRepository.findByCustomerIdAndAccountTypeAndPayeeBankCodeAndPayeeAccountIdAndPayeeReferenceNumber(
+                1L, 3, "", "712345678", "")).thenReturn(Optional.of(deleted));
         when(beneficiaryRepository.save(any(Beneficiary.class))).thenAnswer(inv -> inv.getArgument(0));
 
         BeneficiaryService.SaveResult result = service.save(1L, req);
@@ -95,7 +135,7 @@ class BeneficiaryServiceTest {
 
     @Test
     void save_type4_requiresBankCode() {
-        CreateBeneficiaryRequest req = request("X", 4, "  ", "123", null);
+        CreateBeneficiaryRequest req = request("X", 4, "  ", "123", null, null);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.save(1L, req));
         assertEquals("BANK_CODE_REQUIRED", ex.getCode());
         verify(beneficiaryRepository, never()).save(any());
@@ -103,7 +143,7 @@ class BeneficiaryServiceTest {
 
     @Test
     void save_invalidAccountType() {
-        CreateBeneficiaryRequest req = request("X", 9, "68", "123", null);
+        CreateBeneficiaryRequest req = request("X", 9, "68", "123", null, null);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.save(1L, req));
         assertEquals("INVALID_ACCOUNT_TYPE", ex.getCode());
     }
@@ -121,7 +161,7 @@ class BeneficiaryServiceTest {
 
     @Test
     void softDelete_setsDeletedAt() {
-        Beneficiary existing = active(10L, "uuid-1", 1L, 0, "", "acc-1", "Name");
+        Beneficiary existing = active(10L, "uuid-1", 1L, 0, "", "acc-1", "Name", "");
         when(beneficiaryRepository.findByExternalIdAndCustomerIdAndDeletedAtIsNull("uuid-1", 1L))
                 .thenReturn(Optional.of(existing));
         when(beneficiaryRepository.save(any(Beneficiary.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -134,7 +174,7 @@ class BeneficiaryServiceTest {
 
     @Test
     void list_returnsMappedItems() {
-        Beneficiary b = active(1L, "u1", 1L, 0, "", "a1", "N");
+        Beneficiary b = active(1L, "u1", 1L, 1, "M-PESA", "888880", "KPLC", "1234567890");
         when(beneficiaryRepository.findByCustomerIdAndDeletedAtIsNullOrderByUpdatedAtDesc(1L))
                 .thenReturn(List.of(b));
 
@@ -142,22 +182,24 @@ class BeneficiaryServiceTest {
 
         assertEquals(1, list.getItems().size());
         assertEquals("u1", list.getItems().get(0).getExternalId());
+        assertEquals("1234567890", list.getItems().get(0).getPayeeReferenceNumber());
         verify(beneficiaryRepository).findByCustomerIdAndDeletedAtIsNullOrderByUpdatedAtDesc(eq(1L));
     }
 
     private static CreateBeneficiaryRequest request(String nick, int type, String bank,
-                                                    String accountId, String name) {
+                                                    String accountId, String name, String reference) {
         CreateBeneficiaryRequest r = new CreateBeneficiaryRequest();
         r.setNickname(nick);
         r.setAccountType(type);
         r.setPayeeBankCode(bank);
         r.setPayeeAccountId(accountId);
         r.setPayeeAccountName(name);
+        r.setPayeeReferenceNumber(reference);
         return r;
     }
 
     private static Beneficiary active(Long id, String ext, Long customerId, int type,
-                                      String bank, String accountId, String nick) {
+                                      String bank, String accountId, String nick, String reference) {
         Beneficiary b = new Beneficiary();
         b.setId(id);
         b.setExternalId(ext);
@@ -166,6 +208,7 @@ class BeneficiaryServiceTest {
         b.setPayeeBankCode(bank);
         b.setPayeeAccountId(accountId);
         b.setNickname(nick);
+        b.setPayeeReferenceNumber(reference);
         return b;
     }
 }

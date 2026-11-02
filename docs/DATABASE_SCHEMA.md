@@ -17,6 +17,7 @@ Flyway migrations: `vycepay-database/src/main/resources/db/migration/`
 - `V6__fix_kyc_gender_column_type.sql` — KYC gender column fix (if present in env)
 - `V7__customer_credentials_and_device.sql` — Username/PIN, `customer_device`, OTP purpose, `auth_audit_event`
 - `V8__beneficiary.sql` — Saved transfer beneficiaries (soft-delete)
+- `V18__beneficiary_payee_reference.sql` — Paybill Acc (`payee_reference_number`) on beneficiaries
 - `V9__notification_inbox.sql` — `customer_notification` inbox + `push_delivery_log` + admin notification permissions/menu
 - `V10__money_event_dedupe.sql` — `customer_notification.dedupe_key` (unique per customer) + unique `transaction.choice_tx_id`
 
